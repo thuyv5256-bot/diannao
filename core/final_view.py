@@ -245,7 +245,7 @@ def render_html():
     if headroom:
         head_html = ("<div class='xm-callout xm-callout-info' style='margin-top:10px'>"
                      "为什么两项完全一致：本次基准的 %d 条决策里，「短保可售容量 − 理想补货量」最小余量 %.1f 件、"
-                     "中位 %.1f 件、最大 %.1f 件，采购上限命中 %d 次 —— 上限**从未生效**，"
+                     "中位 %.1f 件、最大 %.1f 件，采购上限命中 %d 次 —— 上限<b>从未生效</b>，"
                      "开关开或关都不会改变任何一天的补货量。</div>"
                      % (headroom['n'], headroom['min'], headroom['median'], headroom['max'],
                         headroom['capped']))
