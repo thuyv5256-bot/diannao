@@ -13,7 +13,7 @@
 | 工程/仓库名 | **店脑**（目录 `diannao`；`eval/final`、`core/simulator.py` 里叫「店脑 R³」） |
 | 别名 | 「小满」= 面向店主的产品名，「店脑」= 工程/实验口径名。**两者指同一系统，不要再造第三个名字** |
 | 形态 | 单进程 Python + Gradio 网页应用，`python app.py` 即用，无需专用硬件 |
-| 入口 | 网页 `app.py`（7 个标签页）／演示 `demo_flow.py`／离线评测 `eval.py`／长期实验 `run_digital_store.py` |
+| 入口 | 网页 `app.py`（**左侧边栏 8 个栏目**：7 个业务页 + 设置）／演示 `demo_flow.py`／离线评测 `eval.py`／长期实验 `run_digital_store.py` |
 | 数据 | 仿真数据 `data/shopmind_*.csv`（50 SKU × 180 天，2026-03-01 ~ 2026-08-27），**不是真实门店采集数据** |
 | 存储 | SQLite 长期记忆库 `data/store_memory.db`（由 `.git/info/exclude` 忽略，首次运行自动重建） |
 | 当前状态 | 核心闭环已完成、FINAL 实验已冻结；UI v2 迁移进行中。**进度以 [docs/ARD.md](docs/ARD.md) 为唯一事实来源** |
@@ -31,7 +31,10 @@
    - 核心补货决策是确定性规则/优化，**LLM 只是外层"翻译成人话"**，未配 Key 或调用失败必须自动降级为规则模板（`core/llm.py`），不得影响决策；
    - MILP 求解失败/超时必须回退贪心 `_allocate`（`R3_SOLVER_ENABLED` / `R3_SOLVER_TIMEOUT`），任何情况下系统不得崩溃。
 7. **参数集中在 `core/config.py`**。新增业务常量一律加在 config 并写中文注释说明业务含义与来源，禁止散落在各模块。
-8. **UI 遵循 [DESIGN.md](DESIGN.md)（v2）**：颜色/字号/圆角/间距只用 `core/ui_theme.py` 的 `--xm-*` token 与 `.xm-*` 组件类；**不使用彩色 Emoji、不使用机器人/大脑/AI sparkle 图标、不做 Dashboard 卡片阵列、不写死颜色**。`DESIGN.legacy.md` 已废弃，仅作历史参考。
+8. **UI 遵循 [DESIGN.md](DESIGN.md)（v2）**：颜色/字号/圆角/间距只用 `--xm-*` token 与 `.xm-*` 组件类；**不使用彩色 Emoji、不使用机器人/大脑/AI sparkle 图标、不做 Dashboard 卡片阵列、不写死颜色**。
+   - **颜色/字体/圆角/描边/阴影只能定义在 `core/themes.py`（主题变量）与 `core/ui_theme.py`（组件类）**；页面与视图模块一律消费变量。
+   - 新增/改名页面必须同时改三处：`app.py` 的 `NAV_CHOICES`（左侧边栏）、`gr.Tab(..., id=...)`、以及 [docs/TRD.md](docs/TRD.md) §7.1 的页面表。
+   - 主题只影响观感，**不得影响任何计算结果**；每套主题必须覆盖 `themes.REQUIRED_TOKENS`（由 `tests/test_themes.py` 强制）。`DESIGN.legacy.md` 已废弃。
 9. **源码统一 LF**（见 `.gitattributes`）；文件一律 UTF-8，Python 文件首行 `# -*- coding: utf-8 -*-`，面向用户的中文文案直接写中文。
 10. **改完必须自证**：跑测试 + 跑受影响页面的真实渲染（见 §4），并在 ARD 里写清"改了什么 / 证据是什么 / 下一步"。
 11. **不提交秘密**：`.env` 由 `.git/info/exclude` 忽略（本项目使用本地备份区，已删除 `.gitignore`），只维护 `.env.example`。
@@ -92,10 +95,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 ## 3. 代码地图（改哪里、先读什么）
 
 ```
-app.py                 Gradio 装配层：7 个 Tab 的布局 + 事件绑定 + 若干渲染函数（63KB 单体，见 ARD 技术债）
+app.py                 Gradio 装配层：左侧边栏（Row+Column+Radio）+ 8 个栏目布局 + 事件绑定（63KB 单体，见 ARD 技术债）
   │
-  ├─ core/ui_theme.py       UI v2 唯一 tokens/CSS 来源（--xm-* / .xm-*）
-  ├─ core/*_view.py         各页面渲染：home / why / feedback / learn / ledger / final / about
+  ├─ core/themes.py         主题系统：6 套主题的 --xm-* 变量 + Gradio 变量（移植自 CodeForge）
+  ├─ core/ui_theme.py       组件类与间距 token（.xm-* / --xm-space-*）+ 左侧边栏外壳样式
+  ├─ core/settings_store.py 界面偏好持久化（data/ui_settings.json，容错优先）
+  ├─ core/*_view.py         各页面渲染：home / why / feedback / learn / ledger / final / about / settings
   │
   ├─ core/dataset.py        唯一数据入口：CSV → 清洗 → 记忆库（字段映射、单位/包规/客流系数的确定性推断）
   ├─ core/memory.py         SQLite 长期记忆库：9 张表 + 迁移 + 幂等去重（uid）+ 统计
@@ -114,7 +119,7 @@ app.py                 Gradio 装配层：7 个 Tab 的布局 + 事件绑定 + �
   ├─ core/eval_core.py      离线评测引擎（60 天窗口 × 5 种决策方式）
   └─ core/llm.py            可选 LLM 说明层（OpenAI 兼容，可失败可降级）
 
-tests/                 21 个测试文件 / 142 个用例（见 §4）
+tests/                 24 个测试文件 / 169 个用例（见 §4；新增 themes / settings_store / settings_view）
 data/                  CSV 数据源 + 生成的 store_memory.db
 eval/                  实验产物；eval/final/** = 已冻结的 FINAL 证据（只读）
 docs/                  PRD / TRD / ARD
@@ -147,7 +152,7 @@ docs/                  PRD / TRD / ARD
 
 **改预测/决策逻辑** → 先读 `forecast.py` / `policy.py` 顶部的中文设计注释（那里写了"为什么这样做"），改完必须跑 `pytest -q --basetemp .pytest_tmp`，并检查 `eval/` 里是否有需要重跑的冻结实验（若有：在 ARD 建新任务，**不要覆盖 eval/final**）。
 
-**改/加网页页面** → 渲染逻辑写进 `core/<page>_view.py`（返回 HTML 字符串，纯函数、无副作用），`app.py` 只做布局与绑定；样式只用 `ui_theme.py` 的 token；不引入 emoji；页面数据必须真实可空（写空状态）。改完跑相关 `tests/test_<page>_view.py`。
+**改/加网页页面** → 渲染逻辑写进 `core/<page>_view.py`（返回 HTML 字符串，纯函数、无副作用），`app.py` 只做布局与绑定；样式只用 token（颜色定义在 `core/themes.py`）；不引入 emoji；页面数据必须真实可空（写空状态）。**新增页面要同时登记 `NAV_CHOICES` 与 `gr.Tab(id=…)`**，否则左侧边栏点不到。改完跑相关 `tests/test_<page>_view.py`。
 
 **加测试** → 放 `tests/test_*.py`，用 `conftest.py` 的 `db` fixture（隔离临时库，`monkeypatch memory.DB_PATH`）；**不要写库到 data/，不要跑真实验**（`test_simulator.py` 这类昂贵测试标注清楚）。
 

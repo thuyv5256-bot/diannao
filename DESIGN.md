@@ -92,7 +92,8 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
 - **数据表** `.xm-table`：白底、hairline 边框、md 圆角；表头 `--xm-surface` 底、13px/600、steel 文字；行 `16px 20px` 内边距、底部 `1px hairline-soft` 分隔；文字 14px。
 - **折叠** `.xm-acc`：白底、底部 `1px hairline` 分隔，`summary` 为 16px/500 ink。
 - **区块** `.xm-sec` + `.xm-sec-title`（22px/600）。
-- **导航** 采用 `segmented-tab` 语义：未激活 `steel`，激活 `ink` + `2px` 底部描边；图标 monochrome 随文字色。
+- **导航（左侧边栏）**：应用外壳为「左栏 236px + 右栏自适应」。左栏是一张 `.xm-card` 语义的侧边栏（背景 `--xm-sidebar-bg`、描边 `--xm-sidebar-border`、圆角 lg、阴影 `--xm-card-shadow`），内含品牌区（应用名 + 当前主题）与竖排菜单；菜单项高 38px、md 圆角，未激活用 `--xm-sidebar-muted`，激活用 `--xm-sidebar-active-bg/-fg`。**不使用彩色 Emoji 图标**，激活态靠底色与字重区分。
+  - 实现注意：Gradio 6 的 `gr.Tabs` 会把放不下的标签折叠成「More tabs」下拉，因此**隐藏其自带 `.tab-wrapper`**，导航改用 `gr.Radio#xm-nav`（点击 → `gr.Tabs(selected=…)`）；详见 [docs/TRD.md](docs/TRD.md) §7.2。
 
 ## 5. 图标
 
@@ -108,11 +109,34 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
 | 1024–1279px | 卡片 2 列 |
 | 768–1023px | 卡片 1–2 列，表格允许横向滚动 |
 | <768px | 单列；按钮/输入保持 ≥40/44px 触达高度 |
+| ≤900px | **左侧边栏折叠为顶部横排菜单**（`#xm-shell` 转纵向，`#xm-nav` 换行排列） |
 
 表格窄屏允许横向滚动；不出现溢出/错位。
 
 ## 7. 信息架构（属于小满，与 Notion 无关）
 
-七页：今天该进什么货 / 为什么这样进 / 今天生意怎么样 / 它学会了什么 / 店里的老账本 / 实验验证 / 项目说明。
+八页（左侧边栏自上而下）：今天该进什么货 / 为什么这样进 / 今天生意怎么样 / 它学会了什么 / 店里的老账本 / 实验验证 / 项目说明 / **设置**（外观主题 + 运行环境）。
 **首页不是 Dashboard**——顺序为：经营状态 → 今日提醒 → 下一次补货条件 → 本次补货建议 → 重点关注 → 完整清单 →（行内）查看原因。
+
+## 8. 主题系统（v2.1 新增）
+
+**唯一实现**：`core/themes.py`（变量与取值）+ `core/ui_theme.py`（组件类）。机制与 CodeForge 的
+ADR-005 同构 —— **CSS 变量作用域覆盖**：默认主题零改动，其他主题只覆盖变量。
+
+| 主题 | 来源 | 关键特征 |
+|---|---|---|
+| 小满默认 | 本项目（原 DESIGN.md v2 token） | 白底、紫主操作、无阴影、1px 描边 |
+| 野兽风 · 浅色 | CodeForge `styles/global.css`（Neo-Brutalist） | 黑描边 2px、硬投影、明黄侧边栏 |
+| 野兽风 · 深色 | CodeForge `styles/dark-theme.css` | 近黑底 + 品牌黄，硬投影 |
+| 森友会 | CodeForge `styles/animal-theme.css` | 薄荷绿/奶油黄/暖棕，大圆角 + 3D 底部投影 |
+| 纹样 · 宣纸 | CodeForge `styles/wenyang-theme.css` | 宣纸米黄 + 墨字 + 朱砂红，宋体、小圆角、深墨侧边栏 |
+| 跟随系统 | 本项目组合 | `@media (prefers-color-scheme: dark)` 自动切到野兽风深色 |
+
+**规则（改主题前必读）**
+
+1. 颜色 / 字体 / 圆角 / 描边强度 / 阴影**只允许**定义在 `core/themes.py` 与 `core/ui_theme.py`；页面与视图模块一律消费 `--xm-*`，禁止写死颜色。
+2. 每个主题必须覆盖 `themes.REQUIRED_TOKENS` 全部 token（漏一个就会露出默认色）——由 `tests/test_themes.py` 强制。
+3. 主题还要覆盖一组 Gradio 原生变量（`--body-background-fill` 等），否则 Dataframe/Dropdown/Accordion 会留在 Gradio 默认配色。
+4. 换主题**不刷新页面**：设置页选中后重新渲染一个隐藏的 `<style>` 组件即可；选择持久化在 `data/ui_settings.json`。
+5. 主题不得改变信息层级、间距与内容 —— 只影响观感，绝不影响任何计算结果。
 

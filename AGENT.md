@@ -217,6 +217,8 @@ agent-browser click '@e3'; agent-browser wait 3000; agent-browser screenshot -f 
 13. **UI 迁移是分页进行的**，已完成 反馈/学习/账本 三页；首页、为什么这样进、实验验证、项目说明 仍用旧 class（`dn-*` / `ab-*` / inline style）与 emoji，改的时候不要混用两套体系。
 14. **`tools/vcs.ps1` 必须保持 UTF-8 with BOM**（Windows PowerShell 5.1 对无 BOM 的 UTF-8 脚本按 ANSI 解析 → 中文注释破坏语法 → `Unexpected token`）。`.ps1` 的 `.NOTES` 里也写明了这条约束。
 15. **`vcs.ps1 rollback` 要求工作区干净**（Git 会拒绝覆盖未提交改动）—— 这是保护而非 bug：先 `vcs.ps1 save` 再回退。
+16. **Gradio 6 的 `gr.Tabs` 会自动折叠导航**：横向放不下时它只保留前几个标签、其余塞进「More tabs」下拉（实测把 Tab 容器压到 232px，8 个标签只剩 2 个可见）。所以左侧边栏**没有**去改造 Tabs 的横排导航，而是隐藏它的 `.tab-wrapper`，用 `gr.Radio#xm-nav` 做导航并驱动 `gr.Tabs(selected=…)`；改导航相关代码前先读 [docs/TRD.md](docs/TRD.md) §7.2 与 `core/ui_theme.py` 的 `#xm-nav` 规则。
+17. **主题改动只能在 `core/themes.py`**：页面里写死颜色在默认主题下看不出来，一换主题就露馅；`pytest tests/test_themes.py` 会拦住漏 token 的主题。
 
 ---
 
