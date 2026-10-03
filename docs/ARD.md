@@ -8,7 +8,7 @@
 | 文档版本 | v1.0 |
 | 最后更新 | 2026-10-03 |
 | 代码基线 | git `ca17f07` + 未提交改动（详见 T-ENV-02） |
-| 任务总数 | 35（已完成 35 · 进行中 0 · 阻塞 0 · 待办 0）|
+| 任务总数 | 36（已完成 36 · 进行中 0 · 阻塞 0 · 待办 0）|
 | 更新义务 | **每次开始/完成/阻塞一个任务，必须回来改本文件**（见 §0.4） |
 
 ---
@@ -67,7 +67,7 @@
 
 | 状态 | 数量 | 任务 |
 |---|---|---|
-| 已完成 | 35 | T-CORE-01..05、T-MEM-01..03、T-EXP-01..04、T-UI-01..10、T-QA-01..06、T-DOC-01..03、T-ENV-01..04 |
+| 已完成 | 36 | T-CORE-01..05、T-MEM-01..03、T-EXP-01..04、T-UI-01..11、T-QA-01..06、T-DOC-01..03、T-ENV-01..04 |
 | 进行中 | 0 | —（当前没有进行中任务，取活见 §6） |
 | 阻塞 | 0 | —（T-ENV-01 已解除：依赖装齐、网页起得来、测试全绿） |
 | 待办 | 0 | 任务池已清空；持续改进清单见 §6 |
@@ -150,6 +150,7 @@
 | T-UI-08 | 顶部导航 → **左侧边栏** | 8 个栏目竖排、当前项高亮、点击即切、窄屏折叠为横排 | 新增 `gr.Row#xm-shell` + `Column#xm-side` + `Radio#xm-nav` → `gr.Tabs(selected=…)`；绕开 Gradio 6「More tabs」折叠（隐藏 `.tab-wrapper`）。实测：`navLabels=8`、`tabWrapperDisplay=none`、`moreTabs=0`、`#xm-side=236px`；截图 `_backup/preview/side-01-home.png` | `app.py` `core/ui_theme.py` |
 | T-UI-09 | 新增「设置」栏目 + **应用主题**（移植 CodeForge 4 套） | 6 套主题选中即生效、无需刷新；选择持久化；只影响观感；环境信息真实 | `core/themes.py`（6 主题 / 37 必需 token / Gradio 变量）+ `core/settings_store.py` + `core/settings_view.py` + 外壳样式；实测切换森友会/纹样/深色时 `--xm-primary` 分别变为 `#19c8b9`/`#b91c1c`/`#facc15`、侧边栏「当前主题」同步刷新；落盘 `data/ui_settings.json`；新增 27 项测试；截图 `theme-01..04`、`side-02-settings.png` | `core/themes.py` `core/settings_store.py` `core/settings_view.py` `core/ui_theme.py` `app.py` |
 | T-UI-10 | **修复：设置页主题卡片点不动** | 点卡片即换主题（无需刷新）；当前主题高亮与「当前」角标正确；键盘可达（Radio 隐藏但可聚焦）；不再有第二份装饰性展示层 | 根因：页面同时存在「好看的主题卡片（`render_theme_cards` 生成的纯 `div`）」与「真正可交互的 `gr.Radio` 胶囊」，用户点的是前者；先试过 `gr.HTML(js_on_load=…)` 转发点击 —— 实测 `window.__xmThemeCardBound` 仍为 false（该参数只对模板模式 `html_template` 生效），放弃 JS。最终改为**让 Radio 本体就是卡片**：`settings_view.theme_choices()` 提供选项、`theme_card_css()` 按 `:nth-of-type(n)` 给每套主题生成色板与标签/说明/来源（CSS 变量不参与状态），删除 `render_theme_cards`；隐藏 input 用 `opacity:0` 保留 tab 顺序（实测 `display:block / opacity:0 / focusable:true / tabIndex:0`）。**浏览器实测**：点「森友会」卡片 → `--xm-primary=#19c8b9`、侧边栏「当前主题：森友会」、`.selected` 移到该卡片；截图 `bug-settings-card-01/02.png` | `core/settings_view.py` `app.py` `tests/test_settings_view.py` |
+| T-UI-11 | **排版整改（Direction A：现代极简工作台）** | 主区吃满宽度、首屏 KPI 条、2/3 主区 + 1/3 侧栏、长表格默认收起、数字列右对齐等宽、侧栏分组与设置沉底、原生块底色透明 | 参考调研（4 站截图，见 §6 I-8）：`vue-element-admin` / `shadcn dashboard` / `refine admin` / `Tremor Blocks`。 **实测（1440 视口）**：主区宽 700 → **1068px**（根因：Gradio 的 `main` 默认 960px 上限把主区压成窄列）；首页高度 **4022 → 1386px**（50 行清单改 `.xm-fold` 默认收起）；设置页卡片 2 列 → **4 列**；首页新增 **4 张 KPI 卡**、实验页 3 张；账本页商品档案（50 行）默认收起。 关键实现：`ui_theme` 新增 `.xm-page-head`/`.xm-kpi*`/`.xm-split`/`.xm-rail`/`.xm-fold`/表格数字列与粘性表头/侧栏分组；`themes.py` 把 `--block-*`/`--panel-*` 改成 **transparent**（表面只由 `.xm-card` 承担，避免卡片里再套灰块）；Gradio 原生彩色标签胶囊改素色。 回归：`pytest` **179 passed**；8 个栏目逐页截图无横向溢出 | `core/ui_theme.py` `core/themes.py` `core/home_view.py` `core/ledger_view.py` `core/final_view.py` `app.py` |
 
 
 > UI 迁移的详细业务事实与约束记录在 `.workbuddy/memory/2026-10-03.md`（B.2/B.3/B.4），建议后续把有效内容并入 TRD §7.2 或本文件。
@@ -215,8 +216,18 @@
 | I-5 | `app.py` 继续瘦身 | 已从 1213 行降到 995 行，但 Tab1 仍有内联 HTML（风险面板 / Agent 区块） | 把这两块搬进 `core/home_view.py`，app.py 只留布局与绑定 |
 | I-6 | 把 `.workbuddy/memory/*.md` 有效内容并入 TRD/ARD | 见 §3.4 末尾提示；现在信息在两处，接手人可能只看一处 | 逐条比对后归档，失效的删除 |
 | I-7 | 每日备份做异地副本 | 备份区与工作仓库同盘同目录（风险 R12） | 计划任务里追加一步 robocopy 到网盘/移动盘 |
+| I-8 | **排版整改（已选方向 A，见 T-UI-11 ✅）** | 现状：内容列在 1248px 视口下只有 700px、首页单页 4022px 高（其中 57 行表格占大半）、缺 KPI 摘要条与右侧信息栏；参考 `vue-element-admin` / `shadcn dashboard` / `refine Finefoods` / `Tremor Blocks`（截图见 `_backup/preview/research/ref-*.png`，不入库）—— 共同点是「左导航 + 流体主区 + 3~4 张 KPI 卡 + 卡片内右上角工具条 + 2/3+1/3 工作台 + 表格分页/筛选」 | 先定方向（A 现代极简 / B 中文后台经典 / C 保持 Notion 风只修布局与表格），再按 §7「先建任务」流程开工 |
+
 
 ---
+
+> **排版调研结论（2026-10-03，未开工）**：无头浏览器实测当前首页几何 —— 视口 1248px、左侧栏 236px、主区仅 **700px**、首页总高 **4022px**、单页 `xm-table` **57 行**。
+> 四个能正常截图的参考站（Ant Design Pro preview / Grafana play / Shopify Polaris / 秦丝官网 在无头浏览器里分别白屏、白屏、超时、证书错误，已如实记录）：
+> ① [`vue-element-admin`](https://panjiachen.github.io/vue-element-admin/)(admin/111111) 中文后台经典：满宽 4 KPI 卡 + 图表网格 + 表格/待办双栏；
+> ② [`shadcn dashboard`](https://ui.shadcn.com/examples/dashboard) 现代极简：KPI 卡带涨跌徽标与一句话解读、卡内右上角工具条（时间范围、列设置）、表格带标签页与分页脚；
+> ③ [`refine Finefoods admin`](https://example.admin.refine.dev/) 业务后台：3 张带迷你图的 KPI 卡、地图(2/3)+时间线(1/3)、订单表(2/3)+热门商品(1/3)、状态徽标与行操作；
+> ④ [`Tremor Blocks`](https://blocks.tremor.so/) 组件图鉴：大数字 + 说明 + 涨跌的小卡片族与图表卡片规范。
+> 结论草案：**取结构与密度，不取它们的配色装饰**（本项目 DESIGN.md 是 Notion 风：白底、1px 边、无阴影、单一强调色）。候选方向 A/B/C 与线框见本轮对话，选定后在 ARD 建正式任务（届时 T-UI-11）再动代码。
 ## 7. 风险与问题台账
 
 | # | 风险/问题 | 等级 | 当前状态 | 对应任务 |
@@ -354,6 +365,7 @@
 | 2026-10-03 | 初始化 Agent | **版本控制演练 + 加固**（T-ENV-03）：跑 7 项演练（产物/密钥守卫、安全回退、灾难恢复克隆、忽略探针、guard 幂等、发布流程），暴露并修掉 3 个真问题 → 提交 `1de5f08`（守卫撤出密钥/产物、ASCII 标记 + UTF-8(BOM) 写 exclude、停止跟踪误入库的 `data/*.db.bak`）与 `69f9867` `fix(vcs)`（`-q` + 错误偏好收敛，消除红色假报错）、`42afc03` `docs(vcs)`（验证记录与边界说明）；证据与修法见 [VERSIONING.md §13](VERSIONING.md)；新增风险 R13；发布点 = `main` 合并提交 `763a676` + tag `v0.2.1`。随后 `6ff13e2`（rollback 提示修复）+ `8e3c536`（版本表）发布 `v0.2.2`（合并提交 `51ee83c`）。**最终状态校验**：工作区干净；`origin` 同步 `main`/`develop`；4 个 tag（v0.1.0/v0.2.0/v0.2.1/v0.2.2）；`.gitignore` 已删除、`.git/info/exclude` 生效（6/6 忽略探针命中）；跟踪文件 108 个、其中**无任何产物或密钥**；数据源 `data/*.csv` 已入库；备份区 `_backup/` 3.14MB（本地 origin 已同步：`git ls-remote --heads --tags origin` 可见 main/develop/v0.1.0/v0.2.0/v0.2.1） |
 | 2026-10-03 | 初始化 Agent | **T-ENV-01 解除（依赖 + 网页验证 + 预览截图）**：`pip install -r requirements.txt` → gradio 6.29.1 / plotly 7.1.0；测试从 138 passed / 2 failed / 2 skipped 变为 **142 passed 全绿（92s）**；`python app.py` 起在 http://127.0.0.1:7861（HTTP 200、页面 396KB），用 `agent-browser` 逐页截图 7 个标签页存于 `_backup/preview/`（首页/为什么这样进/今天生意怎么样/它学会了什么/店里的老账本/实验验证/项目说明）；同步 CLAUDE §2/§6、AGENT §8.1/§8.2/§11（新增截图工作流）、TRD §10 与 §12 D1、PRD FR-07、VERSIONING §10、ARD 计数（19 完成 / 0 阻塞 / 11 待办）与 Top3；新增风险 R14（共享环境的 huggingface-hub 版本冲突） |
 | 2026-10-03 | 初始化 Agent | **修掉 `vcs.ps1 save` 的致命缺陷**（预览时发现）：给 `git add` 误加 `-q`（`git add` 不支持该选项，退出码 129）会导致 `save` 永远"没有需要提交的改动"；改为捕获输出 + `Write-Host`，并用 `save` 自身提交修复完成端到端验证（`3de3c8e`）；记录于 [VERSIONING.md §13](VERSIONING.md) |
+| 2026-10-03 | 初始化 Agent | **T-UI-11 排版整改（Direction A）**：主区 700→1068px、首页 4022→1386px、设置卡片 2→4 列、首屏 4 张 KPI 卡、长表格折叠、数字列右对齐、侧栏分组+设置沉底、原生块底色透明；调研 4 站记入 I-8；测试仍 179 passed |
 | 2026-10-03 | 初始化 Agent | **T-UI-10 修复设置页主题卡片点不动**：根因是「装饰性卡片 + 隐藏 Radio」双份展示层；改为 Radio 本体渲染成卡片（`theme_choices()` + `theme_card_css()`，删除 `render_theme_cards`），隐藏 input 保留键盘可达；浏览器实测点卡即换肤；测试 177 → 179 passed |
 | 2026-10-03 | 初始化 Agent | **收尾 7 项（T-DOC-01 / T-QA-01 / T-EXP-02 / T-EXP-03 / T-DOC-02 / T-QA-04 / T-ENV-04）→ 任务池清零**：README 全面对齐（含删除无法复现的 7.9pp 声称）；9 个未使用常量 8 删 1 接线；两个实验异常项查清并写进 TRD §6.3 + 页面现算展示；`_step*.py` 归档 `tools/experiments/` 并实测复现 18/18 指标；UI 层测试缺依赖时 skip；每日自动备份计划任务已注册实测。测试仍 **177 passed** |
 | 2026-10-03 | 初始化 Agent | **全站 v2 迁移收尾（T-UI-02/03/04）+ 死代码清理（T-QA-06）**：为什么这样进 / 实验验证 / 项目说明三页迁完 → `test_ui_consistency.py` 的 `PENDING` 白名单清零、三页进 `MIGRATED`；`final_view` 顺带修掉引用已删除 `.dn-card`/`table.dn` 的遗留破损；新增共享组件 `.xm-kv*`/`.xm-bar*`/`.xm-chips`（`.st-kv*` 并入）；删除 7 个无引用渲染函数（166 行）与失效导入，`test_memory_persistence` 改用 `learn_view`；新增测试「每个 `*_view.py` 必须已分类」；测试仍 177 passed；D3/D4 关闭 |
