@@ -304,8 +304,8 @@ switch ($Command.ToLower()) {
       $newBranch = "restore/$($ref -replace '[/\\]', '-')-$stamp"
       Invoke-Git switch -q -c $newBranch $ref
       Write-Ok "已创建并切换到 $newBranch（工作区内容 = $ref）"
-      Write-Host '      验证无误后：git switch main && git merge --no-ff ' + $newBranch
-      Write-Host '      确认放弃：  git switch main && git branch -D ' + $newBranch
+      Write-Host "      验证无误后：git switch main && git merge --no-ff $newBranch"
+      Write-Host "      确认放弃：  git switch main && git branch -D $newBranch"
     }
   }
 
