@@ -136,7 +136,7 @@ def render_suppliers() -> str:
                 '<div class="xm-card xm-card-tint"><div class="xm-sm">'
                 '还没有供应商信息。</div></div></div>')
     rows = "".join(
-        '<tr><td>%s</td><td>%d 种</td><td>%.1f 天</td></tr>'
+        '<tr><td>%s</td><td class="xm-num">%d 种</td><td class="xm-num">%.1f 天</td></tr>'
         % (s["supplier"], s["sku_count"], s["avg_lead_days"]) for s in sups)
     return ('<div class="xm-sec"><div class="xm-sec-title">供应与到货</div>'
             '<table class="xm-table">'

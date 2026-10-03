@@ -156,14 +156,20 @@ input.xm-input:focus, textarea.xm-input:focus { border:2px solid var(--xm-primar
 .xm-table { width:100%; border-collapse:collapse; background:var(--xm-canvas);
   border: var(--xm-border-w) solid var(--xm-card-border); border-radius:var(--xm-radius-md); overflow:hidden; }
 .xm-table th { text-align:left; font-size:13px; font-weight:600; color:var(--xm-steel);
-  background:var(--xm-surface); padding:10px 16px; border-bottom:var(--xm-border-w) solid var(--xm-hairline); }
-.xm-table td { font-size:14px; color:var(--xm-ink); padding:14px 20px;
-  border-bottom:1px solid var(--xm-hairline-soft); vertical-align:top; }
+  background:var(--xm-surface); padding:8px 12px; border-bottom:var(--xm-border-w) solid var(--xm-hairline);
+  white-space:nowrap; }
+.xm-table td { font-size:14px; color:var(--xm-ink); padding:10px 14px;
+  border-bottom:1px solid var(--xm-hairline-soft); vertical-align:middle; }
 .xm-table tr:last-child td { border-bottom:none; }
 .xm-table tbody tr:hover { background:var(--xm-surface-soft); }
 .xm-table th.xm-num, .xm-table td.xm-num { text-align:right; font-variant-numeric:tabular-nums; }
 .xm-table td.xm-num { white-space:nowrap; }
 .xm-table th { position:sticky; top:0; z-index:1; }
+/* 中文逐字竖排是最丑的排版事故：短文本与数字一律不换行（T-UI-12） */
+.xm-nowrap { white-space:nowrap; }
+.xm-table .xm-badge { white-space:nowrap; }
+.xm-acc summary, .xm-fold > summary .xm-fold-meta { white-space:nowrap; }
+.xm-badge { white-space:nowrap; }
 .xm-name { font-size:15px; font-weight:600; color:var(--xm-ink); }
 .xm-num { font-size:16px; font-weight:600; color:var(--xm-ink); }
 .xm-amount { font-size:30px; font-weight:600; color:var(--xm-ink); margin:6px 0; }
@@ -257,7 +263,12 @@ html:root .gradio-container .input-container { background: transparent !importan
 .xm-fold-body .xm-table { margin-top:2px; }
 
 /* ═══ 响应式 ════════════════════════════════════════════════════════ */
-@media (max-width: 1180px) { .xm-split { grid-template-columns:minmax(0, 1fr); } }
+@media (max-width: 1280px) {
+  /* 中等屏：分栏会让表格挤成窄列 → 改为上下排，侧栏两块并排 */
+  .xm-split { grid-template-columns:minmax(0, 1fr); }
+  .xm-rail { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+    gap:var(--xm-space-lg); align-items:start; }
+}
 @media (max-width: 1023px) { .xm-kpi-row { grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); } }
 @media (max-width: 767px) {
   .xm-h1 { font-size:24px; }

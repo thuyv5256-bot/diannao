@@ -133,8 +133,8 @@ def _kv_delta(name, a, b, is_pct=False, better_low=False):
         d_txt = "%+.1f" % d
         better = (d < 0) if better_low else (d > 0)
     color = "var(--xm-success)" if better else "var(--xm-error)"
-    return ("<tr><td>%s</td><td>%s</td><td>%s</td>"
-            "<td style='color:%s;font-weight:600'>%s</td></tr>"
+    return ("<tr><td>%s</td><td class='xm-num'>%s</td><td class='xm-num'>%s</td>"
+            "<td class='xm-num' style='color:%s;font-weight:600'>%s</td></tr>"
             % (name, fmt(a), fmt(b), color, d_txt))
 
 
@@ -189,7 +189,7 @@ def render_html():
              _money(dian.get('cumulative_gross_margin')), _money(base.get('cumulative_gross_margin'))))
     sec1 = hl + _section(
         '① 小满 vs Traditional（180 天公平对照）',
-        "<table class='xm-table'><tr><th>指标</th><th>小满</th><th>Traditional</th><th>变化</th></tr>%s</table>"
+        "<table class='xm-table'><tr><th>指标</th><th class='xm-num'>小满</th><th class='xm-num'>Traditional</th><th class='xm-num'>变化</th></tr>%s</table>"
         "<div class='xm-cap' style='margin-top:8px'>变化 = 小满 − Traditional；绿=对小满有利，红=对小满不利。</div>" % rows1
         + _howto(h1))
     abl = res.get('ablation_3obj', {})
@@ -212,7 +212,7 @@ def render_html():
         '② R³ 三目标如何改变经营取舍',
         "<p class='xm-note' style='margin:0 0 8px'>关掉 R³ 某一个目标后的真实变化（不做综合评分、不排名）。</p>"
         + b_so + b_liv
-        + "<table class='xm-table' style='margin-top:12px'><tr><th>方案</th><th>累计毛利</th><th>总体缺货率</th><th>民生缺货率</th></tr>"
+        + "<table class='xm-table' style='margin-top:12px'><tr><th>方案</th><th class='xm-num'>累计毛利</th><th class='xm-num'>总体缺货率</th><th class='xm-num'>民生缺货率</th></tr>"
         + abl_table + "</table>" + _howto(h2) + mech_html)
     mem = res.get('memory_ab', {})
     m_on = mem.get('memory_on', {})
@@ -231,7 +231,7 @@ def render_html():
     case_html = ("<div class='xm-callout xm-callout-info' style='margin-top:10px'>可追溯案例：<b>%s</b> %s 命中记忆（修正系数 %.3f），补货由 %.0f 件调整为 <b>%.0f 件</b>。</div>" % (c['name'], c['day'], c['factor'], c['off'], c['on'])) if c else ""
     sec3 = _section(
         '③ 经营经验真的会影响后续决策吗？（Memory A/B）',
-        "<table class='xm-table'><tr><th>指标</th><th>Memory ON</th><th>Memory OFF</th><th>变化</th></tr>"
+        "<table class='xm-table'><tr><th>指标</th><th class='xm-num'>Memory ON</th><th class='xm-num'>Memory OFF</th><th class='xm-num'>变化</th></tr>"
         + mrows + "</table>" + mem_cards + _howto(h3) + case_html)
     sp = res.get('spoilage_ab', {})
     sp_on = sp.get('control_on', {})
@@ -251,7 +251,7 @@ def render_html():
                         headroom['capped']))
     sec4 = _section(
         '④ 损耗控制 A/B',
-        "<table class='xm-table'><tr><th>指标</th><th>ON</th><th>OFF</th><th>变化</th></tr>" + srows + "</table>"
+        "<table class='xm-table'><tr><th>指标</th><th class='xm-num'>ON</th><th class='xm-num'>OFF</th><th class='xm-num'>变化</th></tr>" + srows + "</table>"
         "<div class='xm-cap' style='margin-top:8px'>若 ON 与 OFF 各项一致，说明损耗控制在该数据下未触发（如实显示，不做美化）。</div>"
         + _howto(h4) + head_html)
     intro = ('<div class="xm-card" style="margin-top:14px">'
