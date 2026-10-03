@@ -8,7 +8,7 @@
 | 文档版本 | v1.0 |
 | 最后更新 | 2026-10-03 |
 | 代码基线 | git `ca17f07` + 未提交改动（详见 T-ENV-02） |
-| 任务总数 | 30（已完成 19 · 进行中 0 · 阻塞 0 · 待办 11） |
+| 任务总数 | 32（已完成 21 · 进行中 0 · 阻塞 0 · 待办 11） |
 | 更新义务 | **每次开始/完成/阻塞一个任务，必须回来改本文件**（见 §0.4） |
 
 ---
@@ -67,7 +67,7 @@
 
 | 状态 | 数量 | 任务 |
 |---|---|---|
-| 已完成 | 19 | T-CORE-01..05、T-MEM-01..03、T-EXP-01、T-EXP-04、T-UI-05..07、T-QA-03、T-QA-05、T-DOC-03、T-ENV-01、T-ENV-02、T-ENV-03 |
+| 已完成 | 21 | T-CORE-01..05、T-MEM-01..03、T-EXP-01、T-EXP-04、T-UI-05..09、T-QA-03、T-QA-05、T-DOC-03、T-ENV-01、T-ENV-02、T-ENV-03 |
 | 进行中 | 0 | —（当前没有进行中任务，取活见 §6） |
 | 阻塞 | 0 | —（T-ENV-01 已解除：依赖装齐、网页起得来、测试全绿） |
 | 待办 | 11 | 见 §6 |
@@ -76,9 +76,9 @@
 
 | 检查项 | 结果 | 证据 |
 |---|---|---|
-| 测试 | **142 passed 全绿**（92s） | `pytest -q --basetemp .pytest_tmp`（依赖补齐前为 138 passed / 2 failed / 2 skipped） |
-| 网页 | ✅ 已跑起来 | `python app.py` → http://127.0.0.1:7861，HTTP 200 / 页面 396KB；7 个标签页全部人工截图核对（见下） |
-| 预览截图 | 7 张 | `_backup/preview/01-home.png` … `07-about.png`（agent-browser 自动截图，目录已忽略） |
+| 测试 | **169 passed 全绿**（约 154s） | `pytest -q --basetemp .pytest_tmp`（主题/侧边栏前为 142 passed） |
+| 网页 | ✅ 已跑起来 | `python app.py` → http://127.0.0.1:7861，HTTP 200；**左侧边栏 8 栏目**（实测 navLabels=8 / 无「More tabs」折叠）+ **6 套主题可即时切换**，均已截图核对 |
+| 预览截图 | 12 张 | `_backup/preview/01-home.png`…`07-about.png`（8 栏目版另有 `side-01-home.png`/`side-02-settings.png` 与 `theme-01-animal.png`/`theme-02-wenyang.png`/`theme-03-dark.png`/`theme-04-restored.png`）（agent-browser 自动截图，目录已忽略） |
 | 命令行脚本 | ✅ 可跑 | pandas / numpy / scipy / pytest / **gradio 6.29.1** / **plotly 7.1.0** 均已安装 |
 | 实验证据 | ✅ 已冻结 | `eval/final/FROZEN.json`（2026-10-02 12:35:18） |
 | 工作区 | ✅ 干净 | 全部改动已提交并推送到本地备份区（`main` = 最新发布标签、`develop` 为集成线）；`git status --short` 无输出 |
@@ -87,7 +87,7 @@
 
 ### 🎯 建议的下一个动作（Top 3）
 
-1. **T-UI-01（P1，观感第一优先级）**：首页 v2 迁移 —— 截图已确认首页仍是深色 v1 头图 + `🤖 Agent 智能补货` emoji + `dn-*` 旧 class，与已迁移的三页反差明显。
+1. **T-UI-01（P1，观感第一优先级）**：首页 v2 迁移 —— 外壳（侧边栏+主题）已统一，但首页正文仍是 v1 头图 + `🤖 Agent 智能补货` emoji + `dn-*` 旧 class，与已迁移页面反差明显。
 2. **T-DOC-01（P1）**：README 与实现对齐（界面导览仍是 5 页版、仍引用 9 个已失效常量）。
 3. **T-EXP-02（P1）**：排查 `spoilage_ab` 无差异 —— 「实验验证」页已如实写明「ON 与 OFF 各项一致，说明损耗控制在该数据下未触发（如实显示，不做美化）」，需要一个明确结论。
 
@@ -141,6 +141,8 @@
 | T-UI-05 | 「今天生意怎么样」v2 迁移 | 四分支文案正确；保存按钮独占行；列名同源 | 新增 `core/feedback_view.py` + `tests/test_feedback_view.py` 10 用例；相关 23 项通过 | `core/feedback_view.py` `app.py`(Tab3) |
 | T-UI-06 | 「它学会了什么」v2 迁移 | 只读本店经验表；空状态如实；经验三段式表达 | 重写 `core/learn_view.py`；相关 33 项通过 | `core/learn_view.py` `app.py`(Tab4) `tests/test_learn_view.py` |
 | T-UI-07 | 「店里的老账本」v2 迁移 | 五 section + 紧凑 summary；不引实验数据；空状态如实 | 重写 `core/ledger_view.py`；相关 24 项通过 | `core/ledger_view.py` `app.py`(Tab5) `tests/test_ledger_view.py` |
+| T-UI-08 | 顶部导航 → **左侧边栏** | 8 个栏目竖排、当前项高亮、点击即切、窄屏折叠为横排 | 新增 `gr.Row#xm-shell` + `Column#xm-side` + `Radio#xm-nav` → `gr.Tabs(selected=…)`；绕开 Gradio 6「More tabs」折叠（隐藏 `.tab-wrapper`）。实测：`navLabels=8`、`tabWrapperDisplay=none`、`moreTabs=0`、`#xm-side=236px`；截图 `_backup/preview/side-01-home.png` | `app.py` `core/ui_theme.py` |
+| T-UI-09 | 新增「设置」栏目 + **应用主题**（移植 CodeForge 4 套） | 6 套主题选中即生效、无需刷新；选择持久化；只影响观感；环境信息真实 | `core/themes.py`（6 主题 / 37 必需 token / Gradio 变量）+ `core/settings_store.py` + `core/settings_view.py` + 外壳样式；实测切换森友会/纹样/深色时 `--xm-primary` 分别变为 `#19c8b9`/`#b91c1c`/`#facc15`、侧边栏「当前主题」同步刷新；落盘 `data/ui_settings.json`；新增 27 项测试；截图 `theme-01..04`、`side-02-settings.png` | `core/themes.py` `core/settings_store.py` `core/settings_view.py` `core/ui_theme.py` `app.py` |
 
 > UI 迁移的详细业务事实与约束记录在 `.workbuddy/memory/2026-10-03.md`（B.2/B.3/B.4），建议后续把有效内容并入 TRD §7.2 或本文件。
 
@@ -231,7 +233,7 @@
 | R3 | README 与实现漂移，误导接手人 | 中 | 已知，已列差异清单 | T-DOC-01 |
 | R4 | `spoilage_ab` 无差异 → 该实验无法自证 | 中 | 未排查 | T-EXP-02 |
 | R5 | `no_revenue` 毛利反超 → 可能被评委追问 | 中 | 无解释 | T-EXP-03 |
-| R6 | 页面视觉两套体系并存 | 低 | 迁移中 | T-UI-01..04 |
+| R6 | 页面视觉两套体系并存（外壳已统一，内容区仍有旧 class） | 低 | 迁移中（侧边栏 + 6 套主题已统一外壳；关键色已用 token 兜底） | T-UI-01..04 |
 | R7 | 9 个常量已定义未使用，文档却引用 | 低 | 已知 | T-QA-01 / T-DOC-01 |
 | R8 | `.pytest_tmp/` 未被忽略，115 个残留条目有误提交风险 | 低 | ✅ 已解除（T-QA-05） | T-QA-05 |
 | R9 | 仿真数据局限（无断货/报损记录、50 SKU） | 说明性 | 已在 PRD §8 如实披露 | 对外表述口径：不得夸大 |
@@ -268,6 +270,22 @@
 - 下一步具体动作：装依赖解 T-ENV-01 → 按 [VERSIONING.md](VERSIONING.md) §6.2 从 `develop` 拉 `feature/ui-home` 做 T-UI-01 → 完成后 `vcs.ps1 finish`
 - 需要谁配合：无（本地闭环）；如需要异地冗余，需要有人提供第二个磁盘/网盘路径
 
+### 交接：T-UI-08 / T-UI-09 左侧边栏 + 设置栏目与主题系统
+- 日期 / 交接人：2026-10-03 / 初始化 Agent
+- 状态：已完成
+- 我改了什么：
+  - `app.py`：应用外壳改为 `gr.Row#xm-shell` = 左栏（品牌 `side_brand` + 竖排导航 `gr.Radio#xm-nav`）+ 右栏（`gr.Tabs#main-nav` 的 8 个面板）；`nav_radio.change → gr.Tabs(selected=…)`；三个跨页跳转按钮同时回写导航高亮；新增「设置」Tab（主题单选 + 主题卡片 + 状态 + 运行环境）；`apply_theme()` 落盘 + 就地换肤
+  - `core/themes.py`（新）：6 套主题（小满默认 / 野兽风浅色 / 野兽风深色 / 森友会 / 纹样·宣纸 / 跟随系统），其中 **4 套逐色移植自 `E:\vibe coding\CodeForge\src\renderer\styles\{global,dark-theme,animal-theme,wenyang-theme}.css`**；含 `REQUIRED_TOKENS` 完整性约束、Gradio 原生变量、`theme_css()/theme_style_tag()`
+  - `core/settings_store.py`（新）：`data/ui_settings.json` 读写（默认值/容错/原子写）
+  - `core/settings_view.py`（新）：「设置」页渲染（主题卡片 + 真实运行环境读数）
+  - `core/ui_theme.py`：颜色/字体/圆角/描边/阴影全部改为消费主题 token；新增应用外壳与 `#xm-nav` 样式；保留 `THEME_CSS` 兼容名
+  - 测试：`tests/test_themes.py`（12）、`tests/test_settings_store.py`（7）、`tests/test_settings_view.py`（8）
+  - 文档：PRD FR-15、DESIGN §4/§6/§7/§8、TRD §7.1/§7.2/§8/§10/§12 + ADR-009/010、CLAUDE 铁律 8/代码地图、AGENT 踩坑 16-17、README 界面导览
+- 证据（本次实测）：导航 `navLabels=8`、Gradio 自带导航条 `display:none`、无「More tabs」折叠、`#xm-side=236px`；切换主题时 `--xm-primary` 依次为 `#19c8b9`（森友会）/`#b91c1c`（纹样）/`#facc15`（深色），`--xm-sidebar-bg` 同步变化，侧边栏品牌区「当前主题」即时刷新；`data/ui_settings.json` 落盘并在重启后读回；`pytest` **169 passed**；截图 12 张见 `_backup/preview/`
+- 没做完的部分：首页/为什么这样进/实验验证/项目说明 四页正文仍是旧 class 与 emoji（T-UI-01..04）；主题只覆盖了 Gradio 常见组件变量，**未逐个核对**每个 Gradio 组件在深色主题下的边角样式（如 Plot 图表背景仍由 plotly 模板决定）
+- 下一步具体动作：接 T-UI-01（首页 v2 迁移，去掉 emoji 与 `dn-*`），完成后用 `agent-browser` 在 **两套主题**（默认 + 野兽风深色）各截一次图对比
+- 需要谁配合：无
+
 ---
 
 ## 9. 变更记录
@@ -281,3 +299,4 @@
 | 2026-10-03 | 初始化 Agent | **版本控制演练 + 加固**（T-ENV-03）：跑 7 项演练（产物/密钥守卫、安全回退、灾难恢复克隆、忽略探针、guard 幂等、发布流程），暴露并修掉 3 个真问题 → 提交 `1de5f08`（守卫撤出密钥/产物、ASCII 标记 + UTF-8(BOM) 写 exclude、停止跟踪误入库的 `data/*.db.bak`）与 `69f9867` `fix(vcs)`（`-q` + 错误偏好收敛，消除红色假报错）、`42afc03` `docs(vcs)`（验证记录与边界说明）；证据与修法见 [VERSIONING.md §13](VERSIONING.md)；新增风险 R13；发布点 = `main` 合并提交 `763a676` + tag `v0.2.1`。随后 `6ff13e2`（rollback 提示修复）+ `8e3c536`（版本表）发布 `v0.2.2`（合并提交 `51ee83c`）。**最终状态校验**：工作区干净；`origin` 同步 `main`/`develop`；4 个 tag（v0.1.0/v0.2.0/v0.2.1/v0.2.2）；`.gitignore` 已删除、`.git/info/exclude` 生效（6/6 忽略探针命中）；跟踪文件 108 个、其中**无任何产物或密钥**；数据源 `data/*.csv` 已入库；备份区 `_backup/` 3.14MB（本地 origin 已同步：`git ls-remote --heads --tags origin` 可见 main/develop/v0.1.0/v0.2.0/v0.2.1） |
 | 2026-10-03 | 初始化 Agent | **T-ENV-01 解除（依赖 + 网页验证 + 预览截图）**：`pip install -r requirements.txt` → gradio 6.29.1 / plotly 7.1.0；测试从 138 passed / 2 failed / 2 skipped 变为 **142 passed 全绿（92s）**；`python app.py` 起在 http://127.0.0.1:7861（HTTP 200、页面 396KB），用 `agent-browser` 逐页截图 7 个标签页存于 `_backup/preview/`（首页/为什么这样进/今天生意怎么样/它学会了什么/店里的老账本/实验验证/项目说明）；同步 CLAUDE §2/§6、AGENT §8.1/§8.2/§11（新增截图工作流）、TRD §10 与 §12 D1、PRD FR-07、VERSIONING §10、ARD 计数（19 完成 / 0 阻塞 / 11 待办）与 Top3；新增风险 R14（共享环境的 huggingface-hub 版本冲突） |
 | 2026-10-03 | 初始化 Agent | **修掉 `vcs.ps1 save` 的致命缺陷**（预览时发现）：给 `git add` 误加 `-q`（`git add` 不支持该选项，退出码 129）会导致 `save` 永远"没有需要提交的改动"；改为捕获输出 + `Write-Host`，并用 `save` 自身提交修复完成端到端验证（`3de3c8e`）；记录于 [VERSIONING.md §13](VERSIONING.md) |
+| 2026-10-03 | 初始化 Agent | **T-UI-08 左侧边栏 + T-UI-09 设置栏目与主题系统**（本轮）：导航从顶部 Tab 改为左侧边栏；新增 `core/themes.py`（6 套主题，其中野兽风浅/深、森友会、纹样·宣纸 4 套移植自 `E:\vibe coding\CodeForge`）、`core/settings_store.py`、`core/settings_view.py`；新增 FR-15、DESIGN §8、TRD §7.1/§7.2 + ADR-009/ADR-010；测试 142 → **169 passed**；截图核对侧边栏 + 4 套主题；风险 R6 更新 |

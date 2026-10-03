@@ -68,6 +68,8 @@ data/*.db
 data/*.db-journal
 data/*.db-wal
 data/*.db.bak
+# 界面偏好（主题选择等，属于本机设置，不入库）
+data/ui_settings.json
 
 # ── Python 缓存 ──
 __pycache__/

@@ -19,7 +19,7 @@
 
 | 入口 | 命令 | 用途 |
 |---|---|---|
-| 网页应用 | `python app.py` → `http://127.0.0.1:7861` | 店主日常使用（7 个标签页） |
+| 网页应用 | `python app.py` → `http://127.0.0.1:7861` | 店主日常使用（**左侧边栏 8 个栏目**：7 个业务页 + 设置） |
 | 闭环演示 | `python demo_flow.py` | 答辩五幕一次性跑通 |
 | 离线评测 | `python eval.py` | 60 天窗口 × 5 种决策方式对照 |
 | 长期实验 | `python run_digital_store.py` | 180 天 × 5 策略仿真 + 消融 + 压力测试 |
@@ -34,9 +34,10 @@
 
 ```text
 ┌── 展示层 ─────────────────────────────────────────────────────────────┐
-│ app.py（装配：7 Tab + 事件绑定）                                       │
-│ core/*_view.py（home/why/feedback/learn/ledger/final/about 渲染）      │
-│ core/ui_theme.py（UI v2 tokens/CSS 唯一来源）  core/llm.py（可选解释） │
+│ app.py（装配：左侧边栏 + 8 栏目 + 事件绑定）                            │
+│ core/*_view.py（home/why/feedback/learn/ledger/final/about/settings）  │
+│ core/themes.py（6 套主题变量）  core/ui_theme.py（组件类/外壳样式）      │
+│ core/settings_store.py（界面偏好持久化）  core/llm.py（可选解释层）      │
 ├── 决策层 ─────────────────────────────────────────────────────────────┤
 │ core/policy.py（目标库存 → 三层惠民约束 → 计划+指标）                   │
 │ core/r3_optimizer.py（R³ 两阶段字典序 MILP，失败回退贪心）              │
@@ -73,6 +74,9 @@
 | `core/r3_optimizer.py` (11KB) | MILP 建模与求解（scipy/HiGHS） | policy |
 | `core/app.py` (63KB) | Gradio 装配 + 若干内联渲染函数 | 网页入口 |
 | `core/*_view.py` | 纯渲染函数（返回 HTML 字符串，无副作用） | app |
+| `core/themes.py` (18KB) | 6 套主题的 `--xm-*` + Gradio 变量、CSS 生成、品牌注入（移植自 CodeForge） | app / ui_theme / settings_view |
+| `core/settings_store.py` | 界面偏好持久化（`data/ui_settings.json`，容错优先、原子写） | app / settings_view |
+| `core/settings_view.py` | 「设置」页渲染（主题卡片 + 运行环境，数据全部真实） | app |
 | `core/eval_core.py` (10KB) | 60 天重演评测引擎 + 图表 | eval.py / app |
 
 ---
@@ -98,7 +102,7 @@
 | 缺失字段 `unit / pack_size / traffic_pull` | 确定性推断 | 单位按 SKU 白名单；`traffic_pull` 按品类表；`pack_size` 按品类/价格确定性推导，**禁止随机** |
 | 初始库存 | `INIT_INVENTORY_DAYS = 3.0 × 基础日均需求` | 供首日决策冷启动 |
 
-### 2.3 记忆库（SQLite，`data/store_memory.db`，已 gitignore）
+### 2.3 记忆库（SQLite，`data/store_memory.db`，由 `.git/info/exclude` 忽略）
 
 9 张表（DDL 全文见 `core/memory.py: SCHEMA`）：
 
@@ -294,26 +298,30 @@ raw_reorder = ceil_to_pack(need, pack_size)
 
 ## 7. 展示层
 
-### 7.1 信息架构（7 个标签页，DESIGN.md §7）
+### 7.1 信息架构（左侧边栏 8 个栏目，DESIGN.md §7）
 
-| # | 标签页 | 面向 | 渲染来源 |
+| # | 栏目（Tab id） | 面向 | 渲染来源 |
 |---|---|---|---|
-| 1 | 今天该进什么货 | 店主 | `home_view.render_home_html(plan, part)` + app.py 内联（风险面板/Agent/仿真工具） |
-| 2 | 为什么这样进 | 店主 | `why_view.render_why_page(it)` ← `decision_basis` |
-| 3 | 今天生意怎么样 | 店主 | `feedback_view.*`（head/date_hint/table_hint/render_result/render_invalid/render_empty） |
-| 4 | 它学会了什么 | 店主/评委 | `learn_view.*` + `app.evolution_chart` |
-| 5 | 店里的老账本 | 评委 | `ledger_view.render_ledger()` 等 |
-| 6 | 实验验证 | 评委 | `final_view.render_html()` ← `eval/final/*.json` |
-| 7 | 项目说明 | 评委 | `about_view.render_about()` + 内嵌离线评测按钮 |
+| 1 | 今天该进什么货（`home`） | 店主 | `home_view.render_home_html(plan, part)` + app.py 内联（风险面板/Agent/仿真工具） |
+| 2 | 为什么这样进（`why`） | 店主 | `why_view.render_why_page(it)` ← `decision_basis` |
+| 3 | 今天生意怎么样（`feedback`） | 店主 | `feedback_view.*`（head/date_hint/table_hint/render_result/render_invalid/render_empty） |
+| 4 | 它学会了什么（`learn`） | 店主/评委 | `learn_view.*` + `app.evolution_chart` |
+| 5 | 店里的老账本（`ledger`） | 评委 | `ledger_view.render_ledger()` 等 |
+| 6 | 实验验证（`experiment`） | 评委 | `final_view.render_html()` ← `eval/final/*.json` |
+| 7 | 项目说明（`about`） | 评委 | `about_view.render_about()` + 内嵌离线评测按钮 |
+| 8 | **设置（`settings`）** | 所有人 | `settings_view.PAGE_HEAD/SECTION_HEAD/render_theme_cards/render_status/render_env_panel` |
 
-跨页联动：`btn_goto_exp / btn_goto_feedback / btn_goto_learn` 通过 `gr.Tabs(selected=…)` 跳转；`tab_mem.select` 自动刷新。
+**外壳结构**：`gr.Row#xm-shell` = `gr.Column#xm-side`（品牌 `side_brand` + 竖排导航 `gr.Radio#xm-nav`）+ `gr.Column#xm-main`（`gr.Tabs#main-nav` 的 8 个面板）。
+**跨页联动**：`nav_radio.change → gr.Tabs(selected=…)`；`btn_goto_exp / btn_goto_feedback / btn_goto_learn` 同时回写 `main_tabs` 与 `nav_radio`（保持导航高亮同步）；`tab_mem.select` 自动刷新。
 
 ### 7.2 UI v2 规范与迁移状态
 
-- **唯一 token 来源**：`core/ui_theme.py` 的 `--xm-*` 与 `.xm-*`（Notion 产品级视觉语言；画布 #ffffff、表面 #f6f5f4、主操作 #5645d4、语义 success/warning/error）。
+- **token 来源（分两层）**：`core/themes.py` = 颜色/字体/圆角/描边强度/阴影 + Gradio 原生变量（6 套主题）；`core/ui_theme.py` = 组件类（`.xm-*`）与间距（`--xm-space-*`）+ 应用外壳（`#xm-shell` / `#xm-side` / `#xm-nav`）。
 - **禁令**：彩色 Emoji、机器人/大脑/AI sparkle 图标、Dashboard 卡片阵列、写死颜色、营销式 Hero/定价卡。
-- 页面级 CSS：各 `*_view.py` 自带命名空间（`.lx-*` 学习页 / `.lb-*` 账本页 / `.fb-*` 反馈页），全部以 `--xm-*` 变量取值。
-- **迁移状态**：✅ 反馈页 / 学习页 / 账本页；🚧 首页 `home_view`（结构已新、文本仍含 emoji）；⬜ 为什么这样进 / 实验验证 / 项目说明 / app.py 内联区块（仍 `dn-*`/`ab-*` + 内联 style + emoji）。详见 [ARD](ARD.md) T-UI-01..04。
+- 页面级 CSS：各 `*_view.py` 自带命名空间（`.lx-*` 学习页 / `.lb-*` 账本页 / `.fb-*` 反馈页 / `.st-*` 设置页），全部以 `--xm-*` 变量取值。
+- **主题系统（v2.1）**：见 DESIGN.md §8 与 ADR-009；6 套主题（小满默认 / 野兽风浅色 / 野兽风深色 / 森友会 / 纹样·宣纸 / 跟随系统），其中 4 套移植自 CodeForge。换主题 = 重新渲染一个隐藏的 `<style id="xm-theme-vars">`（`gr.HTML` + `elem_classes=["xm-hidden"]`），无需刷新；选择落在 `data/ui_settings.json`，启动时由 `ACTIVE_THEME` 读回并拼进静态 CSS（首屏不闪）。
+- **左侧边栏（v2.1）**：见 ADR-010。`#main-nav > .tab-wrapper` 被 CSS 隐藏（避开 Gradio 的「More tabs」折叠），导航由 `gr.Radio#xm-nav` 承担；主题通过 `--xm-sidebar-*` 六个 token 驱动侧边栏配色。
+- **迁移状态**：✅ 反馈页 / 学习页 / 账本页 / 设置页 / 应用外壳（侧边栏+主题）；🚧 首页 `home_view`（结构已新、文本仍含 emoji）；⬜ 为什么这样进 / 实验验证 / 项目说明 / app.py 内联区块（仍 `dn-*`/`ab-*` + 内联 style + emoji，已用 token 兜底关键色）。详见 [ARD](ARD.md) T-UI-01..04。
 
 ### 7.3 LLM 说明层（`core/llm.py`，可选）
 
@@ -339,6 +347,10 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | `simulator.run_strategies` | `(strategy_keys, budget=1800, ...)` | 长期仿真 |
 | `eval_core.run_eval` | `(seeds=None, days=60, db_path=None)` | 离线评测 |
 | `agent.plan_and_explain` | `(plan_date, budget=600, risks=None)` | Agent 全流程 + 解释 |
+| `themes.theme_css / theme_style_tag` | `(theme_id, brand=None, theme_label=None)` | 生成主题变量 CSS / 可注入的 `<style>` |
+| `themes.list_themes / normalize / swatches` | `()` / `(id)` / `(id)` | 设置页卡片、非法值收敛、预览色 |
+| `settings_store.load / set_theme / current_theme` | `(path=None)` | 界面偏好读写（容错、原子写） |
+| `settings_view.render_theme_cards / render_env_panel` | `(current=None)` | 设置页两块渲染（数据全部真实） |
 
 ---
 
@@ -376,13 +388,13 @@ raw_reorder = ceil_to_pack(need, pack_size)
 
 | 层次 | 覆盖 | 命令 |
 |---|---|---|
-| 单元测试 | 21 个文件 / 142 用例：政策分配边界、进化防震荡、预测夹紧、R³ 优先级、批次库存、在途资格、事件证据/工具、记忆持久化、各页面渲染 | `pytest -q --basetemp .pytest_tmp` |
+| 单元测试 | 24 个文件 / 169 用例：政策分配边界、进化防震荡、预测夹紧、R³ 优先级、批次库存、在途资格、事件证据/工具、记忆持久化、各页面渲染、主题完整性/设置持久化 | `pytest -q --basetemp .pytest_tmp` |
 | 昂贵测试 | `test_simulator.py` / `test_event_ab.py` / `test_baseline_fairness.py`（分钟级） | 同上，注意耗时 |
 | 端到端 | `demo_flow.py`（五幕闭环） | `python demo_flow.py` |
 | 实验复现 | `eval.py` / `run_digital_store.py` / `run_event_awareness_ab.py` | 见 §1.1 |
 | 页面自检 | 渲染非空 + 空状态 + 无 emoji/硬编码色 | [../AGENT.md](../AGENT.md) §8.2 |
 
-**2026-10-03 实测基线**：依赖补齐后 **`142 passed`（92s，全绿）**。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
+**2026-10-03 实测基线**：主题与侧边栏落地后 **`169 passed`（约 154s，全绿）**；依赖补齐时（无主题功能）为 `142 passed`（92s）。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
 
 ---
 
@@ -393,7 +405,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | 单次决策（50 SKU） | 秒级（预测 + MILP；MILP 超时上限 30s，异常即回退） |
 | 180 天完整仿真 | 5~8 分钟（完整小满约 100s/策略，传统算法约 20s/策略） |
 | 离线评测（60 天 × 5 模式） | 约 1~2 分钟 |
-| 测试全量 | 61s（含昂贵仿真测试） |
+| 测试全量 | 约 154s（169 用例，含昂贵仿真测试） |
 | 数据规模 | 9000 行销量 / 50 SKU / 180 天；DB 约 1.3MB |
 | 展示产物 | `eval_results.html` 约 4.8MB（内嵌图，已 gitignore） |
 
@@ -404,9 +416,9 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | # | 问题 | 影响 | 处置 |
 |---|---|---|---|
 | D1 | ~~环境缺 `gradio / plotly`~~ | ✅ 已解除：装上 gradio 6.29.1 / plotly 7.1.0 后网页可启动（7 页截图核对）、测试 142 passed 全绿 | ✅ ARD T-ENV-01 |
-| D2 | `README.md` 与实现漂移（仍写 5 个标签页、旧常量、旧参数语义） | 误导接手人 | ARD T-DOC-01（P0/P1） |
+| D2 | `README.md` 与实现漂移（旧常量、旧参数语义） | 误导接手人 | 部分已修（界面导览改为左侧边栏 8 栏目）；剩余项见 ARD T-DOC-01 |
 | D3 | `app.py` 63KB 单体，含内联 HTML/CSS/emoji | 修改易冲突、违反 DESIGN.md v2 | ARD T-UI-01..04 + T-QA-02 |
-| D4 | 页面视觉体系两套并存（v2 与 `dn-*`/`ab-*`） | 观感不一致 | 随 UI 迁移收敛 |
+| D4 | 页面视觉体系两套并存（v2 与 `dn-*`/`ab-*`） | 观感不一致（已用 token 兜底关键色，换主题不再突兀） | ARD T-UI-01..04 收敛 |
 | D5 | `spoilage_ab` 开/关结果完全相同 | 该消融无法证明损耗控制价值 | ARD T-EXP-02（P1，需排查开关是否真正生效） |
 | D6 | `ablation_3obj.no_revenue` 毛利反而更高 | 结论反直觉，易被评委追问 | ARD T-EXP-03（P2，需给出解释或标注局限） |
 | D7 | 9 个常量定义未使用，README 却引用 | 文档与代码互不信任 | ARD T-QA-01（P2） |
@@ -446,6 +458,18 @@ raw_reorder = ceil_to_pack(need, pack_size)
 
 详见 [VERSIONING.md](VERSIONING.md)。
 
+**ADR-009 主题系统采用「CSS 变量作用域覆盖」，并从 CodeForge 移植 4 套主题**（`core/themes.py` + `core/ui_theme.py`）
+决策：主题 = 一组 `--xm-*` 覆盖值 + Gradio 原生变量；通过注入 `<style>` 的 `html:root`（含 `.gradio-container`/`.dark` 后代选择器以盖住 Gradio 自带覆盖）生效；不做 Tailwind/theme-provider，不整份复制样式表。
+来源：CodeForge `styles/{global,dark-theme,animal-theme,wenyang-theme}.css` 与 `docs/ADR/ADR-005-theme-css-variables.md`（同一套思路），并保留其「新增组件只消费语义变量」的约束。
+理由：默认主题零改动；新主题只写变量，改造成本可控；`tests/test_themes.py` 强制 token 完整性（对应 CodeForge 的 `check-theme-vars.mjs`）。
+代价：主题必须同时覆盖 Gradio 原生变量，否则 Dataframe/Dropdown 等会留在 Gradio 默认配色（已纳入 `themes.GRADIO_TOKENS`）。
+
+**ADR-010 导航改为左侧边栏：隐藏 `gr.Tabs` 自带导航条，用 `gr.Radio` 驱动**（`app.py` + `core/ui_theme.py`）
+背景：Gradio 6 的 `gr.Tabs` 在横向放不下时会把剩余标签折叠进「More tabs」下拉（实测容器压到 232px 时 8 个标签只剩 2 个可见），无法直接做成竖排菜单。
+决策：`#main-nav > .tab-wrapper { display:none }` 隐藏其导航条，保留 `gr.Tabs` 的面板切换能力；左侧栏用 `gr.Radio#xm-nav`（8 项）→ `gr.Tabs(selected=…)` 驱动切换，跨页跳转按钮同时回写 Radio 以保持高亮同步。
+理由：不依赖 Gradio 内部折叠逻辑，导航完全可控、可主题化（`--xm-sidebar-*`），且无需重写任何页面内容。
+代价：多一层组件绑定；新增页面必须同时登记 `NAV_CHOICES` 与 `gr.Tab(id=…)`（已写入 CLAUDE.md 铁律 8）。
+
 ---
 
 ## 14. 变更记录
@@ -454,3 +478,4 @@ raw_reorder = ceil_to_pack(need, pack_size)
 |---|---|---|---|
 | 2026-10-03 | v1.0 | 首版：反向固化架构、数据模型、算法口径、参数表、实验证据、技术债与 ADR | 接手初始化 |
 | 2026-10-03 | v1.1 | 新增 ADR-008（本地裸仓库镜像 GitHub、删除 .gitignore）；§1.1 增加版本/备份入口；D10 标记解除 | 接手初始化 |
+| 2026-10-03 | v1.2 | 顶部 Tab 改为左侧边栏 + 新增「设置」栏目与主题系统：新增 §7.1/§7.2 内容、模块表（themes/settings_store/settings_view）、接口清单、ADR-009（主题系统）与 ADR-010（导航实现）；测试基线 142 → 169 | 接手初始化 |
