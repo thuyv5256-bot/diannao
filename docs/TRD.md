@@ -321,7 +321,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 - 页面级 CSS：各 `*_view.py` 自带命名空间（`.lx-*` 学习页 / `.lb-*` 账本页 / `.fb-*` 反馈页 / `.st-*` 设置页），全部以 `--xm-*` 变量取值。
 - **主题系统（v2.1）**：见 DESIGN.md §8 与 ADR-009；6 套主题（小满默认 / 野兽风浅色 / 野兽风深色 / 森友会 / 纹样·宣纸 / 跟随系统），其中 4 套移植自 CodeForge。换主题 = 重新渲染一个隐藏的 `<style id="xm-theme-vars">`（`gr.HTML` + `elem_classes=["xm-hidden"]`），无需刷新；选择落在 `data/ui_settings.json`，启动时由 `ACTIVE_THEME` 读回并拼进静态 CSS（首屏不闪）。
 - **左侧边栏（v2.1）**：见 ADR-010。`#main-nav > .tab-wrapper` 被 CSS 隐藏（避开 Gradio 的「More tabs」折叠），导航由 `gr.Radio#xm-nav` 承担；主题通过 `--xm-sidebar-*` 六个 token 驱动侧边栏配色。
-- **迁移状态**：✅ 应用外壳（侧边栏+主题）/ 首页（含风险面板、Agent 区块、180 天仿真工具）/ 反馈页 / 学习页 / 账本页 / 设置页 —— app.py 已无 emoji、无写死颜色、无旧 `dn-*`/`.badge b-*`/`.kpi` 类；⬜ 为什么这样进 / 实验验证 / 项目说明 三页仍未迁移（`why_view`/`final_view`/`about_view` 仍自带内联色），见 [ARD](ARD.md) T-UI-02..04。
+- **迁移状态**：✅ **全站完成** —— 应用外壳（侧边栏+主题）+ 首页 + 为什么这样进 + 今天生意怎么样 + 它学会了什么 + 店里的老账本 + 实验验证 + 项目说明 + 设置；全部 `*_view.py` 无 emoji、无写死颜色、无旧 `dn-*`/`.badge b-*`/`.kpi`/`table.dn` 类。`tests/test_ui_consistency.py` 的 `PENDING` 白名单已清空（见 [ARD](ARD.md) T-UI-01..04）。
 - **回归护栏**：`tests/test_ui_consistency.py` 强制「UI 文件无彩色 Emoji」「已迁移模块无写死颜色」「app.py 无旧体系 class」，并保留 `PENDING_MIGRATION` 白名单（迁移完一页就挪一个名字进去）。
 
 ### 7.3 LLM 说明层（`core/llm.py`，可选）
@@ -433,8 +433,8 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 |---|---|---|---|
 | D1 | ~~环境缺 `gradio / plotly`~~ | ✅ 已解除：装上 gradio 6.29.1 / plotly 7.1.0 后网页可启动（7 页截图核对）、测试 142 passed 全绿 | ✅ ARD T-ENV-01 |
 | D2 | `README.md` 与实现漂移（旧常量、旧参数语义） | 误导接手人 | 部分已修（界面导览改为左侧边栏 8 栏目）；剩余项见 ARD T-DOC-01 |
-| D3 | `app.py` 仍是大单体（约 60KB），但**内联样式已全部 token 化、emoji 已清零、旧 `dn-*` 体系已删除** | 余下为体积与结构问题 | ARD T-UI-02..04（三页视图）+ T-QA-06（清死代码） |
-| D4 | 页面视觉体系两套并存：**app.py 侧已统一 v2**；`why_view`(`.yw-*`/`.ev-*`)、`final_view`(内联色)、`about_view`(`.ab-*`) 三页仍未迁移 | 换主题时这三页配色不跟随 | ARD T-UI-02..04 |
+| D3 | ~~`app.py` 单体 + 内联样式 + 死代码~~ | 已收敛：内联样式全 token 化、emoji 清零、旧体系删除，并清掉 7 个无引用渲染函数（-166 行，文件降到 ~57KB） | ✅ ARD T-UI-01..04 / T-QA-06 |
+| D4 | ~~页面视觉体系两套并存~~ | ✅ 已解除：全部页面统一 v2（各页仅保留自己的布局命名空间，颜色一律 token），换主题全站跟随 | ✅ ARD T-UI-01..04 |
 | D5 | `spoilage_ab` 开/关结果完全相同 | 该消融无法证明损耗控制价值 | ARD T-EXP-02（P1，需排查开关是否真正生效） |
 | D6 | `ablation_3obj.no_revenue` 毛利反而更高 | 结论反直觉，易被评委追问 | ARD T-EXP-03（P2，需给出解释或标注局限） |
 | D7 | 9 个常量定义未使用，README 却引用 | 文档与代码互不信任 | ARD T-QA-01（P2） |
@@ -496,3 +496,4 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 | 2026-10-03 | v1.1 | 新增 ADR-008（本地裸仓库镜像 GitHub、删除 .gitignore）；§1.1 增加版本/备份入口；D10 标记解除 | 接手初始化 |
 | 2026-10-03 | v1.2 | 顶部 Tab 改为左侧边栏 + 新增「设置」栏目与主题系统：新增 §7.1/§7.2 内容、模块表（themes/settings_store/settings_view）、接口清单、ADR-009（主题系统）与 ADR-010（导航实现）；测试基线 142 → 169 | 接手初始化 |
 | 2026-10-03 | v1.3 | 首页（T-UI-01）v2 迁移完成：去 emoji、旧 `dn-*`/`.badge b-*`/`.kpi` 体系删除、`app.py` 内联色全部 token 化；新增 §7.4 图表主题（plotly 随主题）与 `themes.plotly_layout/palette`；新增 UI 规范一致性测试（T-QA-02）；D3/D4 降级；测试基线 169 → 177 | 接手初始化 |
+| 2026-10-03 | v1.4 | **全站 v2 迁移收尾**：为什么这样进（T-UI-02）、实验验证（T-UI-03）、项目说明（T-UI-04）三页迁移完成，`PENDING` 白名单清空；清理 7 个无引用渲染函数（T-QA-06，-166 行）；新增共享组件 `.xm-kv*`/`.xm-bar*`/`.xm-chips`，`.st-kv*` 统一并入 `.xm-kv*`；D3/D4 关闭；测试 177 passed | 接手初始化 |

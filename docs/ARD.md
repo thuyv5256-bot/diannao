@@ -8,7 +8,7 @@
 | 文档版本 | v1.0 |
 | 最后更新 | 2026-10-03 |
 | 代码基线 | git `ca17f07` + 未提交改动（详见 T-ENV-02） |
-| 任务总数 | 32（已完成 23 · 进行中 0 · 阻塞 0 · 待办 9） |
+| 任务总数 | 34（已完成 27 · 进行中 0 · 阻塞 0 · 待办 7） |
 | 更新义务 | **每次开始/完成/阻塞一个任务，必须回来改本文件**（见 §0.4） |
 
 ---
@@ -63,14 +63,14 @@
 
 ## 1. 当前进度看板（2026-10-03）
 
-**总体阶段：M3（UI v2 迁移中）—— 核心闭环与实验证据已完成，正在做交付层收尾。**
+**总体阶段：M3 已完成（UI v2 全站迁移 + 主题 + 文档 + 版本控制）—— 交付层收尾，剩余为 README 对齐与实验异常项结论。**
 
 | 状态 | 数量 | 任务 |
 |---|---|---|
-| 已完成 | 23 | T-CORE-01..05、T-MEM-01..03、T-EXP-01、T-EXP-04、T-UI-01、T-UI-05..09、T-QA-02、T-QA-03、T-QA-05、T-DOC-03、T-ENV-01、T-ENV-02、T-ENV-03 |
+| 已完成 | 27 | T-CORE-01..05、T-MEM-01..03、T-EXP-01、T-EXP-04、T-UI-01..09、T-QA-02、T-QA-03、T-QA-05、T-QA-06、T-DOC-03、T-ENV-01、T-ENV-02、T-ENV-03 |
 | 进行中 | 0 | —（当前没有进行中任务，取活见 §6） |
 | 阻塞 | 0 | —（T-ENV-01 已解除：依赖装齐、网页起得来、测试全绿） |
-| 待办 | 11 | 见 §6 |
+| 待办 | 7 | 见 §6（P0 只剩 README 对齐；其余为实验异常项、常量裁决与脚本归档） |
 
 **今天的真实状态（可复核）**
 
@@ -87,9 +87,9 @@
 
 ### 🎯 建议的下一个动作（Top 3）
 
-1. **T-UI-02（P1，观感）**：「为什么这样进」页 v2 迁移 —— `why_view` 仍用 `.yw-*`/`.ev-*` 与内联色（11 处），换主题时该页配色不跟随。
-2. **T-UI-03 / T-UI-04（P1）**：「实验验证」(`final_view`，28 处内联色) 与「项目说明」(`about_view`，9 处 `.ab-*` 内联色) 同上；这三页迁完，`test_ui_consistency.py` 的 PENDING 白名单即可清空。
-3. **T-DOC-01（P1）**：README 与实现对齐（界面导览已修；仍引用 9 个已失效常量、旧参数语义待订正）。
+1. **T-DOC-01（P0）**：README 与实现对齐 —— 界面导览已修，但正文仍引用 9 个已失效常量与旧参数语义（详见下方差异清单）。
+2. **T-EXP-02 / T-EXP-03（P1/P2）**：两个实验异常项需要一个明确结论 —— `spoilage_ab` 开/关结果完全一致、`ablation_3obj.no_revenue` 毛利反超 Full R³。（「实验验证」页已如实标注前者「未触发（如实显示，不做美化）」。）
+3. **T-QA-01 / T-DOC-02 / T-ENV-04（P2）**：9 个未使用常量逐个裁决、根目录 9 个 `_step*.py` 归档、可选的每日自动备份计划任务。
 
 > 规矩：**每完成一件事就 `powershell -File tools/vcs.ps1 save "type(scope): 说明"`**，否则这件事没有回退点 —— 见 [VERSIONING.md](VERSIONING.md)。
 
@@ -102,7 +102,7 @@
 | M0 | 工程基线 | 可跑的数据导入 + 记忆库 + 测试框架 | ✅ 已完成 |
 | M1 | 决策闭环 | 预测 → 事件 → 惠民约束 → 自进化 → 页面闭环（demo_flow 五幕可跑通） | ✅ 已完成 |
 | M2 | 实验证据 | 180 天长期仿真 + 消融 + 冻结产物（`eval/final`） | ✅ 已完成（2026-10-02 冻结） |
-| M3 | 交付层收尾 | UI v2 全站迁移 + 文档体系 + 版本控制与备份 + 环境可复现 | 🚧 进行中（文档体系 ✅；本地版本控制 ✅；环境 ✅ 依赖与网页验证通过；**仅剩 UI 3/7 页**） |
+| M3 | 交付层收尾 | UI v2 全站迁移 + 文档体系 + 版本控制与备份 + 环境可复现 | ✅ **已完成**（8 栏目全站 v2 + 6 套主题 + PRD/TRD/ARD/CLAUDE/AGENT/VERSIONING + 本地 Git 备份 + 依赖与网页实测） |
 | M4 | 最终交付 | 全绿测试 + 可现场演示 + 接手零障碍 | ⬜ 待办 |
 
 ---
@@ -139,6 +139,9 @@
 | ID | 任务 | 验收标准 | 证据 | 影响文件 |
 |---|---|---|---|---|
 | T-UI-01 | **首页 v2 迁移 + 去 emoji** | 页面无 emoji；无写死颜色；无旧 `dn-*`/`.badge b-*`/`.kpi` 体系；结构与 DESIGN §7 一致（经营工作台） | 删除 app.py 旧内联 CSS（≈3.5KB）与两个死函数；事件图标改 `.xm-badge` 语气徽标（`_EVENT_TONE`/`_event_badge`）；`_hero`/`_trim_flag`/`render_experiences_html`/KPI 卡/分区标题全部 token 化；浏览器实测 `innerText` 可见 emoji **0**、`navLabels=8`；测试 `tests/test_ui_consistency.py` 8 项兜住回归；截图 `tui01-01-home-default.png` / `tui01-04-home-dark.png` | `app.py` `core/ui_theme.py` `tests/test_ui_consistency.py` |
+| T-UI-02 | 「为什么这样进」v2 迁移 | 无 emoji；无写死颜色；六步依据链结构不变 | `WHY_CSS` 全部 token 化（`.yw-*`/`.ev-*` 保留命名空间）；民生标记从不存在的 `.xm-tag` 改为 `.xm-badge xm-badge-green`；实测该页渲染正常、主题跟随；截图 `tui02-why.png` | `core/why_view.py` |
+| T-UI-03 | 「实验验证」v2 迁移 | 无 emoji；无写死颜色；**修掉旧体系遗留**（原用已删除的 `.dn-card`/`table.dn`）；4 个小节与全部数字不变 | 重写 `core/final_view.py` 表现层（`.xm-card`/`.xm-table`/`.xm-callout`/`.xm-kv*`/`.xm-bar*`/`.xm-chips`/`.xm-acc`）；`tests/test_final_view.py` 4 项仍全绿（含禁止营销词）；截图 `tui03-final.png` / `tui03-final-dark.png` | `core/final_view.py` |
+| T-UI-04 | 「项目说明」v2 迁移 | 无 emoji；无写死颜色；结构与 `about_view` 原意一致 | 重写 `core/about_view.py`：hero/问题/三条能力/技术表全部改用共享组件（`ABOUT_CSS` 清空）；`PENDING` 白名单清零 | `core/about_view.py` |
 | T-UI-05 | 「今天生意怎么样」v2 迁移 | 四分支文案正确；保存按钮独占行；列名同源 | 新增 `core/feedback_view.py` + `tests/test_feedback_view.py` 10 用例；相关 23 项通过 | `core/feedback_view.py` `app.py`(Tab3) |
 | T-UI-06 | 「它学会了什么」v2 迁移 | 只读本店经验表；空状态如实；经验三段式表达 | 重写 `core/learn_view.py`；相关 33 项通过 | `core/learn_view.py` `app.py`(Tab4) `tests/test_learn_view.py` |
 | T-UI-07 | 「店里的老账本」v2 迁移 | 五 section + 紧凑 summary；不引实验数据；空状态如实 | 重写 `core/ledger_view.py`；相关 24 项通过 | `core/ledger_view.py` `app.py`(Tab5) `tests/test_ledger_view.py` |
@@ -153,6 +156,7 @@
 |---|---|---|---|---|
 | T-QA-03 | 测试基线建立 | 全量可跑、失败可解释 | 2026-10-03 实测 `138 passed, 2 failed, 2 skipped in 61.14s`；142 用例 / 21 文件 | `tests/**` `conftest.py` |
 | T-QA-02 | UI 规范一致性校验（禁 emoji / 禁写死颜色 / 禁旧 class） | 违规即测试失败；待迁移页有显式白名单且与 ARD 任务联动 | 新增 `tests/test_ui_consistency.py` 8 项：UI 文件无彩色 Emoji（放行 ✓✗★↑↓→ ）、已迁移模块无 hex、`app.py` 无旧体系 class、颜色只住 `themes.py`、`PENDING_MIGRATION` 必须仍在 ARD 里有任务、图表随主题（断言深色下 `paper_bgcolor=#1a1d23`） | `tests/test_ui_consistency.py` |
+| T-QA-06 | 清理 app.py 中已无引用的渲染函数 | 逐个确认无引用后删除；不误删被测试/业务引用的函数 | 删除 7 个死函数（`_cover_badge`/`_reorder_basis`/`_reorder_reason`/`_trim_flag`/`render_decision_trace`/`render_experiences_html`/`render_analysis_html`，共 166 行）与随之失效的 `analysis`/`decision_trace` 导入；`render_plan_html`（被 `do_agent` 与测试使用）与 `render_memory_html`（被账本页使用）保留；`test_memory_persistence` 改用 `learn_view.render_learn_page()`；`pytest` 177 passed | `app.py` `tests/test_memory_persistence.py` |
 | T-QA-05 | 忽略并清理 pytest 临时目录 | 忽略规则覆盖 `.pytest_tmp/`；工作区无残留 | 原 `.gitignore:23-24` 新增规则；`Remove-Item` 删除 115 个残留条目，`Test-Path` 返回 False，`git status` 不再出现该项。**该规则后续随 T-ENV-03 迁移到 `.git/info/exclude`（`.gitignore` 已删除）** | `.gitignore` → `.git/info/exclude` |
 | T-DOC-03 | 接手文档体系初始化 | 任何人可无门槛接手：规范 + 流程 + 需求 + 设计 + 进度 | 新增 `CLAUDE.md` / `AGENT.md` / `AGENTS.md`（入口指针）/ `docs/PRD.md` / `docs/TRD.md` / `docs/ARD.md`（本文件）；`README.md` 追加「十二、项目文档索引」 | 上述文件 + `README.md` |
 
@@ -206,9 +210,6 @@
 
 | ID | 任务 | 建议写作用域 | 依赖 | 验收标准 |
 |---|---|---|---|---|
-| T-UI-02 | 「为什么这样进」v2 迁移 | `core/why_view.py` `app.py`(Tab2) | — | `.yw-*`/`.ev-*` 改用 `--xm-*` token 与 `.xm-*` 组件；去掉内联硬编码色（#234E70/#66737F…） |
-| T-UI-03 | 「实验验证」v2 迁移 | `core/final_view.py` | — | 去掉内联 style 与硬编码色；数字仍全部来自 `eval/final`；结论含归因说明 |
-| T-UI-04 | 「项目说明」v2 迁移 | `core/about_view.py` `app.py`(Tab7 内联 Markdown 的 emoji) | —（plotly 已就绪） | `.ab-*` 改用 token；去掉 📊/🔬 等 emoji |
 | T-EXP-02 | 排查 `spoilage_ab` 开/关结果完全一致 | `core/simulator.py` `core/policy.py`(`spoilage_control`) `_step63_ablation.py` | — | 给出结论二选一：(a) 开关确实生效但该数据集下无差异 → 补证据并改文案；(b) 开关未生效 → 修复并重跑该消融（**写入新目录，不覆盖 eval/final**） |
 | T-QA-01 | 处理 9 个未使用常量 | `core/config.py` 及引用文档 | T-DOC-01 | 逐个决定"接线 / 删除 / 标注为废弃"，并在 TRD §9 与 README 同步 |
 
@@ -219,7 +220,6 @@
 | T-EXP-03 | 解释 `ablation_3obj.no_revenue` 毛利反超 Full R³（152,939 vs 152,707） | 实验分析（只读 `eval/final`） | 给出机制解释（或明确标注为包装取整/指标口径导致）并写入 TRD §6.3 |
 | T-DOC-02 | 归档根目录 9 个 `_step*.py` 一次性脚本 | 移动文件 + 更新引用 | 移入 `tools/` 或 `eval/_scripts/`，`README`/TRD 引用同步；主线脚本只剩 4 个 run/eval/demo/seed |
 | T-QA-04 | `app.py` 层测试去 gradio 依赖（或显式 skip） | `tests/test_display_layer.py` `tests/test_feedback_view.py` `tests/test_memory_persistence.py` | 无 gradio 环境下不再"失败"，而是 skip 并给出原因；有环境时仍真跑 |
-| T-QA-06 | 清理 app.py 中已无引用的渲染函数 | `app.py` | `render_analysis_html`(957)、`render_decision_trace`(246)、`_home_hero`(203)、`_agent_judgement`(211)、`_trim_flag`(174) 逐个确认后删除或重新接线（`render_plan_html`/`render_experiences_html` 仍被测试引用，保留） |
 | T-ENV-04 | 自动备份习惯（可选）：Windows 计划任务每日 `vcs.ps1 save -WithData` | `tools/` 新增计划任务安装脚本 | 每天至少一个备份提交；失败时不影响开发；文档写清如何卸载 |
 
 ---
@@ -233,7 +233,7 @@
 | R3 | README 与实现漂移，误导接手人 | 中 | 已知，已列差异清单 | T-DOC-01 |
 | R4 | `spoilage_ab` 无差异 → 该实验无法自证 | 中 | 未排查 | T-EXP-02 |
 | R5 | `no_revenue` 毛利反超 → 可能被评委追问 | 中 | 无解释 | T-EXP-03 |
-| R6 | 页面视觉两套体系并存：**app.py 侧已全部统一 v2**，剩 `why_view`/`final_view`/`about_view` 三页仍自带内联色 | 低 | 迁移中（`test_ui_consistency.py` 的 PENDING 白名单即这三页） | T-UI-02..04 |
+| R6 | ~~页面视觉两套体系并存~~ | 低 | ✅ 已解除：全站统一 v2，`PENDING` 白名单清零、全部 `*_view.py` 进 `MIGRATED` | T-UI-01..04 |
 | R7 | 9 个常量已定义未使用，文档却引用 | 低 | 已知 | T-QA-01 / T-DOC-01 |
 | R8 | `.pytest_tmp/` 未被忽略，115 个残留条目有误提交风险 | 低 | ✅ 已解除（T-QA-05） | T-QA-05 |
 | R9 | 仿真数据局限（无断货/报损记录、50 SKU） | 说明性 | 已在 PRD §8 如实披露 | 对外表述口径：不得夸大 |
@@ -302,6 +302,21 @@
 - 下一步具体动作：按 T-UI-02 → T-UI-03 → T-UI-04 逐页迁移，每迁完一页把模块名从 `PENDING_MIGRATION` 移进 `MIGRATED`（测试立刻开始兜住该页）；完成后可顺手做 T-QA-06 清死代码
 - 需要谁配合：无
 
+### 交接：T-UI-02 / T-UI-03 / T-UI-04 / T-QA-06 全站 v2 收尾 + 死代码清理
+- 日期 / 交接人：2026-10-03 / 初始化 Agent
+- 状态：已完成
+- 我改了什么：
+  - `core/why_view.py`：`WHY_CSS` 全部改为 `--xm-*` token（保留 `.yw-*`/`.ev-*` 命名空间）；民生标记从不存在的 `.xm-tag` 改为 `.xm-badge xm-badge-green`
+  - `core/final_view.py`：表现层重写为共享组件（`.xm-card`/`.xm-h3`/`.xm-table`/`.xm-callout`/`.xm-kv*`/`.xm-bar*`/`.xm-chips`/`.xm-acc`），数据逻辑一字未改；**并修掉它引用已删除的 `.dn-card`/`table.dn` 造成的样式破损**
+  - `core/about_view.py`：hero / 问题 / 三条能力 / 技术表全部改用共享组件，`ABOUT_CSS` 清空
+  - `core/ui_theme.py`：新增 `.xm-kv-row/.xm-kv/.xm-kv-k/.xm-kv-v/.xm-kv-sub`、`.xm-bar-*`、`.xm-chips`；删掉 `.st-kv*`（settings_view 改用 `.xm-kv*`）
+  - `app.py`：删除 7 个无引用渲染函数（`_cover_badge`/`_reorder_basis`/`_reorder_reason`/`_trim_flag`/`render_decision_trace`/`render_experiences_html`/`render_analysis_html`，共 166 行）与随之失效的 `analysis`/`decision_trace` 导入
+  - 测试：`tests/test_ui_consistency.py` 的 `MIGRATED` 收下三页、`PENDING` 清空，并把「待迁移白名单必须与 ARD 联动」改成「每个 `*_view.py` 必须已分类」；`tests/test_memory_persistence.py` 改用 `learn_view.render_learn_page()`
+- 证据（本次实测）：三页渲染正常且主题跟随（截图 `tui02-why.png`、`tui03-final.png`、`tui03-final-dark.png`、`tui04-about.png`）；浏览器 `innerText` 扫描 emoji = 0；`why_view`/`final_view`/`about_view`/`app.py` 残留 hex = 0、无旧 `dn-*`；`pytest` **177 passed**（`test_final_view` 4 项含「禁止营销词」全绿）；`app.py` 由 1213 行降到 1047 行
+- 没做完的部分：T-DOC-01（README 常量/参数语义）、T-EXP-02/03（两个实验异常项结论）、T-QA-01（9 个未使用常量裁决）、T-DOC-02（`_step*.py` 归档）、T-ENV-04（自动备份计划任务）；`system` 主题下图表仍按浅色渲染（R15）
+- 下一步具体动作：先做 T-DOC-01（纯文档，风险最低），再做 T-EXP-02 —— 在 `core/simulator.py` 里确认 `spoilage_control` 开关是否真的进入了决策路径（若确实未触发就直接在 ARD/TRD 记「该数据下无差异」并保留页面上的如实说明）
+- 需要谁配合：无
+
 ---
 
 ## 9. 变更记录
@@ -315,5 +330,6 @@
 | 2026-10-03 | 初始化 Agent | **版本控制演练 + 加固**（T-ENV-03）：跑 7 项演练（产物/密钥守卫、安全回退、灾难恢复克隆、忽略探针、guard 幂等、发布流程），暴露并修掉 3 个真问题 → 提交 `1de5f08`（守卫撤出密钥/产物、ASCII 标记 + UTF-8(BOM) 写 exclude、停止跟踪误入库的 `data/*.db.bak`）与 `69f9867` `fix(vcs)`（`-q` + 错误偏好收敛，消除红色假报错）、`42afc03` `docs(vcs)`（验证记录与边界说明）；证据与修法见 [VERSIONING.md §13](VERSIONING.md)；新增风险 R13；发布点 = `main` 合并提交 `763a676` + tag `v0.2.1`。随后 `6ff13e2`（rollback 提示修复）+ `8e3c536`（版本表）发布 `v0.2.2`（合并提交 `51ee83c`）。**最终状态校验**：工作区干净；`origin` 同步 `main`/`develop`；4 个 tag（v0.1.0/v0.2.0/v0.2.1/v0.2.2）；`.gitignore` 已删除、`.git/info/exclude` 生效（6/6 忽略探针命中）；跟踪文件 108 个、其中**无任何产物或密钥**；数据源 `data/*.csv` 已入库；备份区 `_backup/` 3.14MB（本地 origin 已同步：`git ls-remote --heads --tags origin` 可见 main/develop/v0.1.0/v0.2.0/v0.2.1） |
 | 2026-10-03 | 初始化 Agent | **T-ENV-01 解除（依赖 + 网页验证 + 预览截图）**：`pip install -r requirements.txt` → gradio 6.29.1 / plotly 7.1.0；测试从 138 passed / 2 failed / 2 skipped 变为 **142 passed 全绿（92s）**；`python app.py` 起在 http://127.0.0.1:7861（HTTP 200、页面 396KB），用 `agent-browser` 逐页截图 7 个标签页存于 `_backup/preview/`（首页/为什么这样进/今天生意怎么样/它学会了什么/店里的老账本/实验验证/项目说明）；同步 CLAUDE §2/§6、AGENT §8.1/§8.2/§11（新增截图工作流）、TRD §10 与 §12 D1、PRD FR-07、VERSIONING §10、ARD 计数（19 完成 / 0 阻塞 / 11 待办）与 Top3；新增风险 R14（共享环境的 huggingface-hub 版本冲突） |
 | 2026-10-03 | 初始化 Agent | **修掉 `vcs.ps1 save` 的致命缺陷**（预览时发现）：给 `git add` 误加 `-q`（`git add` 不支持该选项，退出码 129）会导致 `save` 永远"没有需要提交的改动"；改为捕获输出 + `Write-Host`，并用 `save` 自身提交修复完成端到端验证（`3de3c8e`）；记录于 [VERSIONING.md §13](VERSIONING.md) |
+| 2026-10-03 | 初始化 Agent | **全站 v2 迁移收尾（T-UI-02/03/04）+ 死代码清理（T-QA-06）**：为什么这样进 / 实验验证 / 项目说明三页迁完 → `test_ui_consistency.py` 的 `PENDING` 白名单清零、三页进 `MIGRATED`；`final_view` 顺带修掉引用已删除 `.dn-card`/`table.dn` 的遗留破损；新增共享组件 `.xm-kv*`/`.xm-bar*`/`.xm-chips`（`.st-kv*` 并入）；删除 7 个无引用渲染函数（166 行）与失效导入，`test_memory_persistence` 改用 `learn_view`；新增测试「每个 `*_view.py` 必须已分类」；测试仍 177 passed；D3/D4 关闭 |
 | 2026-10-03 | 初始化 Agent | **T-UI-01 首页 v2 迁移 + T-QA-02 UI 一致性校验**：删除 app.py 旧内联 CSS（≈3.5KB）与两个死函数；事件图标 → `.xm-badge` 语气徽标；`_hero`/`_trim_flag`/经验卡/KPI/分区标题全部 token 化；**页面可见 emoji 归零**；新增 `themes.plotly_layout/palette` 并让演进曲线、离线评测图、180 天仿真图随主题（深色实测纸底 `#1a1d23`、字色 `#f0f2f5`），换主题时 `apply_theme` 一并重画曲线；新增 `tests/test_ui_consistency.py`（8 项，含 PENDING 白名单与 ARD 联动）；测试 169 → **177 passed**；风险 R6 降级、新增 R15（system 主题图表按浅色） |
 | 2026-10-03 | 初始化 Agent | **T-UI-08 左侧边栏 + T-UI-09 设置栏目与主题系统**：导航从顶部 Tab 改为左侧边栏；新增 `core/themes.py`（6 套主题，其中野兽风浅/深、森友会、纹样·宣纸 4 套移植自 `E:\vibe coding\CodeForge`）、`core/settings_store.py`、`core/settings_view.py`；新增 FR-15、DESIGN §8、TRD §7.1/§7.2 + ADR-009/ADR-010；测试 142 → **169 passed**；截图核对侧边栏 + 4 套主题；风险 R6 更新 |
