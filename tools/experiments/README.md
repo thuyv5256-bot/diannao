@@ -30,7 +30,7 @@ cd <仓库根>
 ## 为什么归档而不是删除
 
 `eval/final/**` 的每个数字都由这些脚本产出（见 [docs/ARD.md](../../docs/ARD.md) 的 T-EXP-01 证据）。
-保留脚本 = 保留「冻结证据可复现」的路径；归档 = 根目录只留 4 个主线入口
-（`app.py` / `demo_flow.py` / `seed_data.py` / `eval.py`）。
+保留脚本 = 保留「冻结证据可复现」的路径；归档 = 根目录只留主线入口
+（网页 `app.py`、演示 `demo_flow.py`、数据 `seed_data.py`、评测 `eval.py`、两个实验 `run_digital_store.py` / `run_event_awareness_ab.py`，外加 `conftest.py`）。
 
 > ⚠️ 实验产物只读：**不要**用新结果覆盖 `eval/final/**`（见 CLAUDE.md 铁律 4）。
