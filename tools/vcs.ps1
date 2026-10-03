@@ -12,6 +12,10 @@
   分支模型（与 GitHub 一致）：main（稳定，只接受合并）/ develop（集成）/
   feature/<名>（功能）/ hotfix/<名>（紧急修复）/ restore/<版本>-<时间>（回退验证）。
 
+.NOTES
+  本文件必须保存为 UTF-8 with BOM：Windows PowerShell 5.1 会把无 BOM 的 UTF-8 按 ANSI(GBK)
+  解析，中文注释/文案会被截断并导致语法错误。若编辑后报 “Unexpected token”，请先补 BOM。
+
 .EXAMPLE
   pwsh -File tools/vcs.ps1 status
   pwsh -File tools/vcs.ps1 save "feat(ui): 首页迁移到 UI v2"
@@ -40,15 +44,21 @@ Set-Location $Root
 $BarePath    = (($Root -replace '\\', '/') + '/_backup/diannao.git')
 $SnapshotDir = Join-Path $Root '_backup/db-snapshots'
 $ExcludePath = Join-Path $Root '.git/info/exclude'
-$GuardMarker = '小满（diannao）本地版控忽略规则'
+# ASCII 标记：幂等判断只用 ASCII，避免中文在 ANSI/UTF-8 之间往返导致判断失效
+$GuardMarker = '# >>> diannao-local-exclude v1'
+$DefaultHeader = @'
+# git ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+'@
 
 # ── 忽略规则块（写入 .git/info/exclude；等价于原 .gitignore）──────────────
 $ExcludeBlock = @'
-# ═══════════════════════════════════════════════════════════════════
+# >>> diannao-local-exclude v1  （本块由 tools/vcs.ps1 guard 维护）
+# ==================================================================
 # 小满（diannao）本地版控忽略规则
 # 本项目不使用 .gitignore（文件已删除），忽略规则统一放在这里。
 # 维护方式：tools/vcs.ps1 guard（幂等，可随时重刷；也用于新克隆环境）
-# ═══════════════════════════════════════════════════════════════════
+# ==================================================================
 
 # ── 本地备份区（裸仓库与数据快照，绝不入库）──
 _backup/
@@ -107,7 +117,9 @@ function Write-Err2($t) { Write-Host "  ✗ $t" -ForegroundColor Red }
 
 function Invoke-Git {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
-  & git @GitArgs
+  # 2>&1：git 的提示信息走 stderr（如 Switched to branch…），并入正常输出，
+  # 避免 Windows PowerShell 5.1 把它们渲染成红色 NativeCommandError。
+  & git @GitArgs 2>&1 | ForEach-Object { $_.ToString() }
   if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') 失败（exit $LASTEXITCODE）" }
 }
 
@@ -138,11 +150,19 @@ function Install-Guard {
     Write-Ok "origin → $BarePath"
   } else { Write-Ok 'origin 已指向本地裸仓库' }
 
-  # 3) 忽略规则
+  # 3) 忽略规则：幂等判断只用 ASCII 标记；写文件用 .NET 显式指定 UTF-8 with BOM，
+  #    避免 PowerShell 5.1 的 ANSI 往返把中文注释写坏（历史踩坑）。
   $content = if (Test-Path $ExcludePath) { Get-Content -Raw $ExcludePath } else { '' }
   if ($content -notmatch [regex]::Escape($GuardMarker)) {
-    ($content.TrimEnd() + "`n`n" + $ExcludeBlock + "`n") | Set-Content -Path $ExcludePath -Encoding UTF8
-    Write-Ok '.git/info/exclude 已写入忽略规则'
+    $custom = ($content -split "\r?\n") | Where-Object { $_ -and $_ -notmatch '^\s*#' }
+    if ($custom) {
+      $bakPath = "$ExcludePath.bak-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
+      Copy-Item -LiteralPath $ExcludePath -Destination $bakPath -Force
+      Write-Warn2 "检测到已有自定义忽略规则，已备份到 $bakPath 后重写"
+    }
+    $text = $DefaultHeader + "`n`n" + $ExcludeBlock + "`n"
+    [System.IO.File]::WriteAllText($ExcludePath, $text, (New-Object System.Text.UTF8Encoding($true)))
+    Write-Ok '.git/info/exclude 已写入忽略规则（UTF-8 with BOM）'
   } else { Write-Ok '.git/info/exclude 忽略规则已就绪' }
 }
 
@@ -156,9 +176,9 @@ function Test-Staged {
     foreach ($rx in $ArtifactPatterns) { if ($p -match $rx) { $artifacts += $p; break } }
   }
   if ($secrets.Count -gt 0) {
-    Write-Err2 '检测到疑似密钥文件，已中止提交：'
-    $secrets | ForEach-Object { Write-Host "      $_" }
-    Write-Host '      （如确需提交，请手动 git add/commit；本项目约定密钥永不入库）'
+    Write-Err2 '检测到疑似密钥文件：已从暂存区撤出并中止提交 ——'
+    foreach ($f in $secrets) { Write-Host "      $f"; & git reset -q -- $f }
+    Write-Host '      （本项目约定：密钥永不入库；如确需提交请手动处理）'
     return $false
   }
   if ($artifacts.Count -gt 0 -and -not $Force) {
