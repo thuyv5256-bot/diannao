@@ -272,3 +272,57 @@ pytest -q
 
 > 另：网页「项目说明」页内嵌「生成评测对比图」，在隔离临时库上跑评测，
 > 不动当前门店记忆，评委无需命令行即可看到对比柱状图。
+---
+
+## 十二、项目文档索引（接手必看）
+
+| 文档 | 内容 | 面向谁 |
+|---|---|---|
+| [CLAUDE.md](CLAUDE.md) | 仓库级作业规范：铁律、环境命令、代码地图、领域不变量、提交检查清单 | 所有改代码的人 / AI Agent |
+| [AGENT.md](AGENT.md) | 接手与交接手册：心智模型、任务生命周期、验证手册、踩坑清单 | 新接手的人 / Agent |
+| [docs/PRD.md](docs/PRD.md) | 产品需求：背景、用户场景、功能需求（FR 编号）、指标与成功标准、数据边界 | 产品 / 评审 |
+| [docs/TRD.md](docs/TRD.md) | 技术设计：分层架构、数据模型、算法口径、参数总表、实验证据、技术债与 ADR | 开发 / 技术评审 |
+| [docs/ARD.md](docs/ARD.md) | **任务分解与进度台账**：29 个任务点、真实进度、下一步任务池、风险台账 | 所有人（进度唯一真相） |
+| [docs/VERSIONING.md](docs/VERSIONING.md) | **版本管理与本地备份**：本地裸仓库当 GitHub、分支/发布/回退流程、忽略策略 | 所有人（提交与回滚必看） |
+| [DESIGN.md](DESIGN.md) | UI Design System v2（token 与组件规范） | 前端 / 视觉 |
+| [DESIGN.legacy.md](DESIGN.legacy.md) | 旧视觉规范（已废弃，仅作历史参考） | — |
+
+> 注：本 README 的「二、界面导览」仍是旧的 5 页版本，实际为 7 个标签页，差异与修复任务见
+> [docs/ARD.md](docs/ARD.md) 的 T-DOC-01。
+
+---
+
+## 十三、版本管理与本地备份（无 GitHub）
+
+本项目**不使用 GitHub**，但完整保留 GitHub 式的版本控制策略 —— 用项目内的一个**裸仓库**扮演远端：
+
+```text
+diannao/
+├── .git/                    工作仓库；忽略规则在 .git/info/exclude（本项目已删除 .gitignore）
+├── _backup/                 ★ 本地备份区（已被忽略，自身不入库）
+│   ├── diannao.git/         裸仓库 = 「本地 GitHub」，登记为 origin，保存全部提交/分支/标签
+│   ├── db-snapshots/        可选：data/*.db 时间戳快照
+│   └── README.txt           说明
+└── tools/vcs.ps1            版本控制工具（guard / save / feature / finish / release / rollback / verify）
+```
+
+日常三条命令：
+
+```powershell
+# 看状态
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 status
+
+# 提交并备份到本地 origin（= GitHub 的 commit + push）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 save "feat(ui): 首页迁移到 UI v2"
+
+# 查看可回退的版本 / 安全回退（新建 restore/<版本> 分支验证）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 versions
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.0
+```
+
+分支模型与 GitHub 一致：`main`（稳定，只接受 `--no-ff` 合并）/ `develop`（集成）/ `feature/*` / `hotfix/*` / `restore/*`；
+版本用 annotated tag `vX.Y.Z` 标记（当前 `v0.1.0` = 初始代码基线，`v0.2.0` = UI v2 三页迁移 + 文档体系 + 本地版控）。
+
+> 完整策略（分支 / 提交规范 / 发布 / 四种回退方式 / 灾难恢复 / 忽略规则）见 [docs/VERSIONING.md](docs/VERSIONING.md)。
+> 删掉 `.gitignore` 后依然不会误提交密钥或大文件：规则在 `.git/info/exclude`，另有 `vcs.ps1 save` 的提交守卫兜底。
+
