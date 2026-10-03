@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
-"""小满 · 首页（今天该进什么货）视觉样板 —— 经营工作台，而非 Dashboard。
+"""小满 · 首页（今天该进什么货）—— 经营工作台（Direction A：现代极简工作台）。
 
-严格遵循 DESIGN.md（UI Design System v1.0）：AI 藏在能力里、不浮在视觉表面；
-所有数字来自真实决策结果，不写死、无机器人/聊天框/渐变/玻璃拟态/动画。
+结构（对齐参考站：左导航 + 流体主区 + 首屏 KPI 条 + 2/3 主区 + 1/3 侧栏）：
+  part='top'    → 页面头部 + KPI 条（整宽）
+  part='rail'   → 右栏「今天提醒」（风险事件 / 民生 / 库存 / 供应）
+  part='result' → 主区：明天重点关注（表）+ 完整进货清单（默认收起）
+
+所有数字来自真实决策结果，不写死；颜色只用 --xm-* token（见 DESIGN.md / CLAUDE.md 铁律 8）。
 """
 
 HOME_CSS = ""
@@ -27,95 +31,152 @@ def _greet():
     return "早上好" if h < 11 else ("中午好" if h < 13 else ("下午好" if h < 18 else "晚上好"))
 
 
+def _briefs(plan, items):
+    """今天提醒的条目（真实判定，不写死）：风险事件 / 民生达标 / 库存风险 / 供应状态。"""
+    m = plan['metrics']
+    out = []
+    for k in (plan.get('risks') or []):
+        label = events.EVENT_KEY_TO_LABEL.get(k, k)
+        out.append(('warn', '今日情况', '检测到%s' % label, '已据此调整今日的销量预计与备货建议'))
+    sec = float(m.get('livelihood_secured_rate', 1.0) or 0.0)
+    if sec >= 1.0 - 1e-9:
+        out.append(('ok', '民生', '民生商品保障正常',
+                    '%d 种民生商品达到最低保障要求' % int(m.get('livelihood_total_count', 0) or 0)))
+    else:
+        out.append(('warn', '民生', '民生保障存在缺口',
+                    '达标率仅 %.0f%%，需优先补足' % (sec * 100)))
+    nrisk = sum(1 for it in items if it.get('stockout_risk'))
+    if nrisk:
+        out.append(('warn', '库存', '%d 种商品可能不够卖' % nrisk, '现有库存覆盖不足，建议优先补货'))
+    if any(it.get('supplier_down') for it in items):
+        out.append(('warn', '供应', '部分商品供应商异常', '断供商品本次不可采购'))
+    else:
+        out.append(('info', '供应', '今天没有供应商异常', '供应链正常'))
+    return out
+
+
+def _kpi(label, value, sub=None, delta=None, delta_kind='flat', value_cls=''):
+    delta_html = ('<div class="xm-kpi-delta xm-kpi-delta-%s">%s</div>' % (delta_kind, delta)) if delta else ''
+    sub_html = ('<div class="xm-kpi-sub">%s</div>' % sub) if sub else ''
+    return ('<div class="xm-kpi"><div class="xm-kpi-k">%s</div>'
+            '<div class="xm-kpi-v %s">%s</div>%s%s</div>' % (label, value_cls, value, delta_html, sub_html))
+
+
+def _row(it):
+    unit = it['unit']
+    qty = float(it['reorder_qty'] or 0)
+    qty_html = ('%.0f <span class="xm-cap">%s</span>' % (qty, unit)) if qty > 0 else '<span class="xm-dim">暂不进货</span>'
+    tags = _rowtags(it)
+    why = ('<details class="xm-acc"><summary>查看原因 ›</summary><div class="basis">%s</div></details>'
+           % decision_basis.render_reorder_basis(it))
+    return ('<tr><td><div class="xm-name">%s</div>%s</td>'
+            '<td class="xm-num xm-dim">%.0f <span class="xm-cap">%s</span></td>'
+            '<td class="xm-num xm-dim">%.1f <span class="xm-cap">%s</span></td>'
+            '<td class="xm-num xm-dim">%.1f <span class="xm-cap">天</span></td>'
+            '<td>%s</td><td>%s</td></tr>'
+            % (it['name'], tags, float(it['on_hand'] or 0), unit, float(it['daily_demand'] or 0), unit,
+               float(it.get('final_cover_days', 0) or 0), qty_html, why))
+
+
+def _rowtags(it):
+    tags = []
+    if it.get('is_livelihood'):
+        tags.append(('xm-badge-green', '民生'))
+    if it.get('stockout_risk'):
+        cover = float(it.get('final_cover_days', 0) or 0)
+        tags.append(('xm-badge-red' if cover < 1 else 'xm-badge-orange', '可能断货'))
+    elif float(it.get('risk_factor', 1) or 1) > 1.001:
+        tags.append(('xm-badge-neutral', '需求上升'))
+    if abs(float(it.get('memory_delta', 0) or 0)) > 1e-9:
+        tags.append(('xm-badge-neutral', '参考历史经验'))
+    return ''.join('<span class="xm-badge %s">%s</span>' % t for t in tags[:2])
+
+
+_THEAD = ('<tr><th>商品</th><th class="xm-num">建议进货</th><th class="xm-num">当前库存</th>'
+          '<th class="xm-num">预计需求</th><th class="xm-num">进货后约够</th><th>说明</th></tr>')
+
+
 def render_home_html(plan: dict, part=None) -> str:
     m = plan['metrics']
     items = plan['items']
-    briefs = []
-    for k in (plan.get('risks') or []):
-        label = events.EVENT_KEY_TO_LABEL.get(k, k)
-        briefs.append(('warn', '今日情况', '检测到%s' % label, '已据此调整今日的销量预计与备货建议'))
-    sec = float(m.get('livelihood_secured_rate', 1.0) or 0.0)
-    if sec >= 1.0 - 1e-9:
-        briefs.append(('ok', '民生', '民生商品保障正常', '%d 种民生商品达到最低保障要求' % int(m.get('livelihood_total_count', 0) or 0)))
-    else:
-        briefs.append(('warn', '民生', '民生保障存在缺口', '达标率仅 %.0f%%，需优先补足' % (sec * 100)))
-    nrisk = sum(1 for it in items if it.get('stockout_risk'))
-    if nrisk:
-        briefs.append(('warn', '库存', '%d 种商品可能不够卖' % nrisk, '现有库存覆盖不足，建议优先补货'))
-    if any(it.get('supplier_down') for it in items):
-        briefs.append(('warn', '供应', '部分商品供应商异常', '断供商品本次不可采购'))
-    else:
-        briefs.append(('info', '供应', '今天没有供应商异常', '供应链正常'))
+    briefs = _briefs(plan, items)
     n_attention = sum(1 for lv, _t, _a, _b in briefs if lv == 'warn')
     _cls = {'warn': 'xm-badge-orange', 'ok': 'xm-badge-green', 'info': 'xm-badge-neutral', 'danger': 'xm-badge-red'}
     brief_html = ''.join(
         '<div class="xm-brief"><span class="xm-badge %s">%s</span>'
-        '<div><div class="xm-brief-t">%s</div><div class="xm-brief-sub">%s</div></div></div>' % (_cls.get(lv, 'xm-badge-neutral'), tag, title, sub)
+        '<div><div class="xm-brief-t">%s</div><div class="xm-brief-sub">%s</div></div></div>'
+        % (_cls.get(lv, 'xm-badge-neutral'), tag, title, sub)
         for lv, tag, title, sub in briefs)
-    dec_html = ('<div class="xm-card" style="padding:12px 16px"><div class="xm-cap">明天建议进货</div>'
-                '<div class="xm-amount">¥%.0f</div>'
-                '<div class="xm-sm">预计毛利 ¥%.0f　·　民生保障 %.0f%%　·　共 %d 种商品</div></div>'
-                % (float(m.get('total_cost', 0) or 0), float(m.get('gross_margin', 0) or 0),
-                   float(m.get('livelihood_secured_rate', 0) or 0) * 100, int(m.get('display_count', 0) or 0)))
 
-    def _rowtags(it):
-        tags = []
-        if it.get('is_livelihood'):
-            tags.append(('xm-badge-green', '民生'))
-        if it.get('stockout_risk'):
-            cover = float(it.get('final_cover_days', 0) or 0)
-            tags.append(('xm-badge-red' if cover < 1 else 'xm-badge-orange', '可能断货'))
-        elif float(it.get('risk_factor', 1) or 1) > 1.001:
-            tags.append(('xm-badge-neutral', '需求上升'))
-        if abs(float(it.get('memory_delta', 0) or 0)) > 1e-9:
-            tags.append(('xm-badge-neutral', '参考历史经验'))
-        return ''.join('<span class="xm-badge %s">%s</span>' % t for t in tags[:2])
-
-    ordered = sorted([it for it in items if it['reorder_qty'] > 0 or it['daily_demand'] > 0], key=lambda x: (-x['is_livelihood'], -x['reorder_qty']))
-
-    def _row(it):
-        unit = it['unit']
-        qty = float(it['reorder_qty'] or 0)
-        qty_html = ('<span class="xm-num">%.0f</span> %s' % (qty, unit)) if qty > 0 else '<span class="xm-dim">暂不进货</span>'
-        why = ('<details class="xm-acc"><summary>查看原因 ›</summary><div class="basis">%s</div></details>'
-               % decision_basis.render_reorder_basis(it))
-        return ('<tr><td><div class="xm-name">%s%s</div></td>'
-                '<td class="xm-dim">%.0f %s</td><td class="xm-dim">%.1f %s</td>'
-                '<td>%s</td><td class="xm-dim">%.1f 天</td><td>%s</td></tr>'
-                % (it['name'], _rowtags(it), float(it['on_hand'] or 0), unit, float(it['daily_demand'] or 0),
-                   unit, qty_html, float(it.get('final_cover_days', 0) or 0), why))
-
-    att = [it for it in items if it.get('stockout_risk') or (it['is_livelihood'] and it.get('trimmed'))]
-    att = sorted(att, key=lambda x: float(x.get('final_cover_days', 99) or 99))[:5]
-    att_html = ''.join(_row(it) for it in att)
-    full_html = ''.join(_row(it) for it in ordered)
-    greet_line = ('今天有 %d 件事值得留意' % n_attention) if n_attention else '今天没有特别需要留意的事'
+    # ── 页面头部 ──
     _ref = plan.get('date')
     try:
         _ref = (_dt.date.fromisoformat(str(plan.get('date'))[:10]) - _dt.timedelta(days=1)).isoformat()
     except Exception:
         pass
-    head = ('<div class="xm-h1">小满</div>'
-            '<div class="xm-cap" style="margin-top:2px">今天 · %s</div>'
-            '<div class="xm-body" style="margin-top:8px;font-weight:500">%s，%s</div></div>'
-            % (_day_cn(_ref), _greet(), greet_line))
-    att_sec = ('<div class="xm-sec"><div class="xm-sec-title">明天重点关注</div><div class="xm-hint">建议先确认这些商品的备货情况</div>'
-               '<table class="xm-table"><tr><th>商品</th><th>当前库存</th><th>预计需求</th>'
-               '<th>建议进货</th><th>进货后约够</th><th>说明</th></tr>' + att_html + '</table></div>') if att_html else ''
-    spec_note = ''
+    risk_txt = '无特殊风险事件'
     if plan.get('risks'):
-        labels = '、'.join(events.EVENT_KEY_TO_LABEL.get(k, k) for k in plan['risks'])
-        spec_note = '<div class="xm-brief-sub" style="margin:8px 0 0">已考虑%s对相关商品需求的影响。</div>' % labels
-    tbl = '<table class="xm-table"><tr><th>商品</th><th>当前库存</th><th>预计需求</th><th>建议进货</th><th>进货后约够</th><th>说明</th></tr>'
-    top = ('<div class="xm-home">' + head
-           + '<div class="xm-sec"><div class="xm-sec-title">今日提醒</div>' + brief_html + '</div></div>')
-    result = ('<div class="xm-home">'
-              + '<div class="xm-sec"><div class="xm-sec-title">明天建议这样进</div>' + dec_html + spec_note + '</div>'
-              + att_sec
-              + '<div class="xm-sec"><div class="xm-sec-title">完整进货清单</div>' + tbl + full_html + '</table></div></div>')
+        risk_txt = '、'.join(events.EVENT_KEY_TO_LABEL.get(k, k) for k in plan['risks'])
+    head = ('<div class="xm-page-head"><div>'
+            '<div class="xm-h1">今天该进什么货</div>'
+            '<div class="xm-page-sub">%s · %s　预算 ¥%.0f　生效风险：%s</div>'
+            '</div></div>'
+            % (_day_cn(_ref), _greet(), float(plan.get('budget', 0) or 0), risk_txt))
+
+    # ── KPI 条（首屏就能看到四个关键数字）──
+    sec = float(m.get('livelihood_secured_rate', 0.0) or 0.0)
+    first_warn = next((t for lv, _tag, t, _s in briefs if lv == 'warn'), '没有需要特别处理的事')
+    kpis = (
+        _kpi('明天建议进货', '¥%.0f' % float(m.get('total_cost', 0) or 0),
+             sub='共 %d 种商品需要进货' % int(m.get('display_count', 0) or 0))
+        + _kpi('预计毛利', '¥%.0f' % float(m.get('gross_margin', 0) or 0),
+               sub='按真实进销价与需求预测计算')
+        + _kpi('民生保障', '%.0f%%' % (sec * 100),
+               delta=('全部达标' if sec >= 1.0 - 1e-9 else '存在缺口'),
+               delta_kind=('up' if sec >= 1.0 - 1e-9 else 'down'),
+               sub='%d 种民生商品' % int(m.get('livelihood_total_count', 0) or 0))
+        + _kpi('需要留意', '%d 件' % n_attention, sub=first_warn,
+               delta_kind='flat')
+    )
+    top = '<div class="xm-home">%s<div class="xm-kpi-row">%s</div></div>' % (head, kpis)
+
     if part == 'top':
         return top
+
+    # ── 右栏：今天提醒 ──
+    rail = ('<div class="xm-home"><div class="xm-card">'
+            '<div class="xm-sec-head"><div class="xm-h3">今天提醒</div>'
+            '<span class="xm-cap">%d 件需要留意</span></div>'
+            '<div style="margin-top:12px">%s</div></div></div>'
+            % (n_attention, brief_html))
+    if part == 'rail':
+        return rail
+
+    # ── 主区：重点关注 + 完整清单（默认收起）──
+    att = [it for it in items if it.get('stockout_risk') or (it['is_livelihood'] and it.get('trimmed'))]
+    att = sorted(att, key=lambda x: float(x.get('final_cover_days', 99) or 99))[:5]
+    att_html = ''.join(_row(it) for it in att)
+    att_sec = ('<div class="xm-card">'
+               '<div class="xm-sec-head"><div class="xm-h3">明天重点关注</div>'
+               '<span class="xm-cap">建议先确认这些商品的备货</span></div>'
+               '<table class="xm-table" style="margin-top:12px">%s%s</table></div>'
+               % (_THEAD, att_html)) if att_html else ''
+
+    ordered = sorted([it for it in items if it['reorder_qty'] > 0 or it['daily_demand'] > 0],
+                     key=lambda x: (-x['is_livelihood'], -x['reorder_qty']))
+    full_html = ''.join(_row(it) for it in ordered)
+    total_qty = sum(float(it['reorder_qty'] or 0) for it in items)
+    fold = ('<details class="xm-fold"><summary>完整进货清单'
+            '<span class="xm-fold-meta">共 %d 种商品 · 建议进货合计 %.0f 件</span></summary>'
+            '<div class="xm-fold-body"><table class="xm-table">%s%s</table></div></details>'
+            % (len(ordered), total_qty, _THEAD, full_html))
+
+    note = ''
+    if plan.get('risks'):
+        labels = '、'.join(events.EVENT_KEY_TO_LABEL.get(k, k) for k in plan['risks'])
+        note = ('<div class="xm-callout" style="margin-top:12px">已考虑<b>%s</b>对相关商品需求的影响，'
+                '事件因子只在需求预测侧乘一次，覆盖天数里不再叠加缓冲。</div>' % labels)
+    result = '<div class="xm-home">%s%s%s</div>' % (att_sec, fold, note)
     if part == 'result':
         return result
     return top + result
-

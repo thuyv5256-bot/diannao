@@ -28,7 +28,7 @@ html, body { background: var(--xm-shell-bg); }
 body, .gradio-container, button, input, textarea, select,
 .xm-home, .xm-page { font-family: var(--xm-font) !important; }
 
-.xm-home, .xm-page { max-width: 1280px; margin: 0 auto; color: var(--xm-ink); }
+.xm-home, .xm-page { max-width: none; margin: 0; color: var(--xm-ink); }
 .xm-h1 { font-size:28px; font-weight:600; line-height:1.25; color:var(--xm-ink); margin:0; }
 .xm-h2 { font-size:22px; font-weight:600; line-height:1.30; color:var(--xm-ink); margin:0; }
 .xm-h3 { font-size:18px; font-weight:600; line-height:1.40; color:var(--xm-ink); margin:0; }
@@ -83,6 +83,27 @@ body, .gradio-container, button, input, textarea, select,
   color: var(--xm-sidebar-active-fg) !important; font-weight:600 !important; }
 #xm-nav input { display:none !important; }
 #xm-nav span { color: inherit !important; font-size:14px !important; }
+
+/* 分组小标题与「设置」沉底：NAV_CHOICES 顺序固定，用 nth-of-type 对位（纯 CSS，无第二份控件） */
+#xm-side { display:flex; flex-direction:column; height:calc(100vh - 32px); }
+#xm-nav { display:flex; flex-direction:column; flex:1 1 auto; border:0 !important; margin:0 !important;
+  padding:0 !important; min-width:0 !important; }
+#xm-nav .wrap { flex:1 1 auto; }
+#xm-nav .wrap > label { position:relative; }
+#xm-nav .wrap > label:nth-of-type(1) { margin-top:20px !important; }
+#xm-nav .wrap > label:nth-of-type(4) { margin-top:24px !important; }
+#xm-nav .wrap > label:nth-of-type(7) { margin-top:24px !important; }
+#xm-nav .wrap > label:nth-of-type(1)::before { content:"经营"; }
+#xm-nav .wrap > label:nth-of-type(4)::before { content:"复盘"; }
+#xm-nav .wrap > label:nth-of-type(7)::before { content:"说明"; }
+#xm-nav .wrap > label:nth-of-type(1)::before, #xm-nav .wrap > label:nth-of-type(4)::before,
+#xm-nav .wrap > label:nth-of-type(7)::before { position:absolute; top:-16px; left:12px; font-size:11px;
+  font-weight:600; letter-spacing:.08em; color:var(--xm-sidebar-muted); opacity:.8; }
+#xm-nav .wrap > label:nth-of-type(8) { margin-top:auto !important;
+  border-top:1px solid var(--xm-sidebar-border) !important; border-radius:0 !important; }
+#xm-nav .wrap > label:nth-of-type(8)::before { content:"系统 + 设置"; position:absolute; top:-16px; left:12px;
+  font-size:11px; font-weight:600; letter-spacing:.08em; color:var(--xm-sidebar-muted); opacity:.8; }
+@media (max-width: 900px), (max-height: 760px) { #xm-side { height:auto; } }
 
 @media (max-width: 900px) {
   #xm-shell { flex-direction:column !important; }
@@ -139,6 +160,10 @@ input.xm-input:focus, textarea.xm-input:focus { border:2px solid var(--xm-primar
 .xm-table td { font-size:14px; color:var(--xm-ink); padding:14px 20px;
   border-bottom:1px solid var(--xm-hairline-soft); vertical-align:top; }
 .xm-table tr:last-child td { border-bottom:none; }
+.xm-table tbody tr:hover { background:var(--xm-surface-soft); }
+.xm-table th.xm-num, .xm-table td.xm-num { text-align:right; font-variant-numeric:tabular-nums; }
+.xm-table td.xm-num { white-space:nowrap; }
+.xm-table th { position:sticky; top:0; z-index:1; }
 .xm-name { font-size:15px; font-weight:600; color:var(--xm-ink); }
 .xm-num { font-size:16px; font-weight:600; color:var(--xm-ink); }
 .xm-amount { font-size:30px; font-weight:600; color:var(--xm-ink); margin:6px 0; }
@@ -167,39 +192,78 @@ input.xm-input:focus, textarea.xm-input:focus { border:2px solid var(--xm-primar
 .xm-bar-val { flex:0 0 76px; text-align:right; font-size:13px; font-weight:600; color: var(--xm-ink); }
 .xm-chips { display:flex; flex-wrap:wrap; gap:8px; margin: var(--xm-space-sm) 0 4px; }
 
-/* ═══ 设置页 ════════════════════════════════════════════════════════ */
-.st-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(238px, 1fr));
-  gap: var(--xm-space-md); margin: var(--xm-space-sm) 0 var(--xm-space-lg); }
-.st-card { position:relative; background:var(--xm-canvas); border: var(--xm-border-w) solid var(--xm-card-border);
-  border-radius:var(--xm-radius-lg); padding:14px 16px 16px; box-shadow: var(--xm-card-shadow); }
-.st-card.is-active { border-color: var(--xm-primary); }
-.st-card-h { display:flex; align-items:center; gap:8px; margin-bottom:2px; }
-.st-card-name { font-size:15px; font-weight:600; color:var(--xm-ink); }
-.st-card-tag { font-size:12px; font-weight:600; color:var(--xm-steel);
-  background:var(--xm-surface-soft); border-radius:var(--xm-radius-full); padding:2px 8px; }
-.st-card-desc { font-size:13px; color:var(--xm-slate); line-height:1.7; margin:6px 0 10px; min-height:44px; }
-.st-card-src { font-size:12px; color:var(--xm-steel); line-height:1.6; }
-.st-swatches { display:flex; gap:6px; margin:10px 0 8px; }
-.st-swatch { width:26px; height:26px; border-radius:var(--xm-radius-sm);
-  border:1px solid var(--xm-hairline-strong); }
-.st-cur { position:absolute; top:12px; right:12px; font-size:12px; font-weight:600;
-  color:var(--xm-on-primary); background:var(--xm-primary);
-  border-radius:var(--xm-radius-full); padding:3px 9px; }
+/* ═══ 页面头部 / 工具条（标题左、操作右）══════════════════════════ */
+.xm-page-head { display:flex; align-items:flex-end; justify-content:space-between; gap:var(--xm-space-lg);
+  flex-wrap:wrap; margin-bottom:var(--xm-space-lg); }
+.xm-page-sub { font-size:13px; color:var(--xm-slate); margin-top:4px; }
+.xm-head-actions { display:flex; align-items:center; gap:var(--xm-space-sm); }
+.xm-toolbar { display:flex; align-items:center; justify-content:space-between; gap:var(--xm-space-md);
+  flex-wrap:wrap; margin-bottom:var(--xm-space-sm); }
+.xm-toolbar-actions { display:flex; align-items:center; gap:var(--xm-space-xs); }
+.xm-sec-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
 
-/* ═══ 兼容旧内联样式的硬编码色（Tab1 完整迁移见 ARD T-UI-01）═════════ */
-h3 { color: var(--xm-ink) !important; }
-.dn-risk-panel { background: var(--xm-canvas) !important;
-  border-color: var(--xm-hairline) !important; border-left-color: var(--xm-warning) !important; }
-.dn-risk-head { color: var(--xm-ink) !important; }
-.dn-risk-sub { color: var(--xm-slate) !important; }
-.risk-note { background: var(--xm-warning-soft) !important;
-  border-left-color: var(--xm-warning) !important; color: var(--xm-charcoal) !important; }
+/* ═══ Gradio 原生控件外观对齐（去掉默认灰块与彩色标签胶囊）═══════════ */
+/* 输入类控件保留自己的边框与底色（block 背景被透明化后需要显式给回来） */
+html:root .gradio-container input[type="text"], html:root .gradio-container input[type="number"],
+html:root .gradio-container textarea {
+  background: var(--xm-canvas) !important; border: 1px solid var(--xm-hairline-strong) !important;
+  border-radius: var(--xm-radius-md) !important; padding: 8px 12px !important;
+  font-size: 14px !important; color: var(--xm-ink) !important; }
+/* 下拉框 / 数字框外层也去掉灰底 */
+html:root .gradio-container .wrap-inner, html:root .gradio-container .secondary-wrap,
+html:root .gradio-container .input-container { background: transparent !important; border: 0 !important; }
+.gradio-container .block > label > span, .gradio-container span[data-testid="block-info"] {
+  background: transparent !important; color: var(--xm-slate) !important; font-size: 13px !important;
+  font-weight: 500 !important; padding: 0 0 4px !important; border: 0 !important; }
+.gradio-container .form, .gradio-container .panel, .gradio-container .styler,
+.gradio-container .gr-group:not(.xm-card) { background: transparent !important; border: 0 !important;
+  box-shadow: none !important; padding: 0 !important; }
+
+/* ═══ KPI 条（首屏 3~5 张；数值用等宽数字对齐）═════════════════════ */
+.xm-kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
+  gap:var(--xm-space-md); margin-bottom:var(--xm-space-lg); }
+.xm-kpi { background:var(--xm-canvas); border:var(--xm-border-w) solid var(--xm-card-border);
+  border-radius:var(--xm-radius-lg); padding:16px 18px; box-shadow:var(--xm-card-shadow); }
+.xm-kpi-k { font-size:12px; color:var(--xm-steel); }
+.xm-kpi-v { font-size:28px; font-weight:600; line-height:1.2; color:var(--xm-ink); margin-top:6px;
+  font-variant-numeric:tabular-nums; }
+.xm-kpi-v-sm { font-size:20px; }
+.xm-kpi-sub { font-size:12px; color:var(--xm-slate); margin-top:6px; line-height:1.5; }
+.xm-kpi-delta { display:inline-block; font-size:12px; font-weight:600; border-radius:var(--xm-radius-full);
+  padding:2px 8px; margin-top:6px; }
+.xm-kpi-delta-up { background:var(--xm-success-soft); color:var(--xm-success); }
+.xm-kpi-delta-down { background:var(--xm-error-soft); color:var(--xm-error); }
+.xm-kpi-delta-flat { background:var(--xm-surface-soft); color:var(--xm-steel); }
+
+/* ═══ 工作台分栏：主区 2fr + 侧栏 1fr（窄屏自动堆叠）════════════════ */
+.xm-split { display:grid !important; grid-template-columns:minmax(0, 2fr) minmax(300px, 1fr);
+  gap:var(--xm-space-lg); align-items:start; }
+.xm-main-col > *:last-child, .xm-rail > *:last-child { margin-bottom:0 !important; }
+.xm-risk-checks, .xm-risk-checks > .gr-group, .xm-risk-checks .gr-group {
+  display:grid !important; grid-template-columns:1fr; gap:6px;
+  align-items:start; min-width:0; }
+.xm-risk-checks label span, .xm-risk-checks label { white-space:normal; font-size:13px !important; }
+
+/* ═══ 折叠区（长表格默认收起，避免一屏几千像素）════════════════════ */
+.xm-fold { border:var(--xm-border-w) solid var(--xm-card-border); border-radius:var(--xm-radius-lg);
+  background:var(--xm-canvas); box-shadow:var(--xm-card-shadow); margin-bottom:var(--xm-space-md); overflow:hidden; }
+.xm-fold > summary { list-style:none; cursor:pointer; padding:14px 18px; font-size:15px; font-weight:600;
+  color:var(--xm-ink); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.xm-fold > summary::-webkit-details-marker { display:none; }
+.xm-fold > summary::after { content:"展开"; font-size:12px; font-weight:500; color:var(--xm-primary); }
+.xm-fold[open] > summary::after { content:"收起"; }
+.xm-fold > summary .xm-fold-meta { font-size:12px; font-weight:400; color:var(--xm-steel); }
+.xm-fold-body { padding:0 18px 16px; }
+.xm-fold-body .xm-table { margin-top:2px; }
 
 /* ═══ 响应式 ════════════════════════════════════════════════════════ */
-@media (max-width: 1023px) { .xm-home, .xm-page { max-width:100%; } }
+@media (max-width: 1180px) { .xm-split { grid-template-columns:minmax(0, 1fr); } }
+@media (max-width: 1023px) { .xm-kpi-row { grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); } }
 @media (max-width: 767px) {
   .xm-h1 { font-size:24px; }
+  .xm-kpi-v { font-size:24px; }
   .xm-table { display:block; overflow-x:auto; }
+  .xm-page-head { align-items:flex-start; }
 }
 """
 

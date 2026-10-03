@@ -68,7 +68,10 @@ def sidebar_brand_html(theme_id=None) -> str:
 
 CSS = themes.theme_css(ACTIVE_THEME) + """
 /* 应用级补充：组件样式统一在 core/ui_theme.py，颜色一律走 --xm-* token */
-.gradio-container { max-width: 1600px !important; }
+/* Direction A：外壳更宽、左右留 24px，主区吃满剩余宽度（不再窄列居中） */
+.gradio-container { max-width: 1560px !important; padding-left: 24px !important; padding-right: 24px !important; }
+/* Gradio 自己的 main 默认只有 960px，会把主区压成窄列 —— 放开它 */
+.gradio-container main, .gradio-container .main { max-width: none !important; }
 footer { display: none !important; }
 .gradio-container footer { display: none !important; }
 """ + home_view.HOME_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + settings_view.SETTINGS_CSS + ui_theme.THEME_CSS
@@ -281,7 +284,9 @@ def do_plan(date_str: str, budget: float, rain: bool, heat: bool,
     budget = float(budget or DEFAULT_BUDGET)
     risks = _active_risks(rain, heat, holiday, supplier)
     plan = policy.build_plan(d, budget, policy.MODE_DIANNAO, persist=False, risks=risks)
-    return (home_view.render_home_html(plan, 'top'), home_view.render_home_html(plan, 'result'))
+    return (home_view.render_home_html(plan, 'top'),
+            home_view.render_home_html(plan, 'rail'),
+            home_view.render_home_html(plan, 'result'))
 
 
 def do_compare(date_str: str, budget: float, rain: bool, heat: bool,
@@ -843,48 +848,44 @@ def build_app():
             with gr.Column(scale=1, min_width=0, elem_id="xm-main"):
                 with gr.Tabs(elem_id="main-nav") as main_tabs:
                     # ── Tab 1 ──
+                    # ── Tab 1 ── 今天该进什么货（Direction A：KPI 条整宽 + 2/3 主区 + 1/3 侧栏）
                     with gr.Tab("今天该进什么货", id="home"):
-                        with gr.Group(elem_classes=["xm-flow"]):
-                            plan_top_out = gr.HTML(home_view.render_home_html(policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False), 'top'))
-                            with gr.Accordion('明天按什么情况进货？　%s · 预算 ¥%.0f · 暂无特殊情况' % (DEFAULT_PLAN_DATE[5:].replace('-', '/'), DEFAULT_BUDGET), open=False):
+                        _init_plan = policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET,
+                                                       policy.MODE_DIANNAO, persist=False)
+                        plan_top_out = gr.HTML(home_view.render_home_html(_init_plan, 'top'))
+                        with gr.Row(elem_id="xm-home-split", elem_classes=["xm-split"]):
+                            with gr.Column(scale=2, min_width=0, elem_classes=["xm-main-col"]):
+                                plan_out = gr.HTML(home_view.render_home_html(_init_plan, 'result'))
                                 with gr.Row(elem_classes=["xm-row"]):
-                                    date_in = gr.Textbox(value=DEFAULT_PLAN_DATE, label="目标经营日",
-                                                         scale=2, info="为这一天的经营备货，默认=明天")
-                                    budget_in = gr.Number(value=DEFAULT_BUDGET, label="这次最多花多少（元）",
-                                                          scale=2)
-                                    btn_plan = gr.Button("重新生成进货建议", variant="primary", scale=1)
-                                    btn_cmp = gr.Button("与传统算法对比（实验）", scale=1)
-    
+                                    btn_explain = gr.Button("用大白话解释", scale=1)
+                                    btn_goto_exp = gr.Button("查看实验验证 ›", scale=1)
+                                explain_out = gr.HTML()
+                                with gr.Group(elem_classes=["xm-card", "xm-sec"]):
+                                    gr.HTML("<div class='xm-h3'>Agent 智能补货</div>"
+                                            "<div class='xm-hint'>直接说需求，例如「预算600元，明天高温」；"
+                                            "Agent 会读历史数据 → 找历史事件 → 分析影响 → 出方案并解释。</div>")
+                                    agent_in = gr.Textbox(label="你的需求", lines=2,
+                                                          placeholder="例如：预算600元，明天高温，帮我算算")
+                                    btn_agent = gr.Button("让 Agent 来算", variant="primary")
+                                    agent_out = gr.HTML()
+                            with gr.Column(scale=1, min_width=280, elem_classes=["xm-rail"]):
+                                rail_out = gr.HTML(home_view.render_home_html(_init_plan, 'rail'))
                                 with gr.Group(elem_classes=["xm-card"]):
-                                    gr.HTML("<div class='xm-sec-title'>明天有没有特殊情况？</div>"
-                                            "<div class='xm-hint'>勾选后小满会把它纳入销量预计与补货计算；"
-                                            "不勾选则按正常情况计算。</div>")
+                                    gr.HTML("<div class='xm-h3'>明天按什么情况进货</div>"
+                                            "<div class='xm-hint'>勾选后会纳入销量预计与补货计算；"
+                                            "不勾选则按正常情况算。</div>")
+                                    with gr.Group(elem_id="xm-risk-checks", elem_classes=["xm-risk-checks"]):
+                                        rain_cb = gr.Checkbox(value=False, label="暴雨")
+                                        heat_cb = gr.Checkbox(value=False, label="高温")
+                                        holiday_cb = gr.Checkbox(value=False, label="节假日")
+                                        supplier_cb = gr.Checkbox(value=False, label="供应商断货")
+                                    date_in = gr.Textbox(value=DEFAULT_PLAN_DATE, label="目标经营日",
+                                                         info="为这一天的经营备货，默认=明天")
+                                    budget_in = gr.Number(value=DEFAULT_BUDGET, label="这次最多花多少（元）")
                                     with gr.Row(elem_classes=["xm-row"]):
-                                        rain_cb = gr.Checkbox(value=False, label="暴雨",
-                                                              info="客流可能下降")
-                                        heat_cb = gr.Checkbox(value=False, label="高温",
-                                                              info="冷饮需求可能上升")
-                                        holiday_cb = gr.Checkbox(value=False, label="节假日",
-                                                                 info="整体备货需求可能增加")
-                                        supplier_cb = gr.Checkbox(value=False, label="供应商断货",
-                                                                  info="需要增加安全库存缓冲")
-
-                            plan_out = gr.HTML(home_view.render_home_html(policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False), 'result'))
-                        with gr.Row():
-                            btn_explain = gr.Button("用大白话解释", scale=1)
-                            btn_goto_exp = gr.Button("查看实验验证 ›", scale=1)
-                        explain_out = gr.HTML()
-
-                        gr.HTML("<div class='xm-sec' style='margin-top:var(--xm-space-lg)'>"
-                                "<div class='xm-sec-title'>Agent 智能补货</div>"
-                                "<div class='xm-hint'>直接说需求，例如「预算600元，明天高温」。"
-                                "Agent 会读历史数据 → 找历史事件 → 分析销量影响 → 出方案并解释。</div></div>")
-                        with gr.Row(elem_classes=["xm-row"]):
-                            agent_in = gr.Textbox(label="你的需求", scale=4,
-                                                  placeholder="例如：预算600元，明天高温，帮我算算")
-                            btn_agent = gr.Button("让 Agent 来算", variant="primary", scale=1)
-                        agent_out = gr.HTML()
-
+                                        btn_plan = gr.Button("重新生成建议", variant="primary", scale=1)
+                                    with gr.Row(elem_classes=["xm-row"]):
+                                        btn_cmp = gr.Button("与传统算法对比", scale=1)
                         with gr.Accordion('高级实验工具 · 180 天长期仿真（现场无需运行）', open=False):
                             with gr.Row(elem_classes=["xm-row"]):
                                 sim_budget = gr.Number(value=simulator.DEFAULT_SIM_BUDGET,
@@ -993,7 +994,7 @@ def build_app():
         # ── 事件绑定统一放在末尾，便于跨标签页联动 ──
         risk_inputs = [rain_cb, heat_cb, holiday_cb, supplier_cb]
         plan_inputs = [date_in, budget_in, rain_cb, heat_cb, holiday_cb, supplier_cb]
-        btn_plan.click(do_plan, plan_inputs, [plan_top_out, plan_out])
+        btn_plan.click(do_plan, plan_inputs, [plan_top_out, rail_out, plan_out])
         # 左侧边栏导航 ↔ 内容面板：Radio 选中即切 Tab；跨页跳转按钮同时回写导航高亮
         nav_radio.change(lambda v: gr.Tabs(selected=v), nav_radio, main_tabs)
         btn_goto_exp.click(lambda: (gr.Tabs(selected="experiment"), gr.Radio(value="experiment")),
@@ -1005,7 +1006,7 @@ def build_app():
         btn_agent.click(do_agent, agent_in, agent_out)
         # 勾选/取消风险事件时，自动重算并同步顶部提醒
         for cb in risk_inputs:
-            cb.change(do_plan, plan_inputs, [plan_top_out, plan_out])
+            cb.change(do_plan, plan_inputs, [plan_top_out, rail_out, plan_out])
         btn_tpl.click(lambda d: load_feedback_template(d), fb_date, [fb_df, fb_hint])
         btn_submit.click(
             submit_feedback_full, [fb_date, fb_df],

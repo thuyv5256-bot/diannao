@@ -112,16 +112,21 @@ def render_products() -> str:
                          p.get("lead_time_days", "—"),
                          h["stockout_days"], h["stockout_qty"],
                          h["spoilage_days"], h["spoilage_qty"]))
+    # 50 行表格默认收起（Direction A：长表格不要一次铺满整屏），需要时一键展开
     return ('<div class="xm-sec"><div class="xm-sec-title">商品档案</div>'
-            '<table class="xm-table">'
+            '<details class="xm-fold"><summary>全部 %d 种商品'
+            '<span class="xm-fold-meta">日均销量 · 当前库存 · 可支撑天数</span></summary>'
+            '<div class="xm-fold-body"><table class="xm-table">'
             '<tr><th>商品</th><th>类别</th><th>民生</th>'
-            '<th>日均销量</th><th>当前库存</th><th>可支撑天数</th></tr>%s</table>'
-            '<details class="xm-acc"><summary>查看完整商品字段'
+            '<th class="xm-num">日均销量</th><th class="xm-num">当前库存</th>'
+            '<th class="xm-num">可支撑天数</th></tr>%s</table>'
+            '<details class="xm-acc" style="margin-top:14px"><summary>查看完整商品字段'
             '（供应商、到货时间、断货 / 损耗明细）</summary>'
             '<table class="xm-table" style="margin-top:10px">'
-            '<tr><th>编号</th><th>商品</th><th>供应商</th><th>到货天数</th>'
-            '<th>曾断货</th><th>曾损耗</th></tr>%s</table>'
-            '</details></div>' % ("".join(main), "".join(detail)))
+            '<tr><th>编号</th><th>商品</th><th>供应商</th><th class="xm-num">到货天数</th>'
+            '<th class="xm-num">曾断货</th><th class="xm-num">曾损耗</th></tr>%s</table>'
+            '</details></div></details></div>'
+            % (len(health), "".join(main), "".join(detail)))
 
 
 def render_suppliers() -> str:

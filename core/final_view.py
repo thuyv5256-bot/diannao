@@ -177,13 +177,13 @@ def render_html():
                   "统一指标口径", "固定随机种子", "结果可复现"]))
     rows1 = "".join(_kv_delta(n, dian.get(k), base.get(k), p, low) for n, k, p, low in [("累计毛利（元）", "cumulative_gross_margin", False, False), ("总体缺货率", "stockout_rate", True, True), ("民生商品缺货率", "livelihood_stockout_rate", True, True), ("民生保障率", "livelihood_secured_rate", True, False), ("损耗率", "spoilage_rate", True, True), ("平均库存资金占用（元）", "avg_inventory_capital", False, True), ("库存周转率", "inventory_turnover", False, False)])
     h1 = "民生缺货率 小满 %s / 传统 %s；总体缺货率 小满 %s / 传统 %s。两项不一定同向，请逐项看下表。小满不是追求每个经营指标都超过传统方法，而是在经营收益、抗风险与民生保障之间做多目标取舍。" % (_pct(dian.get('livelihood_stockout_rate')), _pct(base.get('livelihood_stockout_rate')), _pct(dian.get('stockout_rate')), _pct(base.get('stockout_rate')))
-    hl = ('<div class="xm-kv-row" style="margin:12px 0">'
-          '<div class="xm-card" style="flex:1;min-width:170px;margin-bottom:0"><div class="xm-kv-k">民生保障率</div>'
-          '<div class="xm-kv-v">%s</div><div class="xm-kv-sub">传统 %s</div></div>'
-          '<div class="xm-card" style="flex:1;min-width:170px;margin-bottom:0"><div class="xm-kv-k">民生商品缺货率</div>'
-          '<div class="xm-kv-v">%s</div><div class="xm-kv-sub">传统 %s</div></div>'
-          '<div class="xm-card" style="flex:1;min-width:170px;margin-bottom:0"><div class="xm-kv-k">累计毛利</div>'
-          '<div class="xm-kv-v">%s</div><div class="xm-kv-sub">传统 %s</div></div></div>'
+    hl = ('<div class="xm-kpi-row">'
+          '<div class="xm-kpi"><div class="xm-kpi-k">民生保障率</div>'
+          '<div class="xm-kpi-v">%s</div><div class="xm-kpi-sub">传统 %s</div></div>'
+          '<div class="xm-kpi"><div class="xm-kpi-k">民生商品缺货率</div>'
+          '<div class="xm-kpi-v">%s</div><div class="xm-kpi-sub">传统 %s</div></div>'
+          '<div class="xm-kpi"><div class="xm-kpi-k">累计毛利</div>'
+          '<div class="xm-kpi-v">%s</div><div class="xm-kpi-sub">传统 %s</div></div></div>'
           % (_pct(dian.get('livelihood_secured_rate')), _pct(base.get('livelihood_secured_rate')),
              _pct(dian.get('livelihood_stockout_rate')), _pct(base.get('livelihood_stockout_rate')),
              _money(dian.get('cumulative_gross_margin')), _money(base.get('cumulative_gross_margin'))))

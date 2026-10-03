@@ -225,6 +225,7 @@ agent-browser click '@e3'; agent-browser wait 3000; agent-browser screenshot -f 
 21. **UI 层测试缺依赖要 skip，不要失败**：`app.py` 依赖 gradio/plotly，测试里统一用 `from conftest import require_app`（内部 `pytest.importorskip`，并显式 `exc_type=ImportError` 以避开 pytest 9 的弃用告警）。验证方法：用 meta_path 插件屏蔽这两个包后跑，应为 `22 passed, 4 skipped`。
 22. **每日自动备份会把当时工作区的改动一起提交**（这正是备份的意义）。想提交信息更规范，就在关键节点手动 `vcs.ps1 save`；备份过程与结果在 `_backup/backup.log`，计划任务名叫 `diannao-daily-backup`。
 23. **别在 Gradio 里做「展示卡片 + 隐藏控件」双份 UI**：纯 `gr.HTML` 卡片点不动（不会触发事件）；`gr.HTML(js_on_load=…)` 只对模板模式（`html_template`）生效，普通 `value=` 模式实测**不执行**（T-UI-10 踩过）。正确做法：把控件本体（`gr.Radio`/`gr.Button`）用 CSS 渲染成卡片，状态只留一份；隐藏原生 input 时用 `opacity:0` 而非 `display:none`，否则键盘不可达。
+24. **Gradio 的三层壳会偷走你的宽度和底色**（T-UI-11 踩过）：① `.gradio-container` 之外，`main` 默认还有 **960px 上限**，不显式 `main{max-width:none}` 主区永远是窄列；② 原生 `.block/.panel` 会用主题的 `--block-background-fill` 铺一层灰底，卡片里就会套灰块 —— 正确做法是在 `core/themes.py` 把 `--block-*`/`--panel-*` 设成 `transparent`，让 `.xm-card` 承担表面；③ 这些 token 由主题 CSS 以 `html:root .gradio-container` 写入，普通选择器覆盖不掉（要么改 themes.py，要么同特异性 + 更靠后）。
 
 ---
 

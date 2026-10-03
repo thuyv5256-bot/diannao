@@ -329,7 +329,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 
 | # | 栏目（Tab id） | 面向 | 渲染来源 |
 |---|---|---|---|
-| 1 | 今天该进什么货（`home`） | 店主 | `home_view.render_home_html(plan, part)` + app.py 内联（风险面板/Agent/仿真工具） |
+| 1 | 今天该进什么货（`home`） | 店主 | `home_view.render_home_html(plan, part)`：`top`=页头+KPI 条（整宽）、`rail`=右栏「今天提醒」、`result`=主区（重点关注 + 完整清单折叠）；app.py 负责 2/3+1/3 分栏与风险/Agent 控件 |
 | 2 | 为什么这样进（`why`） | 店主 | `why_view.render_why_page(it)` ← `decision_basis` |
 | 3 | 今天生意怎么样（`feedback`） | 店主 | `feedback_view.*`（head/date_hint/table_hint/render_result/render_invalid/render_empty） |
 | 4 | 它学会了什么（`learn`） | 店主/评委 | `learn_view.*` + `app.evolution_chart` |
@@ -534,4 +534,5 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 | 2026-10-03 | v1.1 | 新增 ADR-008（本地裸仓库镜像 GitHub、删除 .gitignore）；§1.1 增加版本/备份入口；D10 标记解除 | 接手初始化 |
 | 2026-10-03 | v1.2 | 顶部 Tab 改为左侧边栏 + 新增「设置」栏目与主题系统：新增 §7.1/§7.2 内容、模块表（themes/settings_store/settings_view）、接口清单、ADR-009（主题系统）与 ADR-010（导航实现）；测试基线 142 → 169 | 接手初始化 |
 | 2026-10-03 | v1.3 | 首页（T-UI-01）v2 迁移完成：去 emoji、旧 `dn-*`/`.badge b-*`/`.kpi` 体系删除、`app.py` 内联色全部 token 化；新增 §7.4 图表主题（plotly 随主题）与 `themes.plotly_layout/palette`；新增 UI 规范一致性测试（T-QA-02）；D3/D4 降级；测试基线 169 → 177 | 接手初始化 |
+| 2026-10-03 | v1.5 | **排版整改（Direction A 现代极简工作台，T-UI-11）**：`home_view` 三段式（top/rail/result）、新增 `.xm-page-head`/`.xm-kpi*`/`.xm-split`/`.xm-fold` 组件、Gradio 原生块透明化（`themes.py` 的 `--block-*`/`--panel-*`）；实测主区 700→1068px、首页 4022→1386px；测试 179 passed | 接手初始化 |
 | 2026-10-03 | v1.4 | **全站 v2 迁移收尾**：为什么这样进（T-UI-02）、实验验证（T-UI-03）、项目说明（T-UI-04）三页迁移完成，`PENDING` 白名单清空；清理 7 个无引用渲染函数（T-QA-06，-166 行）；新增共享组件 `.xm-kv*`/`.xm-bar*`/`.xm-chips`，`.st-kv*` 统一并入 `.xm-kv*`；D3/D4 关闭；测试 177 passed | 接手初始化 |
