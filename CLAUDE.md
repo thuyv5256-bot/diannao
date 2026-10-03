@@ -44,10 +44,11 @@
 **解释器**：本仓库的 `__pycache__` 与实验均为 **Python 3.13**（`E:\Python\python.exe`，3.13.7）。
 注意 PATH 里的 `python` 是 msys2 的 3.12，**不要用它跑本项目**（其 site-packages 里没有本项目依赖）。
 
-**当前依赖缺口（阻塞项，见 ARD T-ENV-01）**：`E:\Python` 已装 pandas / numpy / scipy / pytest，**未装 gradio、plotly** ⇒ 网页无法启动、3 个 import `app` 的测试会在收集期报 `ModuleNotFoundError: No module named 'plotly'`。
+**依赖已就绪（2026-10-03 补齐，T-ENV-01 已解除）**：`E:\Python` 已装 pandas / numpy / scipy / pytest / **gradio 6.29.1 / plotly 7.1.0** ⇒ 网页可启动，测试全绿（142 passed）。
+⚠️ 副作用：gradio 6 拉入了 `huggingface-hub 2.1.1`，与本机 `tokenizers 0.23.1`（要求 hub<2.0）冲突 —— 不影响本项目（项目不用 tokenizers），但会影响该 Python 环境里依赖 tokenizers 的其他项目（见 ARD R14）。
 
 ```powershell
-# 安装依赖（缺 gradio/plotly 时先执行）
+# 安装/更新依赖（当前已装 gradio 6.29.1 / plotly 7.1.0）
 & 'E:\Python\python.exe' -m pip install -r requirements.txt
 
 # 启动网页（首次运行会读 CSV 建库）
@@ -55,7 +56,7 @@
 
 # 单元测试（必须带 --basetemp，否则临时目录清理会被权限拦住）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp
-# 基线：138 passed, 2 failed, 2 skipped（2 failed 全部是缺 plotly 导致的 import 失败）
+# 基线（依赖补齐后实测）：142 passed，全绿，约 92s
 
 # 答辩五幕闭环演示 / 命令行离线评测
 & 'E:\Python\python.exe' demo_flow.py
@@ -156,7 +157,7 @@ docs/                  PRD / TRD / ARD
 
 ## 6. 提交前检查清单
 
-- [ ] `pytest -q --basetemp .pytest_tmp` 无新增失败（当前基线 138 passed / 2 failed（缺 plotly）/ 2 skipped）
+- [ ] `pytest -q --basetemp .pytest_tmp` 无新增失败（当前基线 **142 passed 全绿**）
 - [ ] 页面渲染真实可跑，空数据/异常分支有文案
 - [ ] 没有新增写死数字、没有新增 emoji、没有新增硬编码颜色
 - [ ] 没有修改 `data/*.csv` 与 `eval/final/**`

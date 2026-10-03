@@ -148,13 +148,13 @@
 ```powershell
 # 1) 单元测试（必须带 --basetemp）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp
-# 期望：无新增失败。当前基线 = 138 passed, 2 failed, 2 skipped
-#      2 failed 均因环境缺 plotly（test_display_layer / test_feedback_view 在 import app 时失败）
+# 期望：全绿。当前基线（依赖补齐后）= 142 passed，约 92s
+#      历史：依赖缺失时曾为 138 passed / 2 failed / 2 skipped（缺 plotly 导致 import app 失败）
 
 # 2) 只跑相关文件（更快）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp tests/test_policy.py tests/test_evolution.py
 
-# 3) 依赖健康检查（gradio/plotly 缺失会导致网页起不来）
+# 3) 依赖健康检查（应全为 True；缺 gradio/plotly 则网页起不来）
 & 'E:\Python\python.exe' -c "import importlib.util as u;print({m:bool(u.find_spec(m)) for m in ['gradio','plotly','pandas','scipy']})"
 ```
 
@@ -164,6 +164,23 @@
 # 期望：打印出非空 HTML 且不含"未定义/None/nan"
 & 'E:\Python\python.exe' -c "from core import home_view, policy; p=policy.build_plan('2026-08-28',600.0,policy.MODE_DIANNAO,persist=False); h=home_view.render_home_html(p,'result'); print(len(h)); assert 'None' not in h"
 ```
+
+**截图核对（推荐，比看 HTML 字符串可靠得多）**：项目已装 `agent-browser`（Chrome/CDP），可自动化截图；
+注意 **Windows PowerShell 5.1 不支持 `&&`**，用 `;` 串联，且元素引用必须加引号（否则 `@e1` 会被当成数组展开）：
+
+```powershell
+# 1) 起服务（另开后台任务）：& 'E:\Python\python.exe' app.py
+# 2) 打开 + 等渲染 + 整页截图
+agent-browser open http://127.0.0.1:7861/
+agent-browser wait --load networkidle
+agent-browser wait 4000
+agent-browser screenshot -f _backup/preview/01-home.png
+# 3) 列元素找标签页 ref，再逐个切换截图（引号不能省）
+agent-browser snapshot -i
+agent-browser click '@e3'; agent-browser wait 3000; agent-browser screenshot -f _backup/preview/03-feedback.png
+```
+
+> 截图统一存 `_backup/preview/`（该目录已被忽略，不会污染版本库）。2026-10-03 已按此流程核对 7 个标签页：首页/为什么这样进/今天生意怎么样/它学会了什么/店里的老账本/实验验证/项目说明。
 
 自检清单（每个页面改动都要过）：
 - [ ] 有真实数据时显示真实数字（不是占位符）
@@ -227,7 +244,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 ## 11. 当前（2026-10-03）接手速览
 
 - **可跑**：全部命令行脚本（依赖 pandas/numpy/scipy 已具备）。
-- **不可跑**：网页 `app.py` —— 缺 `gradio` 与 `plotly`（阻塞项 T-ENV-01）。
-- **测试**：138 passed / 2 failed（均为缺 plotly）/ 2 skipped。
+- **网页可跑**：`python app.py` → http://127.0.0.1:7861（gradio 6.29.1 / plotly 7.1.0 已装，7 个标签页均已人工截图核对）。
+- **测试**：142 passed 全绿（92s）。
 - **有未提交改动**：`app.py`、`core/learn_view.py`、`core/ledger_view.py`、`tests/test_learn_view.py`、`tests/test_ledger_view.py`（修改）；`core/feedback_view.py`、`tests/test_feedback_view.py`（新增）。**接手前先搞清楚这批改动是否要一起提交。**
 - **下一步优先级**：见 [docs/ARD.md](docs/ARD.md) §「下一步任务池」（P0：环境补齐 + 冻结当前改动；P1：剩余页面 UI v2 迁移 + README 对齐；P2：实验异常项排查）。

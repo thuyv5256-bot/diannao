@@ -273,8 +273,7 @@ powershell -File tools/vcs.ps1 verify          # 全量 pytest
 powershell -File tools/vcs.ps1 verify -Fast    # 跳过三个昂贵仿真测试，日常用这个
 ```
 
-当前基线（2026-10-03）：`138 passed / 2 failed / 2 skipped`，
-2 项失败均因本机缺 `plotly`（`import app` 失败），非代码问题 —— 见 [ARD](ARD.md) T-ENV-01。
+当前基线（2026-10-03，依赖补齐后）：**`142 passed` 全绿（约 92s）**。此前缺 `plotly` 时是 138 passed / 2 failed / 2 skipped，随 [ARD](ARD.md) T-ENV-01 解除而消失。
 
 ---
 

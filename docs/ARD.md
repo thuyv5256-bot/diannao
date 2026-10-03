@@ -8,7 +8,7 @@
 | 文档版本 | v1.0 |
 | 最后更新 | 2026-10-03 |
 | 代码基线 | git `ca17f07` + 未提交改动（详见 T-ENV-02） |
-| 任务总数 | 30（已完成 18 · 进行中 0 · 阻塞 1 · 待办 11） |
+| 任务总数 | 30（已完成 19 · 进行中 0 · 阻塞 0 · 待办 11） |
 | 更新义务 | **每次开始/完成/阻塞一个任务，必须回来改本文件**（见 §0.4） |
 
 ---
@@ -67,28 +67,29 @@
 
 | 状态 | 数量 | 任务 |
 |---|---|---|
-| 已完成 | 18 | T-CORE-01..05、T-MEM-01..03、T-EXP-01、T-EXP-04、T-UI-05..07、T-QA-03、T-QA-05、T-DOC-03、T-ENV-02、T-ENV-03 |
+| 已完成 | 19 | T-CORE-01..05、T-MEM-01..03、T-EXP-01、T-EXP-04、T-UI-05..07、T-QA-03、T-QA-05、T-DOC-03、T-ENV-01、T-ENV-02、T-ENV-03 |
 | 进行中 | 0 | —（当前没有进行中任务，取活见 §6） |
-| 阻塞 | 1 | T-ENV-01（缺 gradio / plotly） |
+| 阻塞 | 0 | —（T-ENV-01 已解除：依赖装齐、网页起得来、测试全绿） |
 | 待办 | 11 | 见 §6 |
 
 **今天的真实状态（可复核）**
 
 | 检查项 | 结果 | 证据 |
 |---|---|---|
-| 测试 | 138 passed / 2 failed / 2 skipped（61s） | `pytest -q --basetemp .pytest_tmp`；2 失败为缺 plotly |
-| 网页 | ❌ 起不来 | `import gradio / plotly` 均 ModuleNotFoundError |
-| 命令行脚本 | ✅ 可跑 | pandas/numpy/scipy 已装 |
+| 测试 | **142 passed 全绿**（92s） | `pytest -q --basetemp .pytest_tmp`（依赖补齐前为 138 passed / 2 failed / 2 skipped） |
+| 网页 | ✅ 已跑起来 | `python app.py` → http://127.0.0.1:7861，HTTP 200 / 页面 396KB；7 个标签页全部人工截图核对（见下） |
+| 预览截图 | 7 张 | `_backup/preview/01-home.png` … `07-about.png`（agent-browser 自动截图，目录已忽略） |
+| 命令行脚本 | ✅ 可跑 | pandas / numpy / scipy / pytest / **gradio 6.29.1** / **plotly 7.1.0** 均已安装 |
 | 实验证据 | ✅ 已冻结 | `eval/final/FROZEN.json`（2026-10-02 12:35:18） |
-| 工作区 | ✅ 干净 | 全部改动已提交并推送到本地备份区（`main` = `v0.2.0`、`develop` 为集成线）；`git status --short` 无输出 |
-| 版本控制 | ✅ 本地 GitHub 式 | `origin → _backup/diannao.git`（裸仓库，HEAD=main）；分支 `main`/`develop`；标签 `v0.1.0`（初始基线）/`v0.2.0`；`.gitignore` 已删除，忽略规则在 `.git/info/exclude` + `vcs.ps1` 提交守卫 |
+| 工作区 | ✅ 干净 | 全部改动已提交并推送到本地备份区（`main` = 最新发布标签、`develop` 为集成线）；`git status --short` 无输出 |
+| 版本控制 | ✅ 本地 GitHub 式 | `origin → _backup/diannao.git`（裸仓库，HEAD=main）；分支 `main`/`develop`；标签 `v0.1.0`（初始基线）/`v0.2.0`/`v0.2.1`/`v0.2.2`/`v0.2.3`；`.gitignore` 已删除，忽略规则在 `.git/info/exclude` + `vcs.ps1` 提交守卫 |
 | 记忆库快照 | demo-store 真实状态 | `sqlite3` 实测：products 50 / policy 50 / sales 9000 / day_events 180 / **experiences 0** / **evolution_log 0** / feedback_log 301 / plan_log 0；销量表 `qty_stockout`、`qty_spoilage` 非零行数 **0**；日期范围 2026-03-01 ~ 2026-08-27 |
 
 ### 🎯 建议的下一个动作（Top 3）
 
-1. **T-ENV-01（P0，唯一硬阻塞）**：装 `gradio` + `plotly` → 网页能起、2 个失败测试转绿。
-2. **T-UI-01（P1）**：首页 v2 迁移（`app.py` 里 30+ 处 emoji + `dn-*` 旧 class），这是「看起来还没做完」的最大观感来源。
-3. **T-DOC-01（P1）**：README 与实现对齐（界面导览仍是 5 页版、仍引用 9 个已失效常量）。
+1. **T-UI-01（P1，观感第一优先级）**：首页 v2 迁移 —— 截图已确认首页仍是深色 v1 头图 + `🤖 Agent 智能补货` emoji + `dn-*` 旧 class，与已迁移的三页反差明显。
+2. **T-DOC-01（P1）**：README 与实现对齐（界面导览仍是 5 页版、仍引用 9 个已失效常量）。
+3. **T-EXP-02（P1）**：排查 `spoilage_ab` 无差异 —— 「实验验证」页已如实写明「ON 与 OFF 各项一致，说明损耗控制在该数据下未触发（如实显示，不做美化）」，需要一个明确结论。
 
 > 规矩：**每完成一件事就 `powershell -File tools/vcs.ps1 save "type(scope): 说明"`**，否则这件事没有回退点 —— 见 [VERSIONING.md](VERSIONING.md)。
 
@@ -101,7 +102,7 @@
 | M0 | 工程基线 | 可跑的数据导入 + 记忆库 + 测试框架 | ✅ 已完成 |
 | M1 | 决策闭环 | 预测 → 事件 → 惠民约束 → 自进化 → 页面闭环（demo_flow 五幕可跑通） | ✅ 已完成 |
 | M2 | 实验证据 | 180 天长期仿真 + 消融 + 冻结产物（`eval/final`） | ✅ 已完成（2026-10-02 冻结） |
-| M3 | 交付层收尾 | UI v2 全站迁移 + 文档体系 + 版本控制与备份 + 环境可复现 | 🚧 进行中（UI 3/7 页已迁移；文档体系 ✅；本地版本控制 ✅；环境待补齐 T-ENV-01） |
+| M3 | 交付层收尾 | UI v2 全站迁移 + 文档体系 + 版本控制与备份 + 环境可复现 | 🚧 进行中（文档体系 ✅；本地版本控制 ✅；环境 ✅ 依赖与网页验证通过；**仅剩 UI 3/7 页**） |
 | M4 | 最终交付 | 全绿测试 + 可现场演示 + 接手零障碍 | ⬜ 待办 |
 
 ---
@@ -155,6 +156,7 @@
 
 | ID | 任务 | 验收标准 | 证据 | 影响文件 |
 |---|---|---|---|---|
+| T-ENV-01 | 补齐运行依赖并验证网页 | 网页可启动、7 页可切换、测试无环境性失败 | pip 装 gradio 6.29.1 / plotly 7.1.0；`python app.py` → HTTP 200 · 396KB · 7 Tab 截图核对；`pytest` → **142 passed**（92s，原 2 failed/2 skipped 全消）；预览图 `_backup/preview/01..07*.png` | `requirements.txt`（未改动）、`_backup/preview/**` |
 | T-ENV-02 | 冻结未提交改动（UI v2 三页迁移 + 文档体系） | 工作区干净；改动全部入库并推送到本地 origin | 4 个逻辑提交：`b0463a5` `feat(ui)` / `a957506` `docs` / `4d3318a` `chore(vcs)` / 本记录提交 `docs(ard)`；再经 `--no-ff` 合并到 `main` | `app.py` `core/*_view.py` `tests/*` `docs/**` `CLAUDE.md` `AGENT.md` `README.md` |
 | T-ENV-03 | 建立本地 GitHub 式版本控制与备份区（无 GitHub） | ① 无 GitHub 也能 push / pull / tag / branch / 合并；② 删除 `.gitignore` 后仍不误提交密钥与运行产物；③ 能回退到任意历史版本 | ① `_backup/diannao.git`（bare，HEAD=main）登记为 `origin`，`git remote -v` 可见；② `.git/info/exclude` 忽略规则（7 条探针全命中）+ `vcs.ps1 save` 提交守卫（演练：产物自动撤出、密钥撤出并中止，均实测）；③ 标签 `v0.1.0`（初始基线 `ca17f07`）/`v0.2.0`/`v0.2.1`；④ 回退演练：`rollback v0.1.0` 成功建 `restore/v0.1.0-*` 并切回；⑤ 灾难恢复演练：`clone` 到临时目录成功且标签齐全；⑥ guard 幂等实测；⑦ 演练暴露的 3 个真问题已修（密钥未撤出、guard 编码往返损坏中文、git 提示被当成红色错误）—— 完整记录见 [VERSIONING.md §13](VERSIONING.md) | `tools/vcs.ps1` `docs/VERSIONING.md` `_backup/**` `.git/info/exclude` `README.md` `CLAUDE.md` `AGENT.md` |
 
@@ -164,20 +166,20 @@
 
 | ID | 任务 | 认领人 | 开始 | 现状 | 下一步 |
 |---|---|---|---|---|---|
-| — | 当前没有进行中的任务 | — | — | 待办 11 项见 §6；P0 是 T-ENV-01 | 认领后把该行替换为本任务的信息，并同步 §1 计数 |
+| — | 当前没有进行中的任务 | — | — | 待办 11 项见 §6；已无阻塞，P0 仅剩 T-DOC-01 | 认领后把该行替换为本任务的信息，并同步 §1 计数 |
 
 ---
 
 ## 5. 阻塞
 
-| ID | 任务 | 阻塞条件 | 谁能解除 | 影响 |
-|---|---|---|---|---|
-| T-ENV-01 | 补齐运行依赖（`gradio>=6,<7` / `plotly>=6,<8`） | 本机 `E:\Python` 未安装这两个包，网页无法启动，3 个 `import app` 的测试在收集期报 `ModuleNotFoundError: No module named 'plotly'` | 有网络与 pip 权限的任何人：`& 'E:\Python\python.exe' -m pip install -r requirements.txt` | 阻塞 M3/M4 里程碑：无法现场演示网页、无法跑内嵌评测图 |
+**当前无阻塞项。**
 
-**解除后的验收标准**：
-1. `& 'E:\Python\python.exe' -c "import gradio, plotly; print(gradio.__version__, plotly.__version__)"` 成功；
-2. `python app.py` 起在 `127.0.0.1:7861` 且 7 个标签页可切换；
-3. `pytest -q --basetemp .pytest_tmp` 变成 `140 passed, 2 skipped`（无 failed）。
+| ID | 任务 | 状态 | 证据 |
+|---|---|---|---|
+| T-ENV-01 | 补齐运行依赖（`gradio>=6,<7` / `plotly>=6,<8`） | ✅ 已解除（2026-10-03） | ① `import gradio, plotly` → **6.29.1 / 7.1.0**；② `python app.py` → http://127.0.0.1:7861 **HTTP 200**、页面 396KB、7 个标签页逐页截图核对；③ `pytest -q --basetemp .pytest_tmp` → **142 passed**（无 failed、无 skipped） |
+
+> 原验收标准写的是「140 passed, 2 skipped」，实际结果更好：连原先被 skip 的 2 项也跑通了 → **142 passed**。
+> 遗留副作用见风险 R14（该 Python 环境的 huggingface-hub / tokenizers 版本冲突，与本项目无关）。
 
 ---
 
@@ -187,7 +189,6 @@
 
 | ID | 任务 | 建议写作用域 | 依赖 | 验收标准 |
 |---|---|---|---|---|
-| T-ENV-01 | 安装 gradio / plotly 并验证 | `requirements*.txt`（如版本需调整） | — | 见 §5 三条 |
 | T-DOC-01 | README 与实现对齐 | `README.md` | — | ①"界面导览"改为 7 页；②删除已失效的常量引用（见 TRD §9 末尾）；③补三档预算口径；④补 `--basetemp` 与 Python 解释器说明 |
 
 **T-DOC-01 的具体差异清单**（已核对）：
@@ -204,7 +205,7 @@
 | T-UI-01 | 首页 v2 迁移 | `app.py`(Tab1/内联渲染) `core/home_view.py` | — | 去掉全部 emoji（现有 30+ 处，如 🤖/📊/🚀/🔬/🏪/⚠️）；`dn-row`/`dn-risk-panel` → `.xm-*`；`home_view` 文档串里的"DESIGN.md v1.0"改为 v2；页面结构仍为"经营工作台"而非 Dashboard |
 | T-UI-02 | 「为什么这样进」v2 迁移 | `core/why_view.py` `app.py`(Tab2) | — | `.yw-*`/`.ev-*` 改用 `--xm-*` token 与 `.xm-*` 组件；去掉内联硬编码色（#234E70/#66737F…） |
 | T-UI-03 | 「实验验证」v2 迁移 | `core/final_view.py` | — | 去掉内联 style 与硬编码色；数字仍全部来自 `eval/final`；结论含归因说明 |
-| T-UI-04 | 「项目说明」v2 迁移 | `core/about_view.py` `app.py`(Tab7 内联 Markdown 的 emoji) | T-ENV-01（内嵌评测图需 plotly） | `.ab-*` 改用 token；去掉 📊/🔬 等 emoji |
+| T-UI-04 | 「项目说明」v2 迁移 | `core/about_view.py` `app.py`(Tab7 内联 Markdown 的 emoji) | —（plotly 已就绪） | `.ab-*` 改用 token；去掉 📊/🔬 等 emoji |
 | T-EXP-02 | 排查 `spoilage_ab` 开/关结果完全一致 | `core/simulator.py` `core/policy.py`(`spoilage_control`) `_step63_ablation.py` | — | 给出结论二选一：(a) 开关确实生效但该数据集下无差异 → 补证据并改文案；(b) 开关未生效 → 修复并重跑该消融（**写入新目录，不覆盖 eval/final**） |
 | T-QA-01 | 处理 9 个未使用常量 | `core/config.py` 及引用文档 | T-DOC-01 | 逐个决定"接线 / 删除 / 标注为废弃"，并在 TRD §9 与 README 同步 |
 
@@ -225,7 +226,7 @@
 
 | # | 风险/问题 | 等级 | 当前状态 | 对应任务 |
 |---|---|---|---|---|
-| R1 | 缺 gradio/plotly → 无法现场演示网页 | 高 | 未解除 | T-ENV-01 |
+| R1 | ~~缺 gradio/plotly → 无法现场演示网页~~ | 高 | ✅ 已解除：装 gradio 6.29.1 / plotly 7.1.0，网页 HTTP 200、7 页截图核对、测试 142 passed | T-ENV-01 |
 | R2 | ~~三页迁移未提交，随时可能丢~~ | 中 | ✅ 已解除：全部改动已提交并推送到本地 origin（v0.2.0） | T-ENV-02 |
 | R3 | README 与实现漂移，误导接手人 | 中 | 已知，已列差异清单 | T-DOC-01 |
 | R4 | `spoilage_ab` 无差异 → 该实验无法自证 | 中 | 未排查 | T-EXP-02 |
@@ -238,6 +239,7 @@
 | R11 | 删除 `.gitignore` 后，**新克隆环境**不继承忽略规则，可能误提交密钥/产物 | 低 | 已缓解：`vcs.ps1 guard` 一键恢复规则 + `save` 提交守卫（密钥中止、产物撤出） | T-ENV-03 |
 | R12 | 本地备份区与工作仓库同盘同目录，磁盘损坏会一起丢 | 低 | 已知：如需异地，把 `_backup/diannao.git` 另拷一份到别的盘/网盘即可 | T-ENV-04 |
 | R13 | `vcs.ps1 rollback` 在工作区不干净时会失败（Git 保护） | 低 | 期望行为，已在 [VERSIONING.md](VERSIONING.md) FAQ 与 [../AGENT.md](../AGENT.md) 踩坑 15 说明 | T-ENV-03 |
+| R14 | 装 gradio 6 时它拉入 `huggingface-hub 2.1.1`，与本机 `tokenizers 0.23.1`（要求 hub<2.0）冲突 | 低（对本项目无影响） | 已知：本项目不依赖 tokenizers；但 `E:\Python` 是共享环境，**该环境里其他依赖 tokenizers 的项目可能受影响** —— 如需修复可在那些项目自己的虚拟环境里约束版本 | T-ENV-01 |
 
 ---
 
@@ -277,3 +279,4 @@
 | 2026-10-03 | 初始化 Agent | 完成 T-ENV-02（改动全部入库并推送本地 origin）与 T-ENV-03（本地 GitHub 式版本控制：`_backup/diannao.git` 裸仓库作 origin、main/develop 分支、tag v0.1.0/v0.2.0、`tools/vcs.ps1`、[VERSIONING.md](VERSIONING.md)）；删除 `.gitignore`（规则迁至 `.git/info/exclude` + 提交守卫）；同步计数（18 完成 / 0 进行中 / 11 待办）、里程碑 M3、Top3、风险 R2/R11/R12 与交接记录 |
 | 2026-10-03 | 初始化 Agent | **v0.2.0 版本哈希**（develop 线）：`b0463a5` = feat(ui) UI v2 三页迁移；`a957506` = docs 接手文档体系；`4d3318a` = chore(vcs) 本地版控与备份区；`fba32b0` = docs(ard) 哈希记录；发布点 = `main` 上的 `--no-ff` 合并提交 `a473142` + annotated tag `v0.2.0` |
 | 2026-10-03 | 初始化 Agent | **版本控制演练 + 加固**（T-ENV-03）：跑 7 项演练（产物/密钥守卫、安全回退、灾难恢复克隆、忽略探针、guard 幂等、发布流程），暴露并修掉 3 个真问题 → 提交 `1de5f08`（守卫撤出密钥/产物、ASCII 标记 + UTF-8(BOM) 写 exclude、停止跟踪误入库的 `data/*.db.bak`）与 `69f9867` `fix(vcs)`（`-q` + 错误偏好收敛，消除红色假报错）、`42afc03` `docs(vcs)`（验证记录与边界说明）；证据与修法见 [VERSIONING.md §13](VERSIONING.md)；新增风险 R13；发布点 = `main` 合并提交 `763a676` + tag `v0.2.1`。随后 `6ff13e2`（rollback 提示修复）+ `8e3c536`（版本表）发布 `v0.2.2`（合并提交 `51ee83c`）。**最终状态校验**：工作区干净；`origin` 同步 `main`/`develop`；4 个 tag（v0.1.0/v0.2.0/v0.2.1/v0.2.2）；`.gitignore` 已删除、`.git/info/exclude` 生效（6/6 忽略探针命中）；跟踪文件 108 个、其中**无任何产物或密钥**；数据源 `data/*.csv` 已入库；备份区 `_backup/` 3.14MB（本地 origin 已同步：`git ls-remote --heads --tags origin` 可见 main/develop/v0.1.0/v0.2.0/v0.2.1） |
+| 2026-10-03 | 初始化 Agent | **T-ENV-01 解除（依赖 + 网页验证 + 预览截图）**：`pip install -r requirements.txt` → gradio 6.29.1 / plotly 7.1.0；测试从 138 passed / 2 failed / 2 skipped 变为 **142 passed 全绿（92s）**；`python app.py` 起在 http://127.0.0.1:7861（HTTP 200、页面 396KB），用 `agent-browser` 逐页截图 7 个标签页存于 `_backup/preview/`（首页/为什么这样进/今天生意怎么样/它学会了什么/店里的老账本/实验验证/项目说明）；同步 CLAUDE §2/§6、AGENT §8.1/§8.2/§11（新增截图工作流）、TRD §10 与 §12 D1、PRD FR-07、VERSIONING §10、ARD 计数（19 完成 / 0 阻塞 / 11 待办）与 Top3；新增风险 R14（共享环境的 huggingface-hub 版本冲突） |

@@ -382,7 +382,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | 实验复现 | `eval.py` / `run_digital_store.py` / `run_event_awareness_ab.py` | 见 §1.1 |
 | 页面自检 | 渲染非空 + 空状态 + 无 emoji/硬编码色 | [../AGENT.md](../AGENT.md) §8.2 |
 
-**2026-10-03 实测基线**：`138 passed, 2 failed, 2 skipped`（61s）。2 个失败**均为环境缺 `plotly`** 导致 `import app` 失败（`test_display_layer.py::test_render_plan_does_not_change_order_qty`、`test_feedback_view.py::test_submit_reads_exact_columns`），非代码缺陷。
+**2026-10-03 实测基线**：依赖补齐后 **`142 passed`（92s，全绿）**。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
 
 ---
 
@@ -403,7 +403,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 
 | # | 问题 | 影响 | 处置 |
 |---|---|---|---|
-| D1 | 环境缺 `gradio / plotly` | 网页无法启动；2 个测试失败 | ARD T-ENV-01（P0） |
+| D1 | ~~环境缺 `gradio / plotly`~~ | ✅ 已解除：装上 gradio 6.29.1 / plotly 7.1.0 后网页可启动（7 页截图核对）、测试 142 passed 全绿 | ✅ ARD T-ENV-01 |
 | D2 | `README.md` 与实现漂移（仍写 5 个标签页、旧常量、旧参数语义） | 误导接手人 | ARD T-DOC-01（P0/P1） |
 | D3 | `app.py` 63KB 单体，含内联 HTML/CSS/emoji | 修改易冲突、违反 DESIGN.md v2 | ARD T-UI-01..04 + T-QA-02 |
 | D4 | 页面视觉体系两套并存（v2 与 `dn-*`/`ab-*`） | 观感不一致 | 随 UI 迁移收敛 |
