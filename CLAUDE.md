@@ -47,7 +47,7 @@
 **解释器**：本仓库的 `__pycache__` 与实验均为 **Python 3.13**（`E:\Python\python.exe`，3.13.7）。
 注意 PATH 里的 `python` 是 msys2 的 3.12，**不要用它跑本项目**（其 site-packages 里没有本项目依赖）。
 
-**依赖已就绪（2026-10-03 补齐，T-ENV-01 已解除）**：`E:\Python` 已装 pandas / numpy / scipy / pytest / **gradio 6.29.1 / plotly 7.1.0** ⇒ 网页可启动，测试全绿（142 passed）。
+**依赖已就绪（2026-10-03 补齐，T-ENV-01 已解除）**：`E:\Python` 已装 pandas / numpy / scipy / pytest / **gradio 6.29.1 / plotly 7.1.0** ⇒ 网页可启动，测试全绿（**177 passed**）。
 ⚠️ 副作用：gradio 6 拉入了 `huggingface-hub 2.1.1`，与本机 `tokenizers 0.23.1`（要求 hub<2.0）冲突 —— 不影响本项目（项目不用 tokenizers），但会影响该 Python 环境里依赖 tokenizers 的其他项目（见 ARD R14）。
 
 ```powershell
@@ -59,7 +59,7 @@
 
 # 单元测试（必须带 --basetemp，否则临时目录清理会被权限拦住）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp
-# 基线（依赖补齐后实测）：142 passed，全绿，约 92s
+# 基线（当前实测）：177 passed，全绿，约 62s
 
 # 答辩五幕闭环演示 / 命令行离线评测
 & 'E:\Python\python.exe' demo_flow.py
@@ -119,7 +119,7 @@ app.py                 Gradio 装配层：左侧边栏（Row+Column+Radio）+ 8 
   ├─ core/eval_core.py      离线评测引擎（60 天窗口 × 5 种决策方式）
   └─ core/llm.py            可选 LLM 说明层（OpenAI 兼容，可失败可降级）
 
-tests/                 24 个测试文件 / 169 个用例（见 §4；新增 themes / settings_store / settings_view）
+tests/                 25 个测试文件 / 177 个用例（见 §4；含 themes / settings_store / settings_view / ui_consistency）
 data/                  CSV 数据源 + 生成的 store_memory.db
 eval/                  实验产物；eval/final/** = 已冻结的 FINAL 证据（只读）
 docs/                  PRD / TRD / ARD
@@ -162,7 +162,7 @@ docs/                  PRD / TRD / ARD
 
 ## 6. 提交前检查清单
 
-- [ ] `pytest -q --basetemp .pytest_tmp` 无新增失败（当前基线 **142 passed 全绿**）
+- [ ] `pytest -q --basetemp .pytest_tmp` 无新增失败（当前基线 **177 passed 全绿**）
 - [ ] 页面渲染真实可跑，空数据/异常分支有文案
 - [ ] 没有新增写死数字、没有新增 emoji、没有新增硬编码颜色
 - [ ] 没有修改 `data/*.csv` 与 `eval/final/**`
@@ -181,7 +181,7 @@ docs/                  PRD / TRD / ARD
 | [docs/PRD.md](docs/PRD.md) | 需求、用户、成功指标、范围变化 |
 | [docs/TRD.md](docs/TRD.md) | 架构、模块职责、数据模型、算法口径、接口、依赖变化 |
 | [AGENT.md](AGENT.md) | 接手流程、协作方式、踩坑清单变化 |
-| [README.md](README.md) | 面向外部读者的介绍/快速开始（注意：现有 README 的"界面导览"仍是旧的 5 页版，已列入 ARD） |
+| [README.md](README.md) | 面向外部读者的介绍/快速开始（界面导览已同步为左侧边栏 8 栏目；剩余旧常量/参数语义见 ARD T-DOC-01） |
 | [docs/VERSIONING.md](docs/VERSIONING.md) | 分支模型、发布、回退流程、忽略策略变化 |
 | [DESIGN.md](DESIGN.md) | 视觉 token 与组件规范变化 |
 

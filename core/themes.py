@@ -393,6 +393,74 @@ def swatches(theme_id) -> list[str]:
     return out
 
 
+
+# ── 图表主题（plotly）：深色主题下不能让图表还是白底黑字 ────────────────
+_SOLID_RE = None
+
+
+def _solid(value, fallback: str) -> str:
+    """从可能是渐变的 token 值里取出可用的纯色（plotly 不认 CSS 渐变）。"""
+    import re as _re
+    hexes = _re.findall(r"#[0-9a-fA-F]{3,8}", str(value or ""))
+    if hexes:
+        return hexes[-1]
+    val = str(value or "").strip()
+    return val if val.startswith("rgb") else fallback
+
+
+def palette(theme_id=None) -> dict:
+    """当前主题的具体色值字典 —— plotly / 邮件式内联样式等场景需要真实颜色，不能给 CSS 变量。"""
+    v = get(theme_id)["vars"]
+
+    def s(key, fallback):
+        return _solid(v.get(key), fallback)
+
+    return {
+        "canvas": s("--xm-canvas", "#ffffff"),
+        "surface": s("--xm-surface", "#f6f5f4"),
+        "ink": s("--xm-ink", "#1a1a1a"),
+        "charcoal": s("--xm-charcoal", "#37352f"),
+        "slate": s("--xm-slate", "#5d5b54"),
+        "steel": s("--xm-steel", "#787671"),
+        "stone": s("--xm-stone", "#a4a097"),
+        "primary": s("--xm-primary", "#5645d4"),
+        "success": s("--xm-success", "#1aae39"),
+        "warning": s("--xm-warning", "#dd5b00"),
+        "error": s("--xm-error", "#e03131"),
+        "hairline": s("--xm-hairline", "#e5e3df"),
+        "hairline_soft": s("--xm-hairline-soft", "#ede9e4"),
+    }
+
+
+def plotly_layout(theme_id=None) -> dict:
+    """主题感知的 plotly 布局，可直接展开：`fig.update_layout(**themes.plotly_layout(tid))`。
+
+    · 深色主题（scheme=dark）用 plotly_dark 基底 + 画布/文字/网格色取自主题 token；
+    · 其余（浅色）用 plotly_white 基底，同样取自 token，保证与主题一致；
+    · `system` 主题服务端无法知道浏览器偏好，按浅色渲染（已在 DESIGN/TRD 记录该限制）。
+    """
+    th = get(theme_id)
+    v = th["vars"]
+    dark = th.get("scheme") == "dark"
+    canvas = _solid(v.get("--xm-canvas"), "#ffffff")
+    ink = _solid(v.get("--xm-ink"), "#1a1a1a")
+    grid = _solid(v.get("--xm-hairline"), "#e5e3df")
+    colorway = []
+    for key in ("--xm-primary", "--xm-success", "--xm-warning", "--xm-error", "--xm-link"):
+        colorway.append(_solid(v.get(key), "#5645d4"))
+    return {
+        "template": "plotly_dark" if dark else "plotly_white",
+        "paper_bgcolor": canvas,
+        "plot_bgcolor": canvas,
+        "font": {"color": ink},
+        "colorway": colorway,
+        "xaxis": {"gridcolor": grid, "linecolor": grid, "zerolinecolor": grid},
+        "yaxis": {"gridcolor": grid, "linecolor": grid, "zerolinecolor": grid},
+        "legend": {"font": {"color": ink}, "bgcolor": "rgba(0,0,0,0)"},
+        "margin": {"l": 48, "r": 16, "t": 36, "b": 36},
+    }
+
+
 def apply_to_static_css(css: str, theme_id=None) -> str:
     """把主题变量块拼进静态 CSS（首屏即带上当前主题，避免闪烁）。"""
     return theme_css(theme_id) + css

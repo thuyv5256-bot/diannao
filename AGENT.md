@@ -148,8 +148,8 @@
 ```powershell
 # 1) 单元测试（必须带 --basetemp）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp
-# 期望：全绿。当前基线（依赖补齐后）= 142 passed，约 92s
-#      历史：依赖缺失时曾为 138 passed / 2 failed / 2 skipped（缺 plotly 导致 import app 失败）
+# 期望：全绿。当前基线 = 177 passed（含 UI 规范一致性校验）
+#      历史：依赖缺失时 138 passed / 2 failed / 2 skipped；主题+侧边栏前 142 passed
 
 # 2) 只跑相关文件（更快）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp tests/test_policy.py tests/test_evolution.py
@@ -218,7 +218,8 @@ agent-browser click '@e3'; agent-browser wait 3000; agent-browser screenshot -f 
 14. **`tools/vcs.ps1` 必须保持 UTF-8 with BOM**（Windows PowerShell 5.1 对无 BOM 的 UTF-8 脚本按 ANSI 解析 → 中文注释破坏语法 → `Unexpected token`）。`.ps1` 的 `.NOTES` 里也写明了这条约束。
 15. **`vcs.ps1 rollback` 要求工作区干净**（Git 会拒绝覆盖未提交改动）—— 这是保护而非 bug：先 `vcs.ps1 save` 再回退。
 16. **Gradio 6 的 `gr.Tabs` 会自动折叠导航**：横向放不下时它只保留前几个标签、其余塞进「More tabs」下拉（实测把 Tab 容器压到 232px，8 个标签只剩 2 个可见）。所以左侧边栏**没有**去改造 Tabs 的横排导航，而是隐藏它的 `.tab-wrapper`，用 `gr.Radio#xm-nav` 做导航并驱动 `gr.Tabs(selected=…)`；改导航相关代码前先读 [docs/TRD.md](docs/TRD.md) §7.2 与 `core/ui_theme.py` 的 `#xm-nav` 规则。
-17. **主题改动只能在 `core/themes.py`**：页面里写死颜色在默认主题下看不出来，一换主题就露馅；`pytest tests/test_themes.py` 会拦住漏 token 的主题。
+17. **主题改动只能在 `core/themes.py`**：页面里写死颜色在默认主题下看不出来，一换主题就露馅；`pytest tests/test_themes.py` 与 `tests/test_ui_consistency.py` 会分别拦住「漏 token 的主题」和「写死颜色的已迁移模块」。
+18. **plotly 图表不认 CSS 变量、也不会自己跟主题变**：图的底色/字色是服务端生成时烘进去的。新增/修改图表一律 `fig.update_layout(**themes.plotly_layout(ACTIVE_THEME))`，色值用 `themes.palette(ACTIVE_THEME)`；换主题时 `apply_theme` 负责重画演进曲线（按需生成的评测/仿真图在生成时取当前主题）。
 
 ---
 
@@ -247,6 +248,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 
 - **可跑**：全部命令行脚本（依赖 pandas/numpy/scipy 已具备）。
 - **网页可跑**：`python app.py` → http://127.0.0.1:7861（gradio 6.29.1 / plotly 7.1.0 已装，7 个标签页均已人工截图核对）。
-- **测试**：142 passed 全绿（92s）。
+- **测试**：177 passed 全绿（约 62s）。
 - **有未提交改动**：`app.py`、`core/learn_view.py`、`core/ledger_view.py`、`tests/test_learn_view.py`、`tests/test_ledger_view.py`（修改）；`core/feedback_view.py`、`tests/test_feedback_view.py`（新增）。**接手前先搞清楚这批改动是否要一起提交。**
 - **下一步优先级**：见 [docs/ARD.md](docs/ARD.md) §「下一步任务池」（P0：环境补齐 + 冻结当前改动；P1：剩余页面 UI v2 迁移 + README 对齐；P2：实验异常项排查）。

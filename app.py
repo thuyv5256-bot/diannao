@@ -23,13 +23,13 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from core.config import (
-        APP_NAME, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
+        APP_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 else:
     from .core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from .core.config import (
-        APP_NAME, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
+        APP_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 
@@ -67,86 +67,10 @@ def sidebar_brand_html(theme_id=None) -> str:
             % (_esc(APP_NAME), _esc(th["name"])))
 
 CSS = themes.theme_css(ACTIVE_THEME) + """
+/* 应用级补充：组件样式统一在 core/ui_theme.py，颜色一律走 --xm-* token */
 .gradio-container { max-width: 1600px !important; }
-
-/* —— 简约商务蓝主题 —— */
-.dn-hero { background:#fff; border:1px solid #e6eaf0; border-left:6px solid #2c5f8a;
-           border-radius:14px; padding:36px 34px; margin-bottom:22px; }
-.dn-hero h1 { margin:0 0 10px; font-size:34px; font-weight:800; letter-spacing:.5px;
-              color:#1f4e79; }
-.dn-hero p  { margin:0; font-size:16px; color:#5a6b7d; }
-
-.dn-card { background:#fff; border:1px solid #e6eaf0; border-radius:14px;
-           padding:20px 22px; margin-bottom:16px; }
-
-/* 指标卡片：圆角 + 柔和阴影 + 大数字 */
-.kpi-row { display:flex; flex-wrap:wrap; gap:16px; }
-.kpi { flex:1 1 200px; min-width:180px; padding:18px 20px; background:#fff;
-       border:1px solid #e6eaf0; border-radius:12px;
-       box-shadow:0 2px 8px rgba(44,95,138,.06); }
-.kpi .v { font-size:30px; font-weight:700; color:#1f4e79; line-height:1.2; }
-.kpi .l { font-size:13px; color:#5a6b7d; margin-top:4px; }
-
-/* 表格：蓝色表头 + 隔行浅灰 + 文字居中 */
-table.dn { width:100%; border-collapse:collapse; font-size:15px; }
-table.dn th { background:#2c5f8a; color:#fff; text-align:center;
-              padding:12px 14px; font-weight:600; }
-table.dn td { padding:12px 14px; border-bottom:1px solid #eef1f5; color:#2c3e50;
-              text-align:center; }
-table.dn tr:nth-child(even) td { background:#f7f9fb; }
-table.dn td:first-child, table.dn th:first-child { text-align:left; }
-table.dn td.dn-left { text-align:left; }
-table.dn tr.liv td:first-child { border-left:4px solid #3f8f6b; }
-table.dn tr.nor td:first-child { border-left:4px solid #2c5f8a; }
-table.dn tr:hover td { background:#eef4f9; }
-
-/* 徽章 */
-.badge { display:inline-block; padding:3px 10px; border-radius:12px;
-         font-size:12px; font-weight:600; }
-.b-liv { background:#edf7f1; color:#2f7d57; }
-.b-hi  { background:#eef4f9; color:#1f4e79; }
-.b-warn{ background:#fdf4e5; color:#d98a2b; }
-.b-ok  { background:#edf7f1; color:#2f7d57; }
-.b-bad { background:#fbf0ee; color:#c0564f; }
-
-/* 补货依据（为什么进这么多） */
-details.why { margin-top:8px; text-align:left; font-size:13px; }
-details.why summary { cursor:pointer; color:#1f4e79; font-weight:600;
-                      font-size:13px; user-select:none; }
-details.why .basis { background:#f6f8fb; border:1px solid #e6eaf0; border-radius:8px;
-                     padding:10px 12px; margin-top:6px; line-height:1.9;
-                     color:#2c3e50; text-align:left; }
-
-/* 提示 / 说明区块：更多边距，排版舒展 */
-.note { background:#fffbf0; border-left:4px solid #d98a2b; padding:16px 20px;
-        border-radius:8px; font-size:15px; color:#6b5320; line-height:1.8;
-        margin:16px 0; }
-.good { background:#edf7f1; border-left:4px solid #3f8f6b; padding:16px 20px;
-        border-radius:8px; font-size:15px; color:#2f7d57; line-height:1.8;
-        margin:16px 0; }
-
-/* 明天有没有特殊情况？面板 */
-.dn-risk-panel { background:#fff; border:1px solid #e6eaf0; border-left:6px solid #d98a2b;
-                 border-radius:14px; padding:18px 22px; margin-bottom:16px; }
-.dn-risk-head { font-size:16px; font-weight:700; color:#1f4e79; margin-bottom:2px; }
-.dn-risk-sub { font-size:13px; color:#5a6b7d; margin-bottom:12px; }
-
-/* 生效风险提醒（页面顶部，与节日/促销提醒同区） */
-.risk-note { background:#fdf4e5; border-left:4px solid #d98a2b; padding:14px 18px;
-             border-radius:8px; font-size:15px; color:#7a5a1f; line-height:1.8;
-             margin:0 0 14px; }
-
-h3 { color:#1f4e79 !important; }
-
-/* 输入控件行：加大横向间距 */
-.dn-row { --layout-gap: 22px !important; gap: 22px !important; }
-
-/* 隐藏 Gradio 默认框架信息（展示层弱化） */
 footer { display: none !important; }
 .gradio-container footer { display: none !important; }
-
-/* 顶部导航：图标与文字颜色统一（默认低强调，激活为品牌蓝） */
-/* 顶部 Tab 已改为左侧边栏，导航配色见 core/ui_theme.py 的 #main-nav 规则 */
 """ + home_view.HOME_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + settings_view.SETTINGS_CSS + ui_theme.THEME_CSS
 
 # Gradio 6.0 起 css/theme 从 Blocks() 挪到了 launch()，这里做版本兼容
@@ -167,10 +91,10 @@ if GR_MAJOR >= 5:
 # ════════════════════════════════════════════════════════════
 def _cover_badge(days: float) -> str:
     if days < 2:
-        return f'<span class="badge b-bad">仅够 {days:.1f} 天</span>'
+        return f'<span class="xm-badge xm-badge-red">仅够 {days:.1f} 天</span>'
     if days < 4:
-        return f'<span class="badge b-warn">够 {days:.1f} 天</span>'
-    return f'<span class="badge b-ok">够 {days:.1f} 天</span>'
+        return f'<span class="xm-badge xm-badge-orange">够 {days:.1f} 天</span>'
+    return f'<span class="xm-badge xm-badge-green">够 {days:.1f} 天</span>'
 
 
 def _reorder_basis(it: dict) -> str:
@@ -207,50 +131,21 @@ def _trim_flag(it: dict) -> str:
     min_cover = float(LIVELIHOOD_MIN_COVER_DAYS)
 
     if qty > 1e-9:
-        text = "⚠ 预算受限，R³优化后部分满足"
+        text = "预算受限，R³ 优化后部分满足"
     elif it.get("is_livelihood") and cover_now >= min_cover - 1e-9:
-        text = "🛡️ 已满足民生最低保障，本次预算优先分配至其他缺口商品"
+        text = "已满足民生最低保障，本次预算优先分配至其他缺口商品"
     elif not it.get("is_livelihood"):
-        text = "⚖️ 预算受限，R³根据收益与库存风险进行取舍"
+        text = "预算受限，R³ 根据收益与库存风险进行取舍"
     else:
-        text = "⚠ 当前存在民生保障缺口，R³优先补足最低保障库存"
-    return f"<br><span style='font-size:12px;color:#d98a2b'>{text}</span>"
+        text = "当前存在民生保障缺口，R³ 优先补足最低保障库存"
+    return f"<br><span class='xm-cap' style='color:var(--xm-warning)'>{text}</span>"
 
 
 def _hero(sub: str) -> str:
-    return f"""
-    <div class="dn-hero">
-      <h1>🏪 小满 · 面向社区小店的自进化智能补货 Agent</h1>
-      <p>{sub}</p>
-    </div>"""
-
-
-def _home_hero(plan: dict) -> str:
-    risk = plan.get("risk_summary") or "无特殊风险事件"
-    return ('<div class="dn-hero"><h1>小满 · 社区小店智能补货 Agent</h1>'
-            '<p>让小店既算经济账，也守住街坊的米袋子和菜篮子</p>'
-            '<p style="font-size:13px;color:#5a6b7d;margin-top:6px">决策日期 %s　预算 %s　生效风险：%s</p></div>'
-            % (plan["date"], CURRENCY + "%.0f" % float(plan["budget"]), risk))
-
-
-def _agent_judgement(plan: dict) -> str:
-    items = plan["items"]
-    m = plan["metrics"]
-    risk = plan.get("risk_summary") or "今日无特殊风险事件，按正常经营环境判断"
-    n_risk = sum(1 for it in items if it.get("stockout_risk"))
-    n_trim = sum(1 for it in items if it.get("trimmed"))
-    gap = float(m.get("livelihood_floor_shortfall", 0.0) or 0.0)
-    worry = ("有 %d 种商品现有库存可能不足以覆盖明天需求" % n_risk) if n_risk else "暂无商品出现明显缺货风险"
-    if gap > 0:
-        worry += "；民生最低保障仍有约 %s%.0f 缺口" % (CURRENCY, gap)
-    act = "R³ 先在预算内锁定民生兜底，再按毛利分配剩余预算"
-    if n_trim:
-        act += "；受预算约束，共 %d 种商品的采购量被压缩" % n_trim
-    return ('<div class="dn-card" style="border-left:6px solid #2c5f8a;margin-top:14px">'
-            '<h3 style="margin-top:0">小满 · 今日判断</h3>'
-            '<div style="line-height:2;color:#33414f;font-size:14px">'
-            '① 今天发生什么：%s<br>② 小满重点担心：%s<br>③ 因此采取的策略：%s</div></div>'
-            % (risk, worry, act))
+    """页面头部（v2）：应用名 + 副标题 + 一句话说明；颜色字号全部走 token。"""
+    return ('<div class="xm-page"><div class="xm-h1">%s · %s</div>'
+            '<div class="xm-sm" style="margin-top:6px">%s</div></div>'
+            % (APP_NAME, APP_SUBTITLE, sub))
 
 
 def render_plan_html(plan: dict) -> str:
@@ -263,7 +158,7 @@ def render_why_html(sku: str) -> str:
     plan = policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False)
     items = plan.get("items") or []
     if not items:
-        return "<div class='note'>暂无商品数据。</div>"
+        return "<div class='xm-callout'>暂无商品数据。</div>"
     it = next((x for x in items if x["sku"] == sku), items[0])
     return why_view.render_why_page(it)
 
@@ -275,33 +170,33 @@ def render_decision_trace(trace: dict) -> str:
         # 最后一步：最终补货方案，用独立高亮块展示
         if s.get("done"):
             mark = "✓" if s.get("ok", True) else "✗"
-            color = "#3f8f6b" if s.get("ok", True) else "#c0564f"
+            color = "var(--xm-success)" if s.get("ok", True) else "var(--xm-error)"
             rows.append(f"""
-            <div style="margin-top:6px;padding:14px 16px;background:#edf7f1;border-left:4px solid {color};border-radius:8px;">
-              <div style="font-weight:800;color:#1f4e79;font-size:16px;">{mark} {s['tool']}</div>
-              <div style="color:#2f7d57;font-size:14px;margin-top:6px;line-height:1.7;">{s['detail']}</div>
+            <div style="margin-top:6px;padding:14px 16px;background:var(--xm-success-soft);border-left:4px solid {color};border-radius:8px;">
+              <div style="font-weight:800;color:var(--xm-ink);font-size:16px;">{mark} {s['tool']}</div>
+              <div style="color:var(--xm-success);font-size:14px;margin-top:6px;line-height:1.7;">{s['detail']}</div>
             </div>""")
             continue
 
         ok = s.get("ok", True)
         tool = s.get("tool", "")
         if ok:
-            mark, color, title = "✓", "#3f8f6b", tool
+            mark, color, title = "✓", "var(--xm-success)", tool
         else:
-            mark, color, title = "✗", "#c0564f", f"{tool}：执行失败"
+            mark, color, title = "✗", "var(--xm-error)", f"{tool}：执行失败"
         rows.append(f"""
-        <div style="padding:10px 0;border-bottom:1px solid #eef1f5;">
-          <div style="font-weight:700;color:#1f4e79;font-size:15px;">
+        <div style="padding:10px 0;border-bottom:1px solid var(--xm-hairline-soft);">
+          <div style="font-weight:700;color:var(--xm-ink);font-size:15px;">
             <span style="color:{color};font-weight:800;margin-right:6px;">{mark}</span>
             {i}. {title}
           </div>
-          <div style="color:#5a6b7d;font-size:14px;margin-top:3px;padding-left:28px;line-height:1.6;">
+          <div style="color:var(--xm-slate);font-size:14px;margin-top:3px;padding-left:28px;line-height:1.6;">
             {s['detail']}
           </div>
         </div>""")
     return f"""
-    <div class="dn-card" style="border-left:6px solid #2c5f8a; margin-bottom:16px;">
-      <h3 style="margin-top:0">小满 Agent 决策过程</h3>
+    <div class="xm-card" style="border-left:6px solid var(--xm-primary); margin-bottom:16px;">
+      <div class="xm-h3" style="margin:0 0 8px">小满 Agent 决策过程</div>
       {''.join(rows)}
     </div>"""
 
@@ -358,11 +253,11 @@ def render_compare_html(cmp: dict) -> str:
         cls = "liv" if d["is_livelihood"] else "nor"
         delta = d["delta"]
         if abs(delta) < 1e-9:
-            d_html = "<span style='color:#adb5bd'>一致</span>"
+            d_html = "<span style='color:var(--xm-steel)'>一致</span>"
         elif delta > 0:
-            d_html = f"<b style='color:#c0564f'>小满多 {delta:.0f}</b>"
+            d_html = f"<b style='color:var(--xm-error)'>小满多 {delta:.0f}</b>"
         else:
-            d_html = f"<b style='color:#3f8f6b'>小满少 {abs(delta):.0f}</b>"
+            d_html = f"<b style='color:var(--xm-success)'>小满少 {abs(delta):.0f}</b>"
         rows.append(f"""
         <tr class="{cls}">
           <td>{d['name']}</td>
@@ -376,28 +271,28 @@ def render_compare_html(cmp: dict) -> str:
     risk_summary = cmp.get("risk_summary", "")
     risk_html = ""
     if risk_summary:
-        risk_html = (f'<div class="risk-note">⚠️ <b>当前生效的风险事件</b>：{risk_summary}。'
-                     f'两种算法均已按上述风险调整销量预测与补货数量。</div>')
+        risk_html = ("<div class='xm-callout'><b>当前生效的风险事件</b>：%s。"
+                     "两种算法均已按上述风险调整销量预测与补货数量。</div>" % risk_summary)
 
     return f"""
     {_hero(f"同一天 · 同一笔预算 {CURRENCY}{cmp['budget']:.0f} · 两种算法给出的不同答案")}
     {risk_html}
-    <div class="dn-card">
-      <h3 style="margin-top:0">两种算法，两种活法</h3>
-      <table class="dn">
+    <div class="xm-card">
+      <div class="xm-h3" style="margin:0 0 8px">两种算法，两种活法</div>
+      <table class="xm-table">
         <tr><th>商品</th><th>小满（惠民约束）</th><th>传统算法（纯利润）</th><th>差异</th></tr>
         {''.join(rows)}
       </table>
     </div>
-    <div class="dn-card">
-      <table class="dn">
+    <div class="xm-card">
+      <table class="xm-table">
         <tr><th>指标</th><th>小满</th><th>传统算法</th></tr>
         <tr><td>预计毛利</td>
             <td><b>{CURRENCY}{md['gross_margin']:.0f}</b></td>
             <td>{CURRENCY}{mb['gross_margin']:.0f}</td></tr>
         <tr><td>民生最低保障达标率</td>
-            <td><b style="color:#3f8f6b">{md['livelihood_secured_rate']:.1%}</b></td>
-            <td><b style="color:#8b98a8">{mb['livelihood_secured_rate']:.1%}</b></td></tr>
+            <td><b style="color:var(--xm-success)">{md['livelihood_secured_rate']:.1%}</b></td>
+            <td><b style="color:var(--xm-steel)">{mb['livelihood_secured_rate']:.1%}</b></td></tr>
         <tr><td>库存资金占用（采购金额）</td>
             <td>{CURRENCY}{md['total_cost']:.0f}</td>
             <td>{CURRENCY}{mb['total_cost']:.0f}</td></tr>
@@ -413,18 +308,18 @@ def render_compare_html(cmp: dict) -> str:
             <td>{CURRENCY}{md['spoilage_cost']:.0f}</td>
             <td>{CURRENCY}{mb['spoilage_cost']:.0f}</td></tr>
       </table>
-      <p style="color:#8b98a8;font-size:12px;margin:8px 0 0">
+      <p style="color:var(--xm-steel);font-size:12px;margin:8px 0 0">
         注：缺货数量 = 补货周期内预期需求 − 补货后可用库存（不足部分求和）；
         缺货率 = 缺货数量 ÷ 补货周期内预期总需求；损耗金额仅统计保质期 ≤ 30 天的短保商品。
       </p>
     </div>
-    <div class="note">
+    <div class="xm-callout">
       <b>怎么读这张表：</b>传统算法按「单位资金毛利」从高到低分配预算，高毛利商品通常排在前面；
       在预算紧张时，纯利润策略可能优先压缩部分低毛利民生商品的补货量。<br>
       小满先用惠民约束把民生兜底量锁住（<b>至少备够 {LIVELIHOOD_MIN_COVER_DAYS:.0f} 天</b>），
       剩下才按利润分配。
     </div>
-    <div class="note">
+    <div class="xm-callout">
       <b>结果解读：</b>{_compare_verdict(cmp)}
     </div>"""
 
@@ -462,7 +357,7 @@ def do_plan(date_str: str, budget: float, rain: bool, heat: bool,
         d = str(date_str).strip()
         date.fromisoformat(d)
     except Exception:
-        return ("<div class='note'>日期格式不对，请填写类似 2026-08-28 的格式。</div>", "")
+        return ("<div class='xm-callout'>日期格式不对，请填写类似 2026-08-28 的格式。</div>", "")
     budget = float(budget or DEFAULT_BUDGET)
     risks = _active_risks(rain, heat, holiday, supplier)
     plan = policy.build_plan(d, budget, policy.MODE_DIANNAO, persist=False, risks=risks)
@@ -475,7 +370,7 @@ def do_compare(date_str: str, budget: float, rain: bool, heat: bool,
         d = str(date_str).strip()
         date.fromisoformat(d)
     except Exception:
-        return "<div class='note'>日期格式不对，请填写类似 2026-09-25 的格式。</div>"
+        return "<div class='xm-callout'>日期格式不对，请填写类似 2026-09-25 的格式。</div>"
     budget = float(budget or DEFAULT_BUDGET)
     risks = _active_risks(rain, heat, holiday, supplier)
     cmp = policy.compare_plans(d, budget, persist=False, risks=risks)
@@ -489,17 +384,17 @@ def do_explain(date_str: str, budget: float, rain: bool, heat: bool,
         d = str(date_str).strip()
         date.fromisoformat(d)
     except Exception:
-        return "<div class='note'>日期格式不对，请填写类似 2026-09-25 的格式。</div>"
+        return "<div class='xm-callout'>日期格式不对，请填写类似 2026-09-25 的格式。</div>"
     budget = float(budget or DEFAULT_BUDGET)
     risks = _active_risks(rain, heat, holiday, supplier)
     plan = policy.build_plan(d, budget, policy.MODE_DIANNAO, persist=False, risks=risks)
     text = llm.explain_plan(plan)
     html_text = text.replace("\n", "<br>")
     if llm.is_enabled():
-        head = "🤖 大模型解读"
+        head = "大模型解读"
     else:
-        head = "📋 规则模板解读（未配置 LLM Key，配置后自动切换为 AI 讲解）"
-    return f"<div class='good'><b>{head}</b><br><br>{html_text}</div>"
+        head = "规则模板解读（未配置 LLM Key，配置后自动切换为 AI 讲解）"
+    return f"<div class='xm-callout xm-callout-ok'><b>{head}</b><br><br>{html_text}</div>"
 
 
 def do_agent(request_text: str):
@@ -517,24 +412,28 @@ def do_agent(request_text: str):
     try:
         date.fromisoformat(plan_date)
     except Exception:
-        return "<div class='note'>日期格式不对，请填写类似 2026-08-28 的格式。</div>"
+        return "<div class='xm-callout'>日期格式不对，请填写类似 2026-08-28 的格式。</div>"
 
     result = agent.plan_and_explain(plan_date, req["budget"], req["risks"])
     explanation = result["explanation"].replace("\n", "<br>")
     plan_html = render_plan_html(result["plan"])
     return f"""
-    <div class="dn-card">
-      <h3 style="margin-top:0">🤖 Agent 的推理过程</h3>
-      <div class="note" style="margin:8px 0">{explanation}</div>
+    <div class="xm-card">
+      <div class="xm-h3" style="margin:0 0 8px">Agent 的推理过程</div>
+      <div class="xm-callout" style="margin:8px 0">{explanation}</div>
     </div>
     {plan_html}"""
 
 
-def apply_theme(theme_id: str):
-    """设置页「应用主题」：落盘 + 就地换肤。
+def apply_theme(theme_id: str, sku: str = ""):
+    """设置页「应用主题」：落盘 + 就地换肤（含图表重渲染）。
 
     不刷新页面：主题变量注入 <style> 后立即生效；选择写入 data/ui_settings.json，
-    下次启动由 ACTIVE_THEME 直接读回。只重渲染 <style> 与设置页那几块，代价极小。
+    下次启动由 ACTIVE_THEME 直接读回。
+
+    图表为什么要跟着重渲染：plotly 的底色/字色是**服务端渲染时**烘进图里的，
+    改 CSS 变量不会影响已生成的图。所以换主题时一并重画「安全库存系数演进」曲线
+    （按需生成的评测图 / 180 天仿真图在生成时就取当前主题，无需额外处理）。
     """
     tid = settings_store.set_theme(theme_id)["theme"]
     th = themes.get(tid)
@@ -545,19 +444,28 @@ def apply_theme(theme_id: str):
         pass
     return (tag, settings_view.render_theme_cards(tid),
             settings_view.render_status(tid), settings_view.render_env_panel(tid),
-            sidebar_brand_html(tid))
+            sidebar_brand_html(tid), evolution_chart(sku or ""))
 
 
-_EVENT_ICON = {
-    "高温": "🔥", "暴雨": "☔", "节假日": "📅", "供应商D断供": "📦", "正常": "🏪",
+# 事件 → 徽标语气（替代旧 emoji 图标；DESIGN.md §5 明确禁用彩色 Emoji）
+_EVENT_TONE = {
+    "高温": "orange", "暴雨": "orange", "节假日": "neutral",
+    "供应商D断供": "red", "正常": "green",
 }
+
+
+def _event_badge(event_type: str) -> str:
+    """事件徽标：语气色 + 中文名，页面里不再出现 emoji 图标。"""
+    tone = _EVENT_TONE.get(event_type, "neutral")
+    label = event_type if event_type != "正常" else "普通日"
+    return '<span class="xm-badge xm-badge-%s">%s</span>' % (tone, label)
 
 
 def render_experiences_html() -> str:
     """「它学会了什么」页优先展示的经营经验（来自真实反馈，非随机参数）。"""
     rows = memory.get_experiences(limit=40)
     if not rows:
-        return "<div class='note'>暂无学习记录，请先提交一次经营反馈。</div>"
+        return "<div class='xm-callout'>暂无学习记录，请先提交一次经营反馈。</div>"
 
     products = {p["sku"]: p for p in memory.get_products()}
     items = []
@@ -565,17 +473,16 @@ def render_experiences_html() -> str:
         p = products.get(r["sku"], {})
         nm = p.get("name", r["sku"])
         unit = p.get("unit", "件")
-        icon = _EVENT_ICON.get(r["event_type"], "🏪")
-        ev_label = r["event_type"] if r["event_type"] != "正常" else "普通日"
-        sig_badge = ('<span class="badge b-bad">断货</span>' if r["signal"] == "断货"
-                     else '<span class="badge b-warn">积压损耗</span>')
+        ev_badge = _event_badge(r["event_type"])
+        sig_badge = ('<span class="xm-badge xm-badge-red">断货</span>' if r["signal"] == "断货"
+                     else '<span class="xm-badge xm-badge-orange">积压损耗</span>')
         items.append(f"""
-        <div style="padding:14px 0;border-bottom:1px solid #eef1f5;">
-          <div style="font-size:15px;font-weight:700;color:#1f4e79;">
-            <span>{icon} {ev_label}</span> · {nm} {sig_badge}
-            <span style="font-weight:400;font-size:12px;color:#8b98a8;margin-left:10px;">{r['day']}</span>
+        <div style="padding:14px 0;border-bottom:1px solid var(--xm-hairline-soft);">
+          <div style="font-size:15px;font-weight:700;color:var(--xm-ink);">
+            <span>{ev_badge}</span> · {nm} {sig_badge}
+            <span style="font-weight:400;font-size:12px;color:var(--xm-steel);margin-left:10px;">{r['day']}</span>
           </div>
-          <div style="color:#5a6b7d;font-size:14px;margin-top:6px;padding-left:4px;line-height:1.9;">
+          <div style="color:var(--xm-slate);font-size:14px;margin-top:6px;padding-left:4px;line-height:1.9;">
             原计划：预计卖 <b>{r['forecast_qty']:.1f}</b> {unit}，建议补货 <b>{r['reorder_qty']:.0f}</b> {unit}<br>
             实际结果：卖出 <b>{r['qty_sold']:.0f}</b> {unit}，断货 <b>{r['qty_stockout']:.0f}</b> {unit}，报损 <b>{r['qty_spoilage']:.0f}</b> {unit}<br>
             → 学到：{r['lesson']}<br>
@@ -584,8 +491,8 @@ def render_experiences_html() -> str:
         </div>""")
 
     return f"""
-    <div class="dn-card" style="border-left:6px solid #2c5f8a;">
-      <h3 style="margin-top:0">📌 最近学到的经营经验</h3>
+    <div class="xm-card" style="border-left:6px solid var(--xm-primary);">
+      <div class="xm-h3" style="margin:0 0 8px">最近学到的经营经验</div>
       {''.join(items)}
     </div>"""
 
@@ -597,7 +504,9 @@ def render_eval_figure():
     tmp_db = Path(tempfile.gettempdir()) / "diannao_eval_tmp.db"
     try:
         results = eval_core.run_eval(seeds=[42], days=eval_core.DAYS, db_path=tmp_db)
-        return eval_core.build_figure(results, eval_core.DAYS, 1)
+        fig = eval_core.build_figure(results, eval_core.DAYS, 1)
+        fig.update_layout(**themes.plotly_layout(ACTIVE_THEME))
+        return fig
     finally:
         try:
             tmp_db.unlink(missing_ok=True)
@@ -606,7 +515,7 @@ def render_eval_figure():
 
 
 # ════════════════════════════════════════════════════════════
-# 📊 180 天数字小店长期实验（小满 vs 传统纯利润）
+# 180 天数字小店长期实验（小满 vs 传统纯利润）
 # ════════════════════════════════════════════════════════════
 def _fmt_money(v) -> str:
     return f"{CURRENCY}{v:,.0f}"
@@ -622,15 +531,13 @@ def render_digital_store_html(results: dict, gt: dict, budget: float) -> str:
         # 谁更优就在哪一侧标绿
         d_better = (dv < bv) if better_low else (dv > bv)
         b_better = (bv < dv) if better_low else (bv > dv)
-        d_color = "#2c7a4b" if d_better else "#1f4e79"
-        b_color = "#c0392b" if b_better else "#8b98a8"
+        d_color = "var(--xm-success)" if d_better else "var(--xm-ink)"
+        b_color = "var(--xm-error)" if b_better else "var(--xm-steel)"
         return f"""
-        <div class="kpi">
-          <div style="font-size:13px;color:#5a6b7d;margin-bottom:6px">{name}</div>
-          <div style="font-size:13px;color:#8b98a8">小满</div>
-          <div style="font-size:24px;font-weight:800;color:{d_color}">{dv}{unit}</div>
-          <div style="font-size:12px;color:#8b98a8;margin-top:4px">传统</div>
-          <div style="font-size:18px;font-weight:700;color:{b_color}">{bv}{unit}</div>
+        <div style="min-width:216px">
+          <div class="st-kv-k">{name}</div>
+          <div style="font-size:20px;font-weight:600;color:{d_color};margin-top:2px">小满 {dv}{unit}</div>
+          <div style="font-size:14px;color:{b_color}">传统 {bv}{unit}</div>
         </div>"""
 
     cards = (
@@ -651,20 +558,20 @@ def render_digital_store_html(results: dict, gt: dict, budget: float) -> str:
     )
 
     table = f"""
-    <table class="dn">
+    <table class="xm-table">
       <tr><th>指标</th><th>小满 R³</th><th>传统纯利润</th><th>口径 / 公式</th></tr>
       <tr><td>累计毛利</td><td><b>{_fmt_money(d['cumulative_gross_margin'])}</b></td>
           <td>{_fmt_money(b['cumulative_gross_margin'])}</td>
           <td>Σ 实销×毛利额 − Σ 损耗×进价</td></tr>
       <tr><td>总体缺货率</td><td>{d['stockout_rate']:.2%}</td><td>{b['stockout_rate']:.2%}</td>
           <td>全部商品缺货件数 ÷ 全部商品真实需求件数</td></tr>
-      <tr><td>民生最低保障达标率</td><td><b style="color:#2c7a4b">{d['livelihood_secured_rate']:.1%}</b></td>
+      <tr><td>民生最低保障达标率</td><td><b style="color:var(--xm-success)">{d['livelihood_secured_rate']:.1%}</b></td>
           <td>{b['livelihood_secured_rate']:.1%}</td>
           <td>180 天平均的每日「补货量 ≥ 民生最低保障量」达标比例</td></tr>
-      <tr><td>民生商品实际缺货率</td><td><b style="color:#2c7a4b">{d['livelihood_stockout_rate']:.2%}</b></td>
+      <tr><td>民生商品实际缺货率</td><td><b style="color:var(--xm-success)">{d['livelihood_stockout_rate']:.2%}</b></td>
           <td>{b['livelihood_stockout_rate']:.2%}</td>
           <td>19 种民生商品缺货件数 ÷ 其真实需求件数</td></tr>
-      <tr><td>民生商品实际缺货件数</td><td><b style="color:#2c7a4b">{d['livelihood_stockout_qty']:,.0f}</b></td>
+      <tr><td>民生商品实际缺货件数</td><td><b style="color:var(--xm-success)">{d['livelihood_stockout_qty']:,.0f}</b></td>
           <td>{b['livelihood_stockout_qty']:,.0f}</td>
           <td>19 种民生商品 Σ(需求 − 销量) 中缺货部分</td></tr>
       <tr><td>缺货件数（全部商品）</td><td>{d['stockout_qty']:,.1f}</td><td>{b['stockout_qty']:,.1f}</td>
@@ -688,28 +595,28 @@ def render_digital_store_html(results: dict, gt: dict, budget: float) -> str:
 
     return f"""
     {_hero(f"180 天数字小店长期实验：同一条街、同样的 180 天，两种补货思路的最终成绩单")}
-    <div class="note">
+    <div class="xm-callout">
       仿真区间 <b>{d0} ~ {d1}</b>（{len(gt['day_list'])} 天 × {len(gt['products'])} 个 SKU）·
       每日进货预算 <b>{_fmt_money(budget)}</b> · 两种策略面对<b>完全相同</b>的需求序列、价格、交期、
       天气/节假日/断供事件，差别只在<b>补货决策策略</b>。
     </div>
-    <div class="kpi-row">{cards}</div>
-    <div class="dn-card">
-      <h3 style="margin-top:0">长期指标对照（全部由仿真日志真实计算）</h3>
+    <div class="xm-card"><div style="display:flex;flex-wrap:wrap;gap:var(--xm-space-xl)">{cards}</div></div>
+    <div class="xm-card">
+      <div class="xm-h3" style="margin:0 0 8px">长期指标对照（全部由仿真日志真实计算）</div>
       {table}
     </div>
-    <div class="note">
-      <b>📖 指标说明：</b><br>
+    <div class="xm-callout">
+      <b>指标说明：</b><br>
       · <b>总体缺货率</b>：全部商品（50 SKU）未满足需求件数占其总需求件数的比例；<br>
       · <b>民生最低保障达标率</b>：补货决策满足民生商品最低保障库存约束的比例（计划层面），
       不代表经营过程中完全不会发生实际缺货；<br>
       · <b>民生商品实际缺货率</b>：19 种民生商品在真实经营中未被满足的需求件数
       占其总需求件数的比例（结算层面）。
     </div>
-    <div class="note">
-      <b>📌 客观结论：</b>{simulator.conclusion_text(results)}
+    <div class="xm-callout">
+      <b>客观结论：</b>{simulator.conclusion_text(results)}
     </div>
-    <div class="note">
+    <div class="xm-callout">
       <b>无未来数据泄漏：</b>第 t 天补货时，决策层只读「t 天以前」的经营记录与当天已知的
       天气/节假日/断供状态；真实需求仅保存在仿真结算层（上帝视角），不喂给决策。
       因此两个策略看到的未来信息完全相同，结论可比。
@@ -723,8 +630,14 @@ def do_digital_store(budget):
                                        seed=simulator.DEFAULT_SEED, keep_daily=True)
     gt = simulator.load_ground_truth()
     html = render_digital_store_html(results, gt, budget)
+    # 图表套用当前主题（simulator 只负责数据，样式在这里统一，深色主题下不再是白底）
+    lay = themes.plotly_layout(ACTIVE_THEME)
+    ink = themes.palette(ACTIVE_THEME)["ink"]
     fig1 = simulator.build_cumulative_figure(results)
     fig2 = simulator.build_rates_figure(results)
+    for fig in (fig1, fig2):
+        fig.update_layout(**lay)
+        fig.update_layout(title_font_color=ink)   # 覆盖 simulator 里写死的标题色
     return html, fig1, fig2
 
 
@@ -804,7 +717,7 @@ def submit_feedback(day_str: str, df: pd.DataFrame):
 def render_evolution_html() -> str:
     logs = memory.get_evolution_log(limit=40)
     if not logs:
-        return ("<div class='note'>还没有学习记录。到「今天生意怎么样」录一次反馈，"
+        return ("<div class='xm-callout'>还没有学习记录。到「今天生意怎么样」录一次反馈，"
                 "这里就会显示小满是怎么自己调整的。</div>")
 
     products = {p["sku"]: p for p in memory.get_products()}
@@ -844,7 +757,7 @@ def render_sku_strategy_html(sku: str) -> str:
     products = {p["sku"]: p for p in memory.get_products()}
     p = products.get(sku) if sku else None
     if not p:
-        return "<div class='note'>请先在上方选择一个商品。</div>"
+        return "<div class='xm-callout'>请先在上方选择一个商品。</div>"
 
     pol = memory.get_policy(sku) or {}
     base = float(pol.get("safety_factor", 0.15))
@@ -903,15 +816,21 @@ def evolution_chart(sku: str):
     nm = p.get("name", sku or "未选择商品")
     details = memory.evolution_details(sku) if sku else []
 
+    # plotly 不认 CSS 变量，必须给当前主题的具体色值；深色主题下也不该是白底黑字
+    plt = themes.plotly_layout(ACTIVE_THEME)
+    P = themes.palette(ACTIVE_THEME)
     fig = go.Figure()
 
     if not details:
         fig.add_annotation(text=f"{nm} 还没有有效的策略调整记录", showarrow=False,
-                           font=dict(size=16, color="#8b98a8"))
-        fig.update_layout(height=360, template="plotly_white",
-                          paper_bgcolor="#fff", plot_bgcolor="#fff",
-                          title=dict(text=f"{nm} · 安全库存系数演进",
-                                     font=dict(size=17, color="#1f4e79")))
+                           font=dict(size=16, color=P["steel"]))
+        lay = dict(plt)
+        lay.update({
+            "height": 360,
+            "title": dict(text=f"{nm} · 安全库存系数演进",
+                          font=dict(size=17, color=P["ink"])),
+        })
+        fig.update_layout(**lay)
         return fig
 
     # 第 0 个点是初始值（首次调整的 old_value，即基础安全系数），
@@ -940,8 +859,8 @@ def evolution_chart(sku: str):
     fig.add_trace(go.Scatter(
         x=xs, y=ys, text=hover,
         mode="lines+markers", name="安全库存系数",
-        line=dict(color="#c0392b", width=3),
-        marker=dict(size=11, color="#c0392b", line=dict(color="#fff", width=1.5)),
+        line=dict(color=P["error"], width=3),
+        marker=dict(size=11, color=P["error"], line=dict(color=P["canvas"], width=1.5)),
         connectgaps=True,
         hovertemplate="%{text}<extra></extra>",
     ))
@@ -950,22 +869,25 @@ def evolution_chart(sku: str):
     tick_vals = list(range(len(xs)))
     tick_text = ["初始"] + [str(d["day"])[5:] for d in details]
 
-    fig.update_layout(
-        height=380, template="plotly_white",
-        paper_bgcolor="#fff", plot_bgcolor="#fff",
-        title=dict(text=f"{nm} · 安全库存系数随经营反馈的变化",
-                   font=dict(size=17, color="#1f4e79")),
-        xaxis=dict(
+    lay = dict(plt)
+    lay.update({
+        "height": 380,
+        "title": dict(text=f"{nm} · 安全库存系数随经营反馈的变化",
+                      font=dict(size=17, color=P["ink"])),
+        "xaxis": dict(
+            plt["xaxis"],
             title=dict(text="经营反馈（0 = 初始值，其后为每次有效调整的日期）",
-                       font=dict(size=12, color="#5a6b7d")),
-            gridcolor="#eef1f4", tickvals=tick_vals, ticktext=tick_text,
+                       font=dict(size=12, color=P["slate"])),
+            tickvals=tick_vals, ticktext=tick_text,
         ),
-        yaxis=dict(
-            title=dict(text="安全库存系数", font=dict(color="#c0392b")),
-            gridcolor="#eef1f4", tickfont=dict(color="#c0392b"),
+        "yaxis": dict(
+            plt["yaxis"],
+            title=dict(text="安全库存系数", font=dict(color=P["error"])),
+            tickfont=dict(color=P["error"]),
         ),
-        margin=dict(l=60, r=30, t=70, b=70),
-    )
+        "margin": dict(l=60, r=30, t=70, b=70),
+    })
+    fig.update_layout(**lay)
     return fig
 
 
@@ -1022,29 +944,29 @@ def render_analysis_html() -> str:
     for r in impact_table:
         cat_rows.append(f"""
         <tr><td>{r['category']}</td>
-            <td><b style="color:#c0564f">{_fmt(r['heat'])}</b></td>
-            <td><b style="color:#1f4e79">{_fmt(r['rain'])}</b></td>
-            <td><b style="color:#3f8f6b">{_fmt(r['holiday'])}</b></td></tr>""")
+            <td><b style="color:var(--xm-error)">{_fmt(r['heat'])}</b></td>
+            <td><b style="color:var(--xm-ink)">{_fmt(r['rain'])}</b></td>
+            <td><b style="color:var(--xm-success)">{_fmt(r['holiday'])}</b></td></tr>""")
 
     return f"""
     {_hero("用 180 天经营数据，算清楚高温 / 暴雨 / 节假日到底把销量抬了多少")}
-    <div class="dn-card">
-      <h3 style="margin-top:0">📅 历史事件日历</h3>
-      <table class="dn">
+    <div class="xm-card">
+      <div class="xm-h3" style="margin:0 0 8px">历史事件日历</div>
+      <table class="xm-table">
         <tr><th>事件</th><th>天数</th><th>发生时段</th></tr>
         {''.join(ev_rows)}
       </table>
-      <div style="margin-top:12px;font-size:13px;color:#8b98a8">
+      <div style="margin-top:12px;font-size:13px;color:var(--xm-steel)">
         这些事件直接来自经营仿真数据 CSV 的天气 / 事件列，不是写死的数字。
       </div>
     </div>
-    <div class="dn-card">
-      <h3 style="margin-top:0">事件对销量的影响（数据驱动）</h3>
-      <table class="dn">
+    <div class="xm-card">
+      <div class="xm-h3" style="margin:0 0 8px">事件对销量的影响（数据驱动）</div>
+      <table class="xm-table">
         <tr><th>品类</th><th>高温</th><th>暴雨</th><th>节假日</th></tr>
         {''.join(cat_rows)}
       </table>
-      <div style="margin-top:12px;font-size:13px;color:#8b98a8">
+      <div style="margin-top:12px;font-size:13px;color:var(--xm-steel)">
         口径：事件日销量 ÷ 同星期几非事件日均值（已消除星期效应）；
         勾选风险事件时，预测模块优先用这里的真实乘数，数据缺失再回退先验系数。
       </div>
@@ -1092,7 +1014,7 @@ def build_app():
                         with gr.Group(elem_classes=["xm-flow"]):
                             plan_top_out = gr.HTML(home_view.render_home_html(policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False), 'top'))
                             with gr.Accordion('明天按什么情况进货？　%s · 预算 ¥%.0f · 暂无特殊情况' % (DEFAULT_PLAN_DATE[5:].replace('-', '/'), DEFAULT_BUDGET), open=False):
-                                with gr.Row(elem_classes=["dn-row"]):
+                                with gr.Row(elem_classes=["xm-row"]):
                                     date_in = gr.Textbox(value=DEFAULT_PLAN_DATE, label="目标经营日",
                                                          scale=2, info="为这一天的经营备货，默认=明天")
                                     budget_in = gr.Number(value=DEFAULT_BUDGET, label="这次最多花多少（元）",
@@ -1100,11 +1022,11 @@ def build_app():
                                     btn_plan = gr.Button("重新生成进货建议", variant="primary", scale=1)
                                     btn_cmp = gr.Button("与传统算法对比（实验）", scale=1)
     
-                                with gr.Group(elem_classes=["dn-risk-panel"]):
-                                    gr.HTML("<div class='dn-risk-head'>明天有没有特殊情况？</div>"
-                                            "<div class='dn-risk-sub'>勾选后小满会把它纳入销量预计与补货计算；"
+                                with gr.Group(elem_classes=["xm-card"]):
+                                    gr.HTML("<div class='xm-sec-title'>明天有没有特殊情况？</div>"
+                                            "<div class='xm-hint'>勾选后小满会把它纳入销量预计与补货计算；"
                                             "不勾选则按正常情况计算。</div>")
-                                    with gr.Row(elem_classes=["dn-row"]):
+                                    with gr.Row(elem_classes=["xm-row"]):
                                         rain_cb = gr.Checkbox(value=False, label="暴雨",
                                                               info="客流可能下降")
                                         heat_cb = gr.Checkbox(value=False, label="高温",
@@ -1120,24 +1042,23 @@ def build_app():
                             btn_goto_exp = gr.Button("查看实验验证 ›", scale=1)
                         explain_out = gr.HTML()
 
-                        gr.Markdown("---")
-                        gr.Markdown("### 🤖 Agent 智能补货\n"
-                                    "直接说需求，例如「预算600元，明天高温」。"
-                                    "Agent 会读历史数据 → 找历史事件 → 分析销量影响 → 出方案并解释。")
-                        with gr.Row(elem_classes=["dn-row"]):
+                        gr.HTML("<div class='xm-sec' style='margin-top:var(--xm-space-lg)'>"
+                                "<div class='xm-sec-title'>Agent 智能补货</div>"
+                                "<div class='xm-hint'>直接说需求，例如「预算600元，明天高温」。"
+                                "Agent 会读历史数据 → 找历史事件 → 分析销量影响 → 出方案并解释。</div></div>")
+                        with gr.Row(elem_classes=["xm-row"]):
                             agent_in = gr.Textbox(label="你的需求", scale=4,
                                                   placeholder="例如：预算600元，明天高温，帮我算算")
-                            btn_agent = gr.Button("🤖 让 Agent 来算", variant="primary", scale=1)
+                            btn_agent = gr.Button("让 Agent 来算", variant="primary", scale=1)
                         agent_out = gr.HTML()
 
-                        gr.Markdown("---")
                         with gr.Accordion('高级实验工具 · 180 天长期仿真（现场无需运行）', open=False):
-                            with gr.Row(elem_classes=["dn-row"]):
+                            with gr.Row(elem_classes=["xm-row"]):
                                 sim_budget = gr.Number(value=simulator.DEFAULT_SIM_BUDGET,
                                                        label="每日进货预算（元）", scale=2,
                                                        info="默认 ¥1800，两种策略使用同一预算")
-                                btn_sim = gr.Button("🚀 运行180天仿真", variant="primary", scale=1)
-                            gr.Markdown("⏳ 约需 2 分钟（其中完整小满每次约 100 秒，传统算法约 20 秒）。"
+                                btn_sim = gr.Button("运行 180 天仿真", variant="primary", scale=1)
+                            gr.Markdown("约需 2 分钟（其中完整小满每次约 100 秒，传统算法约 20 秒）。"
                                         "完整消融实验请运行 `python run_digital_store.py`。")
                             sim_out = gr.HTML()
                             with gr.Row():
@@ -1147,7 +1068,7 @@ def build_app():
                     # ── Tab 2 ── 为什么这样进
                     with gr.Tab("为什么这样进", id="why"):
                         gr.Markdown("## 为什么这样进\n看看每一笔补货建议背后的依据")
-                        with gr.Row(elem_classes=["dn-row"]):
+                        with gr.Row(elem_classes=["xm-row"]):
                             why_sku = gr.Dropdown(choices=sku_choices, value=default_sku, label="正在查看", scale=3)
                             btn_why = gr.Button("查看", variant="primary", scale=1)
                         why_out = gr.HTML(render_why_html(default_sku))
@@ -1184,7 +1105,7 @@ def build_app():
                         exp_log = gr.HTML(learn_view.render_learn_page())
                         btn_goto_feedback = gr.Button("去记录经营情况 →", scale=1)
                         with gr.Accordion("查看策略变化详情 · 当前策略参数与变化曲线", open=False):
-                            with gr.Row(elem_classes=["dn-row"]):
+                            with gr.Row(elem_classes=["xm-row"]):
                                 sku_dd = gr.Dropdown(
                                     choices=sku_choices,
                                     value=default_sku,
@@ -1214,12 +1135,12 @@ def build_app():
                     # ── Tab 6 ──
                     with gr.Tab("项目说明", id="about"):
                         gr.HTML(render_about_html())
-                        gr.Markdown("---")
-                        gr.Markdown("### 📊 离线评测对比\n"
-                                    "点击下方按钮，在**隔离临时库**上跑一轮快速评测（2 个随机种子 × 60 天），"
-                                    "不影响当前门店记忆，评委无需命令行即可看到对比柱状图。")
-                        with gr.Row(elem_classes=["dn-row"]):
-                            btn_eval = gr.Button("🔬 生成评测对比图", scale=1)
+                        gr.HTML("<div class='xm-sec' style='margin-top:var(--xm-space-lg)'>"
+                                "<div class='xm-sec-title'>离线评测对比</div>"
+                                "<div class='xm-hint'>点击下方按钮，在<b>隔离临时库</b>上跑一轮快速评测"
+                                "（60 天窗口），不影响当前门店记忆。</div></div>")
+                        with gr.Row(elem_classes=["xm-row"]):
+                            btn_eval = gr.Button("生成评测对比图", scale=1)
                         eval_plot = gr.Plot()
 
                     # ── Tab 7 · 设置（左侧边栏新栏目）──
@@ -1268,8 +1189,9 @@ def build_app():
         btn_eval.click(render_eval_figure, None, eval_plot)
         btn_sim.click(do_digital_store, sim_budget, [sim_out, sim_plot1, sim_plot2])
         # 设置：应用主题（就地换肤 + 落盘，不刷新页面）
-        theme_radio.change(apply_theme, theme_radio,
-                           [theme_style, theme_cards, theme_status, env_panel, side_brand])
+        theme_radio.change(apply_theme, [theme_radio, sku_dd],
+                           [theme_style, theme_cards, theme_status, env_panel, side_brand,
+                            evo_chart])
 
     return demo
 
