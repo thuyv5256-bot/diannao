@@ -13,8 +13,8 @@ def _mk(monkeypatch, exps, evo):
 def test_empty_state_is_productized(monkeypatch):
     lv = _mk(monkeypatch, [], [])
     h = lv.render_learn_page()
-    assert '还没有形成这类经营经验' in h
-    assert 'lw-rec' not in h
+    assert '还没有形成经营经验' in h
+    assert 'lx-exp' not in h
 
 
 def test_records_path_uses_real_data(monkeypatch):
@@ -24,5 +24,5 @@ def test_records_path_uses_real_data(monkeypatch):
     evo = [{'day': '2026-07-10', 'sku': 'P006', 'old_value': 0.15, 'new_value': 0.17}]
     lv = _mk(monkeypatch, exps, evo)
     h = lv.render_learn_page()
-    assert '已经积累 1 条经营经验' in h
-    assert 'lw-rec' in h and '牛奶备货不足' in h and '上调' in h
+    assert '最近学到的经营经验' in h
+    assert 'lx-exp' in h and '牛奶备货不足' in h and '上调' in h
