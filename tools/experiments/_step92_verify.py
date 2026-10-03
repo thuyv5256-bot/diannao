@@ -1,4 +1,10 @@
 # -*- coding: utf-8 -*-
+import pathlib
+import sys
+
+# 归档后位置：tools/experiments/ —— 把仓库根加回 sys.path，脚本仍按仓库根为工作目录运行
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+
 # 第9.2步：FINAL 最终复现验收（只读，不覆盖 FINAL）
 import hashlib
 import json

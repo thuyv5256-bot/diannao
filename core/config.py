@@ -45,8 +45,8 @@ CURRENCY = "¥"
 # 民生商品即使毛利低，也必须保证的最低覆盖天数。
 # 这是"不逐利砍便民货品"的技术落地形式。
 LIVELIHOOD_MIN_COVER_DAYS = 3.0
-# 预算极端不足时，民生底线至少保到该比例（宁可少进高毛利货）
-LIVELIHOOD_FLOOR_RATIO = 0.85
+# 说明：民生"兜底"不靠比例系数，而是由 R³ 两阶段字典序（先最大化民生兜底）实现，
+# 见 r3_optimizer.solve(protect_livelihood=True) 与 policy._prepare_items 的 floor_qty。
 
 # ── 目标覆盖天数（动态计算，不再由「民生固定4天」拍脑袋）──────────
 # 基础覆盖 = 供应商交期 + 补货缓冲（下次检查/补货间隔），
@@ -60,18 +60,16 @@ SAFETY_FACTOR_MAX = 0.60
 BASE_DAYS_MIN = 2.0
 BASE_DAYS_MAX = 12.0
 LIVELIHOOD_BASE_DAYS_MIN = 4.0   # 民生商品备货天数下限更高
-EVOLVE_UP_STEP = 0.06            # 断货 → 上调安全系数步长
-EVOLVE_DOWN_STEP = 0.04          # 积压损耗 → 下调步长
-EVOLVE_UP_MAX_MULT = 2.5         # 单次上调的严重程度上限倍数
 STOCKOUT_TRIGGER = 0.10          # 缺货率超过该阈值触发进化（≥10% 视为真实缺货，如 8/61≈13%）
 SPOILAGE_TRIGGER = 0.10          # 损耗率超过该阈值触发进化
 
 # ── 创新点 2：基于经营反馈的策略自适应（在线策略校准）──────────────
-# 补货决策时，从长期记忆里检索「同场景、同商品」的经营经验：
-#   · 曾断货 → 安全库存系数小幅上调；曾报损/积压 → 小幅下调；
-#   · 单条 ±0.02，单商品累计幅度夹紧到 ±0.06，避免一次反馈让补货量剧烈变化。
-MEMORY_SAFETY_UP_STEP = 0.02     # 每条「断货」经验的安全系数上调量
-MEMORY_SAFETY_DOWN_STEP = 0.02   # 每条「积压损耗」经验的安全系数下调量
+# 补货决策时，从长期记忆里检索「同场景、同商品」的经验，用**预测残差均值**校准安全库存：
+#     delta = clamp(平均残差比例 × MEMORY_BIAS_GAIN, ±MEMORY_SAFETY_MAX_DELTA)
+# （实现见 policy.memory_safety_calibration：取最近 MEMORY_BIAS_WINDOW 条同场景经验的均值，
+#   不做连乘、不按条数累加，避免一次反馈让补货量剧烈变化；硬边界仍由
+#   SAFETY_FACTOR_MIN/MAX 兜住。历史上的「固定步长」常量已废弃删除。）
+MEMORY_BIAS_GAIN = 0.5           # 预测残差 → 安全库存校准的增益
 MEMORY_SAFETY_MAX_DELTA = 0.06   # 场景校准的累计最大幅度（防单次过冲）
 
 # ── 预测参数 ──────────────────────────────────────────────
@@ -101,7 +99,9 @@ R3_SOLVER_ENABLED = True         # 是否启用 MILP 求解器升级分配层
 R3_SOLVER_TIMEOUT = 30           # 单次求解超时（秒），超时视为失败并回退
 RESILIENCE_SHORTFALL_PENALTY = 1.0  # 韧性目标：相对目标库存每缺口 1 件折算的惩罚（元）
 
-# ── 潜在需求还原（消融实验开关，见 eval.py）──────────────
+# ── 潜在需求还原（断货日还原潜在需求；同时是消融实验的开关）────
+# 该值作为 forecast/policy 各入口的默认参数（policy.build_plan / forecast.forecast_all 等），
+# eval.py 的消融实验通过显式传 False 关掉它做对照。
 RESTORE_POTENTIAL = True         # True=断货日销量还原为潜在需求（默认）
 
 # ── LLM 说明层（可选；未配置密钥则自动降级为规则模板）────
@@ -128,5 +128,5 @@ HOLIDAYS = {
 }
 
 # ── 界面配色 ──────────────────────────────────────────────
-COLOR_LIVELIHOOD = "#c0392b"     # 民生商品标记色（红，公益感）
-COLOR_PROFIT = "#2c7a4b"         # 高毛利商品标记色
+# 颜色不再放在 config：统一由 core/themes.py（主题变量 --xm-*）与 core/ui_theme.py
+# （组件类 .xm-*）持有，页面只消费变量。规则见 DESIGN.md §8 与 CLAUDE.md 铁律 8。

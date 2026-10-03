@@ -292,7 +292,34 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | spoilage_ab | 损耗控制开 | 152,707.2 | 2.931% | 1.000 | 425 | 739 |
 | | 损耗控制关 | 152,707.2 | 2.931% | 1.000 | 425 | 739 |
 
-**读法**：① 小满用 −0.04% 毛利换来民生保障 100% 与民生断货 −37.6%；② 经营记忆带来 +¥752 毛利与断货率 −0.47pp；③ 去掉责任目标毛利最高但民生保障掉到 95%。**⚠️ ③ 与 spoilage_ab 无差异两点存在待解释项，见 §13 与 ARD。**
+**读法**：① 小满用 −0.04% 毛利换来民生保障 100% 与民生断货 −37.6%；② 经营记忆带来 +¥752 毛利与断货率 −0.47pp；③ 去掉责任目标毛利最高但民生保障掉到 95%。
+
+**两个曾被标为「待解释」的项，已于 2026-10-03 查清（ARD T-EXP-02 / T-EXP-03）**：
+
+**A. `spoilage_ab` 开/关各项完全一致 = 采购上限从未生效（不是接线 bug）**
+
+从冻结流水 `spoilage_ab/daily_control_on.csv` 逐行核算「短保可售容量 − 理想补货量」：
+9,000 条决策中**最小余量 0.0、中位 3.3、最大 23.2 件，`spoilage_capped` 命中 0 次**。
+即 `raw_reorder = min(uncapped, ceil(max(floor_qty, free_sellable_capacity)))` 里的 `min` 从未取到右侧值
+（余量为 0 时两侧相等）。两臂的差异只在 `strategy` 标签与 `free_sellable_capacity` 这一**记录列**上
+（关掉时该列被赋成 `raw_reorder_uncapped`，见 `policy.py`），因此 180 天全部指标逐位相同。
+**结论**：开关逻辑正确，在该数据集下不可能触发；页面「实验验证」④ 已把该核算结果直接展示给评委。
+
+**B. `−Revenue` 累计毛利略高 ¥232（+0.15%）= 预算被用来补齐缺口，不是收益目标有害**
+
+从冻结流水 `ablation_3obj/daily_{full,no_revenue}.csv` 逐日求差：
+`revenue +852.0、purchase_cost +619.9、sold_qty +86、stockout_qty −86、gross_margin +232.1`。
+即：去掉收益项后，MILP 只在「预算内最小化韧性缺口」下分配，钱更多流向**补齐目标库存**的方向，
+多进 ¥620 的货、多卖 86 件（少缺货 86 件），多卖出的收入盖过多花的成本；单位经济性几乎不变
+（毛利/件 2.1933 vs 2.1939）。**真正的取舍代价在民生侧**：`−Responsibility` 的民生保障率掉到 95.0%、
+民生断货量 612（vs 425）。**结论**：这是「同等预算下的边际选择」效应 + 指标口径（累计毛利按实际售出计），
+不是实验错误；页面「实验验证」② 已把差额现算并展示。
+
+> ⚠️ 复现痕迹：`tools/experiments/_step92_verify.py` 重跑后 **18/18 指标与冻结值逐位一致**、
+> `data_version` 一致；但 `FROZEN.json`/summary 记录的 `metrics_version = c28cf12ae51c69e0` 与当前
+> `core/metrics.py`（`e5e64a0842d0ea59`，LF、无 BOM）**不一致** —— 仓库里 `core/metrics.py` 只有一次导入提交，
+> 差异应发生在冻结之后、入库之前（口径未变，故指标仍逐位复现）。**今后若改动 `core/metrics.py` 的口径，
+> 必须新建目录重新冻结，不要覆盖 `eval/final`**（CLAUDE.md 铁律 4）。 与 ARD。**
 
 ---
 
@@ -396,8 +423,17 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 | 实验 | `DEFAULT_SIM_BUDGET / DEFAULT_SEED`（simulator） | 1800 / 42 | 长期仿真 |
 | | `DAYS / SEEDS / EVAL_BUDGET`（eval_core） | 60 / [42] / 360 | 离线评测 |
 
-**已定义但当前代码未被引用（疑似历史遗留，待清理或接线）**：`LIVELIHOOD_FLOOR_RATIO`、`EVOLVE_UP_STEP`、`EVOLVE_DOWN_STEP`、`EVOLVE_UP_MAX_MULT`、`MEMORY_SAFETY_UP_STEP`、`MEMORY_SAFETY_DOWN_STEP`、`RESTORE_POTENTIAL`、`COLOR_LIVELIHOOD`、`COLOR_PROFIT`。**注意：`README.md` 第 3 节曾引用这些常量作为"防震荡设计"，与当前实现（残差均值 × 0.5，夹紧 ±0.06）不一致，需订正。**
+**参数卫生（ARD T-QA-01，2026-10-03 已处理）**：原先 9 个「定义了但没人用」的常量已逐个裁决 ——
 
+| 常量 | 处置 |
+|---|---|
+| `LIVELIHOOD_FLOOR_RATIO` | **删除**：民生兜底实际由 R³ 两阶段字典序（先最大化民生兜底）实现，不靠比例系数 |
+| `EVOLVE_UP_STEP` / `EVOLVE_DOWN_STEP` / `EVOLVE_UP_MAX_MULT` | **删除**：固定步长已被「残差均值 × 增益」取代 |
+| `MEMORY_SAFETY_UP_STEP` / `MEMORY_SAFETY_DOWN_STEP` | **删除**：同上（校准量由 `MEMORY_BIAS_GAIN × 残差均值` 决定，不再按条数累加） |
+| `COLOR_LIVELIHOOD` / `COLOR_PROFIT` | **删除**：颜色只能来自 `core/themes.py` 的主题变量与 `core/ui_theme.py` 的组件类（DESIGN §8、CLAUDE 铁律 8） |
+| `RESTORE_POTENTIAL` | **接线**：成为 `forecast.estimate_daily_demand / forecast_all` 与 `policy._prepare_items / build_plan / plan_and_explain` 的默认值（值不变 True，行为零变化）；`eval.py` 的消融实验显式传 `False` 做对照 |
+
+另外把散落在 `policy.py` 的业务常量 `MEMORY_BIAS_GAIN` 收回 `config.py`（铁律 7：参数集中）。
 ---
 
 ## 10. 质量保障

@@ -7,6 +7,8 @@ import sqlite3
 
 import pytest
 
+from conftest import require_app
+
 from core import evolution, learn_view, memory, policy
 
 
@@ -58,8 +60,7 @@ def test_duplicate_feedback_single_learning(db):
 
 
 def test_ui_reads_same_memory_as_algorithm(db):
-    pytest.importorskip("gradio")
-    import app
+    app = require_app()
     ctx = {"L1": {"forecast_qty": 5.0, "reorder_qty": 10.0}}
     evolution.process_feedback("2026-07-10", [_fb("L1", sold=5, stockout=5, spoilage=0)], plan_context=ctx)
     html = learn_view.render_learn_page()

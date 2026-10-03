@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta
 from . import event_evidence, events, memory, risk
 from .config import (
     DECAY_ALPHA,
+    RESTORE_POTENTIAL,
     HOLIDAYS,
     LOOKBACK_DAYS,
     TREND_HORIZON,
@@ -170,7 +171,7 @@ def _trend(records: list[dict], restore_potential: bool = True) -> tuple[float, 
 
 
 def estimate_daily_demand(product: dict, plan_date, records: list[dict],
-                          restore_potential: bool = True, risks=None) -> dict:
+                          restore_potential: bool = RESTORE_POTENTIAL, risks=None) -> dict:
     """
     预测某商品在 plan_date 当天的需求量。
 
@@ -250,7 +251,7 @@ def estimate_daily_demand(product: dict, plan_date, records: list[dict],
 
 
 def forecast_all(plan_date, lookback: int = LOOKBACK_DAYS,
-                 restore_potential: bool = True, risks=None) -> dict[str, dict]:
+                 restore_potential: bool = RESTORE_POTENTIAL, risks=None) -> dict[str, dict]:
     """对全部商品做一次需求预测。"""
     products = memory.get_products()
     out = {}

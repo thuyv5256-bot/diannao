@@ -14,6 +14,8 @@
 import re
 from pathlib import Path
 
+from conftest import require_app
+
 ROOT = Path(__file__).resolve().parent.parent
 
 EMOJI_RE = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
@@ -118,7 +120,7 @@ def test_theme_aware_plotly_layout_follows_dark_theme():
 
 def test_evolution_chart_uses_active_theme(db, monkeypatch):
     """深色主题下，图表背景/文字必须跟着变（而不是永远白底黑字）。"""
-    import app
+    app = require_app()
     monkeypatch.setattr(app, "ACTIVE_THEME", "dark", raising=False)
     fig = app.evolution_chart("L1")
     assert fig.layout.paper_bgcolor == "#1a1d23"

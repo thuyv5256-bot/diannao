@@ -1,4 +1,10 @@
 # -*- coding: utf-8 -*-
+import pathlib
+import sys
+
+# 归档后位置：tools/experiments/ —— 把仓库根加回 sys.path，脚本仍按仓库根为工作目录运行
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+
 # 第6.3步：R³ 三目标消融（A全 / B-R / C-R2 / D-Responsibility），同一180天环境
 import sys
 

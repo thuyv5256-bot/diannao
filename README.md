@@ -26,6 +26,10 @@ python app.py
 # 浏览器打开 http://127.0.0.1:7861
 ```
 
+> 环境说明：本项目在 **Python 3.13**（本机 `E:\Python\python.exe`）上验证通过。
+> Windows 上如果 PATH 里的 `python` 指向别的发行版（例如 msys2 的 3.12），请显式用本项目解释器
+> 的绝对路径（`& 'E:\Python\python.exe' app.py`），否则会因依赖不在该环境而 `ModuleNotFoundError`。
+
 命令行完整演示（答辩用，一次性跑通五幕闭环）：
 
 ```bash
@@ -71,6 +75,10 @@ python seed_data.py
 2. **弹性分配**：剩余预算按资金效率分配给所有商品的增量需求，民生与零食公平竞争；
 3. **极端保底**：预算连民生底线都覆盖不了时，按「客流带动系数 × 缺口」排序优先保障。
 
+> 第 2 层现在是 **R³-Stock 两阶段字典序整数优化**（`core/r3_optimizer.py`，HiGHS/scipy）：
+> 先最大化民生兜底（Responsibility），冻结后再最大化「收益 − λ×韧性缺口」；
+> 求解器不可用或超时自动回退到上面的贪心分配，任何情况下都不崩。
+
 **怎么看效果**：界面「今天该进什么货 → 和传统算法比一比」，
 或用 `demo_flow.py` 第二幕。
 
@@ -91,13 +99,15 @@ python seed_data.py
 小满把"学习"落在少量**可解释的业务参数**上 —— 店主能看懂"为什么从 0.15 变成 0.30"，
 也才会信任这个系统。这是小微商户场景该有的技术选择。
 
-**防震荡设计**（评委必问，提前回答，见 `core/config.py`）：
+**防震荡设计**（评委必问，提前回答；实现见 `core/policy.py`，参数在 `core/config.py`）：
 
-- 参数有硬边界：安全系数 0.05~0.60，备货天数 2~12 天；
-- 步长有上限，按严重程度缩放但有天花板，不会一步跳到底；
-- 单日同时出现断货与损耗时只按断货处理，避免自我抵消；
-- 短保商品额外受保质期约束；
-- 超过触发阈值才调整，日常小波动不触发 —— 不追着噪声跑。
+- **一个有界校准公式**：`安全系数 = clamp(基础系数 + 残差校准, 0.05, 0.60)`，
+  其中 `残差校准 = clamp(同场景预测残差均值 × MEMORY_BIAS_GAIN, ±MEMORY_SAFETY_MAX_DELTA)`
+  —— 取均值、不连乘、不按条数累加（`MEMORY_BIAS_GAIN = 0.5`、`MEMORY_SAFETY_MAX_DELTA = 0.06`）；
+- **硬边界**：安全系数 0.05~0.60，备货天数 2~12 天（民生商品下限更高，4 天起）；
+- **阈值触发**：断货率 / 损耗率超过 10% 才沉淀经验，日常小波动不触发 —— 不追着噪声跑；
+- **同现只算一次**：同一天同时出现断货与损耗时只按断货处理，避免自我抵消；
+- **短保商品另有保质期约束**：`spoilage_control` 给短保商品加「可售容量」采购上限（不改 R³ 目标）。
 
 ### 创新点 3｜面向弱势群体小商户的轻量化普惠方案
 
@@ -121,10 +131,13 @@ python seed_data.py
 同样的平均销量，明天是高温还是暴雨，该进的货不同。小满把 180 天经营记录按
 「同星期几」分组做基线（消掉星期效应），再算事件日的实际销量相对基线的倍数：
 
-| 事件 | 受影响品类 | 需求倍数（历史数据） |
+| 事件 | 受影响品类 | 需求倍数（历史数据现算） |
 |---|---|---|
-| 🔥 高温 | 冷饮 / 饮料 | ×1.58 / ×1.55（卖得更好） |
-| ☔ 暴雨 | 冷饮 / 水果 | ×0.73 / ×0.74（明显走低） |
+| 高温 | 冷饮 / 饮料 | ×1.58 / ×1.55（卖得更好） |
+| 暴雨 | 冷饮 / 水果 | ×0.73 / ×0.74（明显走低） |
+
+（上表是 `events.event_impact(as_of='2026-08-27')` 的真实输出；网页「店里的老账本」页会列出
+完整的分品类事件影响表，共 14 个品类。）
 
 这些倍数不是写死的，而是 `events.py` 每次从 CSV 历史里现算（夹在 [0.5, 1.8]
 区间防极端值）。补货预测里的「高温 / 暴雨」因子优先用它，只有历史里查不到该品类
@@ -138,25 +151,46 @@ python seed_data.py
 
 ```
 diannao/
-├── app.py                  # Gradio 网页界面
+├── app.py                  # Gradio 网页界面（左侧边栏 8 栏目 + 主题切换）
 ├── demo_flow.py            # 五幕闭环演示（答辩用）
 ├── seed_data.py            # 从 CSV 导入门店经营仿真数据
 ├── eval.py                 # 离线评测 / 消融实验
 ├── core/
-│   ├── config.py           # 全局参数与业务常量
+│   ├── config.py           # 全局参数与业务常量（唯一参数来源）
 │   ├── dataset.py          # CSV 数据加载与导入（50 SKU / 180 天）
-│   ├── memory.py           # 长期记忆库（SQLite 持久化）
+│   ├── memory.py           # 长期记忆库（SQLite 持久化，9 张表）
 │   ├── events.py           # 历史事件影响分析（高温/暴雨/节假日）
-│   ├── forecast.py         # 需求预测
-│   ├── policy.py           # 补货决策 + 惠民约束
-│   ├── evolution.py        # 策略自进化闭环
-│   ├── agent.py            # Agent 数据查询 + 补货推理解释
-│   ├── analysis.py         # 商品健康度报表
-│   └── eval_core.py        # 评测引擎（供 eval.py / 网页内嵌评测）
+│   ├── event_evidence.py   # 事件证据门控（strong / weak / insufficient）
+│   ├── forecast.py         # 需求预测（EWMA × 星期效应 × 节日 × 趋势）
+│   ├── policy.py           # 补货决策 + 惠民约束三层分配
+│   ├── r3_optimizer.py     # R³-Stock 两阶段字典序 MILP（失败回退贪心）
+│   ├── evolution.py        # 策略自进化（经营反馈 → 经验 → 参数校准）
+│   ├── agent.py            # Agent 查询 + 自然语言解析 + 人话解释
+│   ├── decision_trace.py   # 六工具决策过程追踪
+│   ├── decision_basis.py   # 单商品「为什么这样进」的依据字段
+│   ├── metrics.py          # 指标口径唯一来源（断货率 / 周转 / 损耗…）
+│   ├── risk.py             # 风险事件上下文（高温 / 暴雨 / 节假日 / 断供）
+│   ├── analysis.py         # 客流带动实证（离线统计口径，python -m core.analysis）
+│   ├── simulator.py        # 180 天长期仿真（5 策略 / FEFO / 保质期 / 报损）
+│   ├── eval_core.py        # 离线评测引擎（供 eval.py 与网页内嵌评测）
+│   ├── llm.py              # 可选 LLM 说明层（可失败可降级）
+│   ├── themes.py           # 主题系统：6 套主题的 --xm-* 变量（唯一颜色来源）
+│   ├── ui_theme.py         # 组件类与间距 token（.xm-* / --xm-space-*）
+│   ├── settings_store.py   # 界面偏好持久化（data/ui_settings.json，容错优先）
+│   └── *_view.py           # 各页渲染：home / why / feedback / learn / ledger / final / about / settings
+├── tests/                  # pytest 用例（25 个文件 / 177 个用例）
+├── tools/
+│   ├── vcs.ps1             # 本地版本控制（save / release / rollback / verify）
+│   ├── install-daily-backup.ps1   # 可选：每日自动备份计划任务（安装 / 卸载）
+│   └── experiments/        # 一次性实验脚本（_step*.py，历史留档）
+├── docs/                   # PRD / TRD / ARD / VERSIONING
+├── eval/                   # 实验产物；eval/final/** = 已冻结的 FINAL 证据（只读）
+├── _backup/                # 本地备份区（裸仓库当 origin + 预览截图 + 快照）
 └── data/
     ├── shopmind_products_50sku.csv   # 50 个商品档案
     ├── shopmind_180days_50sku.csv    # 180 天 × 50 SKU 销量与事件
-    └── store_memory.db               # 门店记忆库（运行后生成）
+    ├── store_memory.db               # 门店记忆库（运行后生成，不入库）
+    └── ui_settings.json              # 界面偏好（本机设置，不入库）
 ```
 
 ---
@@ -190,10 +224,15 @@ diannao/
 ## 七、可能的质疑与回应
 
 **Q：小满毛利比传统算法低，商户凭什么用？**
-直接毛利确实少约 ¥180（见对比页，小满先锁民生兜底、毛利自然让位）。但客流实证表明，
-砍掉民生商品会连带损失近 7.9 个百分点的非民生产品销量；且民生保障带来的是
-**稳定的回头客**，这是小店最稀缺的资产。小满把取舍摆到明面上让店主自己选，
+180 天长期实验（`eval/final` 冻结结果，「实验验证」页可见）里，小满的累计毛利比传统纯利润算法
+低约 ¥62（−0.04%），换来的是**民生商品缺货率低 0.93 个百分点、民生最低保障达标率高 5.2 个百分点**。
+小满不追求「更会赚钱」，而是把「收益 / 抗风险 / 民生」的取舍摆到明面上让店主自己选，
 而不是替他做短视决定。
+
+> 数据边界（如实说明）：CSV 仿真数据只记录实际销量，**没有记录历史上的民生缺货量**，
+> 因此「民生一缺货，连带流失多少个百分点的非民生销量」在当前数据集上**算不出可信数值**，
+> 本项目不做量化声称。`core/analysis.py` 保留了统计口径（`python -m core.analysis` 可离线运行），
+> 接入真实的缺货 / 报损记录后可直接复算。
 
 **Q：数据集只有 50 个 SKU，能推广到真实店铺吗？**
 决策逻辑与商品数量无关，瓶颈在数据积累。冷启动阶段小满用最小可用假设兜底
@@ -227,6 +266,9 @@ python eval.py     # 打印对照表 + 消融解读，输出 eval_report.md / ev
 | 小满·去掉自进化 | 参数冻结在店主初始值 |
 | 小满·去掉需求还原 | 断货日只用记录销量 |
 
+三档预算口径（不要混用）：网页日常决策 **¥600**（`DEFAULT_BUDGET`）、离线评测 **¥360**
+（`EVAL_BUDGET`，故意设紧）、180 天长期仿真 **¥1800**（`DEFAULT_SIM_BUDGET`）。
+
 两个评测口径上的刻意设计（答辩时可主动说明）：
 
 - **预算故意设紧**（`EVAL_BUDGET = 360`，低于线上 app 的 ¥600）：小店真实资金本就
@@ -253,7 +295,7 @@ python eval.py     # 打印对照表 + 消融解读，输出 eval_report.md / ev
 # 1. 复制配置模板并填入密钥（DeepSeek / OpenAI / 通义兼容模式均可）
 cp .env.example .env        # Windows: copy .env.example .env
 
-# 2. 重启 python app.py，标签页「今天该进什么货」会出现「💬 用大白话解释」
+# 2. 重启 python app.py，栏目「今天该进什么货」里会出现「用大白话解释」按钮
 ```
 
 对接的是 OpenAI 兼容 `/chat/completions` 接口，默认 DeepSeek（`deepseek-chat`），
@@ -268,12 +310,18 @@ cp .env.example .env        # Windows: copy .env.example .env
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q
+# 必须带 --basetemp：Windows 上否则可能在清理临时目录时被权限拦住
+pytest -q --basetemp .pytest_tmp
 ```
+
+当前基线：**177 passed 全绿**（约 62s，解释器 `E:\Python\python.exe`）。
 
 覆盖：`_allocate`（预算 0 / 超预算 / 整包装取整 / 民生兜底）、
 `process_feedback`（断货↑ / 损耗↓ / 同时出现只按断货 / 小波动不触发 / 硬边界）、
-`forecast`（趋势夹紧 / 促销拉动上界 / 星期效应区间 / 冷启动）。
+`forecast`（趋势夹紧 / 促销拉动上界 / 星期效应区间 / 冷启动）、
+R³ 字典序优先级、事件证据门控、损耗采购上限、记忆持久化与去重，以及
+**UI 规范一致性**（`test_themes`：每套主题必须覆盖全部 token；`test_ui_consistency`：
+UI 文件禁彩色 Emoji、已迁移模块禁写死颜色）。
 
 > 另：网页「项目说明」页内嵌「生成评测对比图」，在隔离临时库上跑评测，
 > 不动当前门店记忆，评委无需命令行即可看到对比柱状图。
@@ -287,13 +335,10 @@ pytest -q
 | [AGENT.md](AGENT.md) | 接手与交接手册：心智模型、任务生命周期、验证手册、踩坑清单 | 新接手的人 / Agent |
 | [docs/PRD.md](docs/PRD.md) | 产品需求：背景、用户场景、功能需求（FR 编号）、指标与成功标准、数据边界 | 产品 / 评审 |
 | [docs/TRD.md](docs/TRD.md) | 技术设计：分层架构、数据模型、算法口径、参数总表、实验证据、技术债与 ADR | 开发 / 技术评审 |
-| [docs/ARD.md](docs/ARD.md) | **任务分解与进度台账**：29 个任务点、真实进度、下一步任务池、风险台账 | 所有人（进度唯一真相） |
+| [docs/ARD.md](docs/ARD.md) | **任务分解与进度台账**：34 个任务点、真实进度、下一步任务池、风险台账 | 所有人（进度唯一真相） |
 | [docs/VERSIONING.md](docs/VERSIONING.md) | **版本管理与本地备份**：本地裸仓库当 GitHub、分支/发布/回退流程、忽略策略 | 所有人（提交与回滚必看） |
 | [DESIGN.md](DESIGN.md) | UI Design System v2（token 与组件规范） | 前端 / 视觉 |
 | [DESIGN.legacy.md](DESIGN.legacy.md) | 旧视觉规范（已废弃，仅作历史参考） | — |
-
-> 注：本 README 的「二、界面导览」仍是旧的 5 页版本，实际为 7 个标签页，差异与修复任务见
-> [docs/ARD.md](docs/ARD.md) 的 T-DOC-01。
 
 ---
 
@@ -326,7 +371,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 ```
 
 分支模型与 GitHub 一致：`main`（稳定，只接受 `--no-ff` 合并）/ `develop`（集成）/ `feature/*` / `hotfix/*` / `restore/*`；
-版本用 annotated tag `vX.Y.Z` 标记（当前 `v0.1.0` = 初始代码基线，`v0.2.0` = UI v2 三页迁移 + 文档体系 + 本地版控）。
+版本用 annotated tag `vX.Y.Z` 标记：`v0.1.0` 初始代码基线 → `v0.2.x` 文档体系与本地版控 → `v0.3.x` 左侧边栏 + 设置/主题 → `v0.4.0` 首页 v2 + 图表随主题 → `v0.5.x` 全站 v2 收尾（完整版本表见 [docs/VERSIONING.md](docs/VERSIONING.md)）。
+
+> 可选：用 Windows 计划任务做每日自动备份（默认 21:00 提交一次，`-WithData` 同时快照记忆库）：
+> `powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-daily-backup.ps1`；卸载加 `-Uninstall`。
 
 > 完整策略（分支 / 提交规范 / 发布 / 四种回退方式 / 灾难恢复 / 忽略规则）见 [docs/VERSIONING.md](docs/VERSIONING.md)。
 > 删掉 `.gitignore` 后依然不会误提交密钥或大文件：规则在 `.git/info/exclude`，另有 `vcs.ps1 save` 的提交守卫兜底。
