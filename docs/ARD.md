@@ -254,6 +254,18 @@
 
 ## 8. 交接记录
 
+### 交接：项目暂停 / 交付状态（2026-10-03）
+- 交接人：初始化 Agent；接收人：下一位负责人
+- 当前版本：**v0.8.1**（`main == develop`，工作区干净，标签 v0.1.0 → v0.8.1 全在本地 origin）
+- 测试基线：`pytest -q --basetemp .pytest_tmp` → **179 passed**（约 60s；解释器 `E:\Python\python.exe`）
+- 任务池：**36/36 完成**，无进行中、无阻塞；后续可选方向见 §6 的持续改进清单（I-1 接入真实数据 / I-2 LLM Key 验收 / I-3 窄屏核对 / I-4 主题对比度 等）
+- **已关闭的两样东西**（避免新接手人以为坏了）：
+  1. **本地开发服务器已停**：`http://127.0.0.1:7861` 不再监听（端口已释放，HTTP 不可访问）。要重新起：`& 'E:\Python\python.exe' app.py`
+  2. **每日自动备份计划任务已卸载**：`diannao-daily-backup` 已删除（`Get-ScheduledTask` / `schtasks /Query` 双向校验为 0）。要恢复：`powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-daily-backup.ps1`；**在此之前请手动 `tools/vcs.ps1 save "type(scope): 说明"` 落库**（铁律：有意义的改动必须有回退点）
+- 接手建议路径：`README.md` → `docs/PRD.md` → `docs/TRD.md` → 本文件（ARD）→ `CLAUDE.md`（规矩）→ `AGENT.md`（流程与踩坑）
+- 已知残余（不阻塞交付）：`系统` 主题下图表按浅色渲染（R15）；`eval/final` 的 `metrics_version` 哈希与当前 `core/metrics.py` 不一致但 18/18 指标逐位复现（R16）；深色主题与 375px 窄屏尚未逐页实测（见 §6 I-3）
+
+---
 ### 交接：T-UI-10 修复「设置页主题卡片点不动」
 - 日期 / 交接人：2026-10-03 / 初始化 Agent
 - 状态：已完成
