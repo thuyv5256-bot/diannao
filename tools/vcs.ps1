@@ -117,10 +117,16 @@ function Write-Err2($t) { Write-Host "  ✗ $t" -ForegroundColor Red }
 
 function Invoke-Git {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
-  # 2>&1：git 的提示信息走 stderr（如 Switched to branch…），并入正常输出，
-  # 避免 Windows PowerShell 5.1 把它们渲染成红色 NativeCommandError。
-  & git @GitArgs 2>&1 | ForEach-Object { $_.ToString() }
-  if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') 失败（exit $LASTEXITCODE）" }
+  # git 的提示信息（Switched to branch… / CRLF 提醒等）走 stderr，PowerShell 5.1 会把它
+  # 渲染成红色 NativeCommandError 甚至（在上层 ErrorActionPreference=Stop 下）当成终止错误。
+  # 这里临时放开偏好、捕获输出后当普通信息打印，成功与否一律按退出码判断。
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  $out = & git @GitArgs 2>&1
+  $code = $LASTEXITCODE
+  $ErrorActionPreference = $prevEap
+  $out | ForEach-Object { Write-Host "$_" }
+  if ($code -ne 0) { throw "git $($GitArgs -join ' ') 失败（exit $code）" }
 }
 
 function Get-CurrentBranch { (& git rev-parse --abbrev-ref HEAD).Trim() }
@@ -219,7 +225,7 @@ switch ($Command.ToLower()) {
     Install-Guard
     $msg = $Arg
     if (-not $msg) { $msg = 'chore: 本地备份 ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') }
-    & git add -A
+    & git add -q -A
     if (-not (Test-Staged)) { throw '提交被守卫中止（见上方提示）' }
     $staged = @(& git diff --cached --name-only)
     if (-not $staged -or $staged.Count -eq 0) { Write-Warn2 '没有需要提交的改动'; break }
@@ -227,7 +233,7 @@ switch ($Command.ToLower()) {
     $staged | ForEach-Object { Write-Host "      $_" }
     Invoke-Git commit -q -m $msg
     $branch = Get-CurrentBranch
-    Invoke-Git push -u origin $branch
+    Invoke-Git push -q -u origin $branch
     if ($WithData) { Do-Snapshot }
     Write-Ok "已提交并推送到本地 origin（分支 $branch）：$msg"
     & git log --oneline --decorate -n 1
@@ -239,7 +245,7 @@ switch ($Command.ToLower()) {
     & git show-ref --verify --quiet refs/heads/develop
     $hasDevelop = ($LASTEXITCODE -eq 0)
     $base = if ($hasDevelop) { 'develop' } else { 'main' }
-    Invoke-Git switch -c "feature/$Arg" $base
+    Invoke-Git switch -q -c "feature/$Arg" $base
     Write-Ok "已基于 $base 创建并切换到 feature/$Arg"
     Write-Host '      完成后执行：pwsh -File tools/vcs.ps1 finish'
   }
@@ -251,13 +257,13 @@ switch ($Command.ToLower()) {
     $target = if ($cur -like 'hotfix/*') { 'main' } else { 'develop' }
     & git show-ref --verify --quiet "refs/heads/$target"
     if ($LASTEXITCODE -ne 0) {
-      Invoke-Git branch $target main
+      Invoke-Git branch -q $target main
       Write-Ok "已从 main 创建 $target"
     }
-    Invoke-Git switch $target
+    Invoke-Git switch -q $target
     Invoke-Git merge --no-ff -m "Merge branch '$cur' into $target" $cur
     Invoke-Git branch -d $cur
-    Invoke-Git push -u origin $target
+    Invoke-Git push -q -u origin $target
     Write-Ok "已把 $cur 以 --no-ff 合并进 $target 并删除该分支（等价 GitHub 上合并 PR 后删除分支）"
   }
 
@@ -267,13 +273,13 @@ switch ($Command.ToLower()) {
     $ver = $Arg.TrimStart('v')
     $cur = Get-CurrentBranch
     if ($cur -ne 'develop') { Write-Warn2 "当前不在 develop（在 $cur），仍继续（如需严格发布请先切回 develop）" }
-    Invoke-Git switch main
+    Invoke-Git switch -q main
     Invoke-Git merge --no-ff -m "Merge branch 'develop' (release v$ver)" develop
     Invoke-Git tag -a "v$ver" -m "release v$ver"
-    Invoke-Git push -u origin main
-    Invoke-Git push origin develop
-    Invoke-Git push origin --tags
-    if ($cur -ne 'main') { & git switch $cur | Out-Null }
+    Invoke-Git push -q -u origin main
+    Invoke-Git push -q origin develop
+    Invoke-Git push -q origin --tags
+    if ($cur -ne 'main') { & git switch -q $cur | Out-Null }
     Write-Ok "已发布 v$ver：main 合并 develop、打标签并推送到本地 origin"
     & git tag -n1 --sort=-v:refname | Select-Object -First 5
   }
@@ -291,12 +297,12 @@ switch ($Command.ToLower()) {
     if ($LASTEXITCODE -ne 0) { throw "找不到版本：$ref" }
     if ($Hard) {
       Write-Warn2 "危险操作：把当前分支硬重置到 $ref（之后的本地提交将从当前分支消失，但本地 origin 仍保留，可 git reflog / fetch 找回）"
-      Invoke-Git reset --hard $ref
+      Invoke-Git reset -q --hard $ref
       Write-Ok "已硬回退到 $ref"
     } else {
       $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
       $newBranch = "restore/$($ref -replace '[/\\]', '-')-$stamp"
-      Invoke-Git switch -c $newBranch $ref
+      Invoke-Git switch -q -c $newBranch $ref
       Write-Ok "已创建并切换到 $newBranch（工作区内容 = $ref）"
       Write-Host '      验证无误后：git switch main && git merge --no-ff ' + $newBranch
       Write-Host '      确认放弃：  git switch main && git branch -D ' + $newBranch
@@ -306,7 +312,7 @@ switch ($Command.ToLower()) {
   'log'      { & git log --graph --oneline --decorate -n 40 }
   'branches' { Install-Guard; & git branch -avv }
   'versions' { Write-Head '版本标签（新→旧）'; & git tag -n99 --sort=-v:refname }
-  'sync'     { Install-Guard; Invoke-Git fetch origin --prune; & git status -sb }
+  'sync'     { Install-Guard; Invoke-Git fetch -q origin --prune; & git status -sb }
 
   'verify' {
     $py = Get-PythonExe
