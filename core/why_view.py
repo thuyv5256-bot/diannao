@@ -45,20 +45,42 @@ def _conclusion(it):
     return '；'.join(parts) + '，因此建议进货 %.0f %s。' % (qty, unit)
 
 
+def render_head() -> str:
+    """页面头部（Direction A：页头 + 副信息）。"""
+    return ('<div class="xm-page-head"><div>'
+            '<div class="xm-h1">为什么这样进</div>'
+            '<div class="xm-page-sub">挑一个商品，看这单建议背后的六步依据</div>'
+            '</div></div>')
+
+
+def _kpi(label, value, sub=None):
+    sub_html = ('<div class="xm-kpi-sub">%s</div>' % sub) if sub else ''
+    return ('<div class="xm-kpi"><div class="xm-kpi-k">%s</div>'
+            '<div class="xm-kpi-v">%s</div>%s</div>' % (label, value, sub_html))
+
+
 def render_why_page(it: dict) -> str:
+    """三段式：KPI 条 + 2/3 依据链 + 1/3 结论与口径（Direction A）。"""
     unit = it['unit']
     daily = float(it.get('daily_demand') or 0)
     on_hand = float(it.get('on_hand') or 0)
     qty = float(it.get('reorder_qty') or 0)
     cov = float(it.get('final_cover_days') or 0)
     tag = '<span class="xm-badge xm-badge-green">民生</span>' if it.get('is_livelihood') else ''
+    kpi = ('<div class="xm-kpi-row">'
+           + _kpi('建议进货', '%.0f %s' % (qty, unit), sub='为明天备货')
+           + _kpi('当前库存', '%.0f %s' % (on_hand, unit),
+                  sub='预计需求 %.1f %s / 天' % (daily, unit))
+           + _kpi('进货后约够', '%.1f 天' % cov, sub='覆盖到下次补货')
+           + '</div>')
     concl = ('<div class="yw-concl"><div class="yw-name">%s%s</div>'
-             '<div class="yw-headline">建议进货 %.0f %s</div>'
-             '<div class="yw-meta">当前 %.0f %s · 预计需求 %.1f %s · 进货后约够 %.1f 天</div>'
+             '<div class="yw-meta">小满的结论</div>'
              '<div class="yw-concl-text">%s</div></div>'
-             % (it['name'], tag, qty, unit, on_hand, unit, daily, unit, cov, _conclusion(it)))
-    return concl + '<div class="yw-ev-title">小满参考了这些信息</div>' + _evidence(it) + _foot()
-
+             % (it['name'], tag, _conclusion(it)))
+    left = ('<div class="xm-card"><div class="xm-h3" style="margin:0 0 10px">小满参考了这些信息</div>' + _evidence(it) + '</div>')
+    right = concl + '<div class="xm-card" style="margin-top:12px">' + _foot() + '</div>'
+    return (kpi + '<div class="xm-split"><div class="xm-main-col">%s</div>'
+            '<div class="xm-rail">%s</div></div>' % (left, right))
 
 def _step(n, title, lines):
     body = ''.join('<div class="ev-l">%s</div>' % l for l in lines)
