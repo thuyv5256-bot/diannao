@@ -24,7 +24,7 @@ def render_about():
     ]
     how = ('<div class="xm-sec"><div class="xm-sec-title">小满怎么解决</div>'
            '<div class="xm-kv-row">%s</div></div>'
-           % ''.join('<div class="xm-card" style="flex:1;min-width:170px;margin-bottom:0">'
+           % ''.join('<div class="xm-card" style="flex:1;min-width:150px;margin-bottom:0">'
                      '<div class="xm-h3">%s</div>'
                      '<div class="xm-note" style="margin-top:6px">%s</div></div>' % (b, s)
                      for b, s in caps))
