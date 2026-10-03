@@ -16,7 +16,7 @@
 | 入口 | 网页 `app.py`（**左侧边栏 8 个栏目**：7 个业务页 + 设置）／演示 `demo_flow.py`／离线评测 `eval.py`／长期实验 `run_digital_store.py` |
 | 数据 | 仿真数据 `data/shopmind_*.csv`（50 SKU × 180 天，2026-03-01 ~ 2026-08-27），**不是真实门店采集数据** |
 | 存储 | SQLite 长期记忆库 `data/store_memory.db`（由 `.git/info/exclude` 忽略，首次运行自动重建） |
-| 当前状态 | 核心闭环已完成、FINAL 实验已冻结、**UI v2 全站迁移完成**、文档与本地版控齐备；任务池 34/34 完成。**进度以 [docs/ARD.md](docs/ARD.md) 为唯一事实来源** |
+| 当前状态 | 核心闭环已完成、FINAL 实验已冻结、**UI v2 全站迁移完成**、文档与本地版控齐备；任务池 35/35 完成。**进度以 [docs/ARD.md](docs/ARD.md) 为唯一事实来源** |
 
 ---
 
@@ -35,6 +35,7 @@
    - **颜色/字体/圆角/描边/阴影只能定义在 `core/themes.py`（主题变量）与 `core/ui_theme.py`（组件类）**；页面与视图模块一律消费变量。
    - 新增/改名页面必须同时改三处：`app.py` 的 `NAV_CHOICES`（左侧边栏）、`gr.Tab(..., id=...)`、以及 [docs/TRD.md](docs/TRD.md) §7.1 的页面表。
    - 主题只影响观感，**不得影响任何计算结果**；每套主题必须覆盖 `themes.REQUIRED_TOKENS`（由 `tests/test_themes.py` 强制）。`DESIGN.legacy.md` 已废弃。
+   - **交互控件必须是被样式化的控件本体**：不要另做一份「好看的卡片」（Gradio 的 `gr.HTML` 卡片点不动，`js_on_load` 只对模板模式生效）—— 见 AGENT 踩坑 23 与 T-UI-10。
 9. **源码统一 LF**（见 `.gitattributes`）；文件一律 UTF-8，Python 文件首行 `# -*- coding: utf-8 -*-`，面向用户的中文文案直接写中文。
 10. **改完必须自证**：跑测试 + 跑受影响页面的真实渲染（见 §4），并在 ARD 里写清"改了什么 / 证据是什么 / 下一步"。
 11. **不提交秘密**：`.env` 由 `.git/info/exclude` 忽略（本项目使用本地备份区，已删除 `.gitignore`），只维护 `.env.example`。
@@ -47,7 +48,7 @@
 **解释器**：本仓库的 `__pycache__` 与实验均为 **Python 3.13**（`E:\Python\python.exe`，3.13.7）。
 注意 PATH 里的 `python` 是 msys2 的 3.12，**不要用它跑本项目**（其 site-packages 里没有本项目依赖）。
 
-**依赖已就绪（2026-10-03 补齐，T-ENV-01 已解除）**：`E:\Python` 已装 pandas / numpy / scipy / pytest / **gradio 6.29.1 / plotly 7.1.0** ⇒ 网页可启动，测试全绿（**177 passed**）。
+**依赖已就绪（2026-10-03 补齐，T-ENV-01 已解除）**：`E:\Python` 已装 pandas / numpy / scipy / pytest / **gradio 6.29.1 / plotly 7.1.0** ⇒ 网页可启动，测试全绿（**179 passed**）。
 ⚠️ 副作用：gradio 6 拉入了 `huggingface-hub 2.1.1`，与本机 `tokenizers 0.23.1`（要求 hub<2.0）冲突 —— 不影响本项目（项目不用 tokenizers），但会影响该 Python 环境里依赖 tokenizers 的其他项目（见 ARD R14）。
 
 ```powershell
@@ -59,7 +60,7 @@
 
 # 单元测试（必须带 --basetemp，否则临时目录清理会被权限拦住）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp
-# 基线（当前实测）：177 passed，全绿，约 62s
+# 基线（当前实测）：179 passed，全绿，约 62s
 
 # 答辩五幕闭环演示 / 命令行离线评测
 & 'E:\Python\python.exe' demo_flow.py
@@ -119,7 +120,7 @@ app.py                 Gradio 装配层：左侧边栏（Row+Column+Radio）+ 8 
   ├─ core/eval_core.py      离线评测引擎（60 天窗口 × 5 种决策方式）
   └─ core/llm.py            可选 LLM 说明层（OpenAI 兼容，可失败可降级）
 
-tests/                 25 个测试文件 / 177 个用例（见 §4；含 themes / settings_store / settings_view / ui_consistency）
+tests/                 25 个测试文件 / 179 个用例（见 §4；含 themes / settings_store / settings_view / ui_consistency）
 tools/                 vcs.ps1（本地版本控制）/ daily-backup.ps1 + install-daily-backup.ps1（每日自动备份）/ experiments/（一次性实验脚本留档）
 data/                  CSV 数据源 + 生成的 store_memory.db
 eval/                  实验产物；eval/final/** = 已冻结的 FINAL 证据（只读）
@@ -163,7 +164,7 @@ docs/                  PRD / TRD / ARD
 
 ## 6. 提交前检查清单
 
-- [ ] `pytest -q --basetemp .pytest_tmp` 无新增失败（当前基线 **177 passed 全绿**）
+- [ ] `pytest -q --basetemp .pytest_tmp` 无新增失败（当前基线 **179 passed 全绿**）
 - [ ] 页面渲染真实可跑，空数据/异常分支有文案
 - [ ] 没有新增写死数字、没有新增 emoji、没有新增硬编码颜色
 - [ ] 没有修改 `data/*.csv` 与 `eval/final/**`

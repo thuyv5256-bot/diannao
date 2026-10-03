@@ -148,7 +148,7 @@
 ```powershell
 # 1) 单元测试（必须带 --basetemp）
 & 'E:\Python\python.exe' -m pytest -q --basetemp .pytest_tmp
-# 期望：全绿。当前基线 = 177 passed（含 UI 规范一致性校验）
+# 期望：全绿。当前基线 = 179 passed（含 UI 规范一致性校验与设置页选择器回归防线）
 #      历史：依赖缺失时 138 passed / 2 failed / 2 skipped；主题+侧边栏前 142 passed
 
 # 2) 只跑相关文件（更快）
@@ -224,6 +224,7 @@ agent-browser click '@e3'; agent-browser wait 3000; agent-browser screenshot -f 
 20. **`pytest --basetemp .pytest_tmp` 会整目录清空**：往里放的临时文件（验证用插件、脚本）下一轮就没了 —— 临时文件请放别的目录。
 21. **UI 层测试缺依赖要 skip，不要失败**：`app.py` 依赖 gradio/plotly，测试里统一用 `from conftest import require_app`（内部 `pytest.importorskip`，并显式 `exc_type=ImportError` 以避开 pytest 9 的弃用告警）。验证方法：用 meta_path 插件屏蔽这两个包后跑，应为 `22 passed, 4 skipped`。
 22. **每日自动备份会把当时工作区的改动一起提交**（这正是备份的意义）。想提交信息更规范，就在关键节点手动 `vcs.ps1 save`；备份过程与结果在 `_backup/backup.log`，计划任务名叫 `diannao-daily-backup`。
+23. **别在 Gradio 里做「展示卡片 + 隐藏控件」双份 UI**：纯 `gr.HTML` 卡片点不动（不会触发事件）；`gr.HTML(js_on_load=…)` 只对模板模式（`html_template`）生效，普通 `value=` 模式实测**不执行**（T-UI-10 踩过）。正确做法：把控件本体（`gr.Radio`/`gr.Button`）用 CSS 渲染成卡片，状态只留一份；隐藏原生 input 时用 `opacity:0` 而非 `display:none`，否则键盘不可达。
 
 ---
 
@@ -252,7 +253,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 
 - **可跑**：全部命令行脚本（依赖 pandas/numpy/scipy 已具备）。
 - **网页可跑**：`python app.py` → http://127.0.0.1:7861（gradio 6.29.1 / plotly 7.1.0 已装；左侧边栏 8 个栏目 + 6 套主题均已人工截图核对）。
-- **测试**：177 passed 全绿（约 62s）。
+- **测试**：179 passed 全绿。
 - **UI 状态**：8 个栏目 + 6 套主题均已完成 v2 迁移；`tests/test_ui_consistency.py` 的 `MIGRATED` 覆盖全部 `*_view.py`、`PENDING` 为空 —— 新加页面必须进 `MIGRATED`（否则该测试会报未分类）。
 - **工作区状态**：干净（`main == develop`，最新标签 `v0.6.0`）；每日 21:00 自动备份计划任务 `diannao-daily-backup` 已注册（`tools/install-daily-backup.ps1 -Uninstall` 可卸载）。
 - **下一步优先级**：任务池已清空（34/34）；后续从 [docs/ARD.md](docs/ARD.md) §6 的**持续改进清单**取活，最值得先做的是 I-1（真实数据里的缺货/报损采集，能一次性解锁客流带动实证）。

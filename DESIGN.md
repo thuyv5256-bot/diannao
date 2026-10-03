@@ -140,5 +140,6 @@ ADR-005 同构 —— **CSS 变量作用域覆盖**：默认主题零改动，�
 3. 主题还要覆盖一组 Gradio 原生变量（`--body-background-fill` 等），否则 Dataframe/Dropdown/Accordion 会留在 Gradio 默认配色。
 4. 换主题**不刷新页面**：设置页选中后重新渲染一个隐藏的 `<style>` 组件即可；选择持久化在 `data/ui_settings.json`。
 5. 主题不得改变信息层级、间距与内容 —— 只影响观感，绝不影响任何计算结果。
-6. **图表也要跟主题**：plotly 的底色/字色是**服务端渲染时烘进图里的**，改 CSS 变量不会影响已生成的图。所有图表统一 `fig.update_layout(**themes.plotly_layout(ACTIVE_THEME))`（色值用 `themes.palette(ACTIVE_THEME)`，plotly 不认 CSS 变量）；换主题时由 `apply_theme` 一并重画当前演进曲线，按需生成的评测/仿真图在生成时取当前主题。
+6. **交互控件必须是被样式化的控件本体**：不要把「好看的卡片」和「真正可点的控件」做成两份元素 —— Gradio 的 `gr.HTML` 卡片不会触发任何事件（`js_on_load` 也只对模板模式生效）。做法是让控件本体（`gr.Radio` / `gr.Button`）承担外观，状态只保留一份（T-UI-10 教训）。
+7. **图表也要跟主题**：plotly 的底色/字色是**服务端渲染时烘进图里的**，改 CSS 变量不会影响已生成的图。所有图表统一 `fig.update_layout(**themes.plotly_layout(ACTIVE_THEME))`（色值用 `themes.palette(ACTIVE_THEME)`，plotly 不认 CSS 变量）；换主题时由 `apply_theme` 一并重画当前演进曲线，按需生成的评测/仿真图在生成时取当前主题。
 

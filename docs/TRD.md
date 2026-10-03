@@ -336,7 +336,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | 5 | 店里的老账本（`ledger`） | 评委 | `ledger_view.render_ledger()` 等 |
 | 6 | 实验验证（`experiment`） | 评委 | `final_view.render_html()` ← `eval/final/*.json` |
 | 7 | 项目说明（`about`） | 评委 | `about_view.render_about()` + 内嵌离线评测按钮 |
-| 8 | **设置（`settings`）** | 所有人 | `settings_view.PAGE_HEAD/SECTION_HEAD/render_theme_cards/render_status/render_env_panel` |
+| 8 | **设置（`settings`）** | 所有人 | `settings_view.PAGE_HEAD/SECTION_HEAD/render_status/render_env_panel`；主题选择器 = `gr.Radio#st-theme-radio`（选项来自 `theme_choices()`，卡片外观来自 `theme_card_css()`） |
 
 **外壳结构**：`gr.Row#xm-shell` = `gr.Column#xm-side`（品牌 `side_brand` + 竖排导航 `gr.Radio#xm-nav`）+ `gr.Column#xm-main`（`gr.Tabs#main-nav` 的 8 个面板）。
 **跨页联动**：`nav_radio.change → gr.Tabs(selected=…)`；`btn_goto_exp / btn_goto_feedback / btn_goto_learn` 同时回写 `main_tabs` 与 `nav_radio`（保持导航高亮同步）；`tab_mem.select` 自动刷新。
@@ -349,6 +349,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 - **主题系统（v2.1）**：见 DESIGN.md §8 与 ADR-009；6 套主题（小满默认 / 野兽风浅色 / 野兽风深色 / 森友会 / 纹样·宣纸 / 跟随系统），其中 4 套移植自 CodeForge。换主题 = 重新渲染一个隐藏的 `<style id="xm-theme-vars">`（`gr.HTML` + `elem_classes=["xm-hidden"]`），无需刷新；选择落在 `data/ui_settings.json`，启动时由 `ACTIVE_THEME` 读回并拼进静态 CSS（首屏不闪）。
 - **左侧边栏（v2.1）**：见 ADR-010。`#main-nav > .tab-wrapper` 被 CSS 隐藏（避开 Gradio 的「More tabs」折叠），导航由 `gr.Radio#xm-nav` 承担；主题通过 `--xm-sidebar-*` 六个 token 驱动侧边栏配色。
 - **迁移状态**：✅ **全站完成** —— 应用外壳（侧边栏+主题）+ 首页 + 为什么这样进 + 今天生意怎么样 + 它学会了什么 + 店里的老账本 + 实验验证 + 项目说明 + 设置；全部 `*_view.py` 无 emoji、无写死颜色、无旧 `dn-*`/`.badge b-*`/`.kpi`/`table.dn` 类。`tests/test_ui_consistency.py` 的 `PENDING` 白名单已清空（见 [ARD](ARD.md) T-UI-01..04）。
+- **交互控件不许有装饰性副本（T-UI-10 教训）**：Gradio 里纯 `gr.HTML` 卡片不会触发事件；`gr.HTML(js_on_load=…)` 只对**模板模式**（`html_template`）生效，普通 `value=` 模式实测不执行。正确做法是**把控件本体做成卡片**（本例：`gr.Radio` 的 label 由 CSS 渲染成卡片网格，`theme_card_css()` 按 `:nth-of-type(n)` 对位生成色板与文案），状态只有一份；`tests/test_settings_view.py::test_picker_is_a_single_control` 会在重新引入装饰性副本时失败。
 - **回归护栏**：`tests/test_ui_consistency.py` 强制「UI 文件无彩色 Emoji」「已迁移模块无写死颜色」「app.py 无旧体系 class」，并保留 `PENDING_MIGRATION` 白名单（迁移完一页就挪一个名字进去）。
 
 ### 7.3 LLM 说明层（`core/llm.py`，可选）
@@ -392,7 +393,8 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 | `themes.theme_css / theme_style_tag` | `(theme_id, brand=None, theme_label=None)` | 生成主题变量 CSS / 可注入的 `<style>` |
 | `themes.list_themes / normalize / swatches` | `()` / `(id)` / `(id)` | 设置页卡片、非法值收敛、预览色 |
 | `settings_store.load / set_theme / current_theme` | `(path=None)` | 界面偏好读写（容错、原子写） |
-| `settings_view.render_theme_cards / render_env_panel` | `(current=None)` | 设置页两块渲染（数据全部真实） |
+| `settings_view.theme_choices / theme_card_css` | `()` / `()` | 主题选择器选项清单 / 每套主题的卡片样式（色板 + 标签/说明/来源） |
+| `settings_view.render_status / render_env_panel` | `(current=None)` | 当前主题状态条 / 真实运行环境 |
 | `themes.plotly_layout / palette` | `(theme_id=None)` | 图表主题布局 / 具体色值（plotly 专用，不认 CSS 变量） |
 
 ---
@@ -446,7 +448,7 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 | 实验复现 | `eval.py` / `run_digital_store.py` / `run_event_awareness_ab.py` | 见 §1.1 |
 | 页面自检 | 渲染非空 + 空状态 + 无 emoji/硬编码色 | [../AGENT.md](../AGENT.md) §8.2 |
 
-**2026-10-03 实测基线**：首页 v2 迁移 + UI 一致性校验落地后 **`177 passed`（约 62s，全绿）**；主题与侧边栏落地时为 169 passed；依赖补齐时为 142 passed。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
+**2026-10-03 实测基线**：设置页选择器修复后 **`179 passed`（全绿）**；首页 v2 迁移时为 177 passed；主题与侧边栏落地时为 169 passed；依赖补齐时为 142 passed。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
 
 ---
 
