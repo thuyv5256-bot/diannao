@@ -84,6 +84,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 - **分支模型**：`main`（稳定，只接受 `--no-ff` 合并）/ `develop`（集成）/ `feature/*` / `hotfix/*` / `restore/*`。
 - **忽略规则**：`.gitignore` 已删除，规则在 `.git/info/exclude`（由 `vcs.ps1 guard` 幂等维护），外加 `save` 的提交守卫拦截密钥与运行产物。
 - **必须做**：任何一次有意义的改动完成后都要 `save`，否则没有回退点 —— 这是 [docs/ARD.md](docs/ARD.md) 里“完成”的定义之一。
+- ⚠️ **`tools/vcs.ps1` 保存时必须带 UTF-8 BOM**：Windows PowerShell 5.1 会把无 BOM 的 UTF-8 脚本按 ANSI(GBK) 解析，中文注释被截断后报 `Unexpected token`。若编辑后脚本报语法错，先补 BOM（见 [docs/VERSIONING.md](docs/VERSIONING.md) FAQ）。
 
 ---
 

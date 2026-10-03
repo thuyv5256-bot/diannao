@@ -12,6 +12,10 @@
   分支模型（与 GitHub 一致）：main（稳定，只接受合并）/ develop（集成）/
   feature/<名>（功能）/ hotfix/<名>（紧急修复）/ restore/<版本>-<时间>（回退验证）。
 
+.NOTES
+  本文件必须保存为 UTF-8 with BOM：Windows PowerShell 5.1 会把无 BOM 的 UTF-8 按 ANSI(GBK)
+  解析，中文注释/文案会被截断并导致语法错误。若编辑后报 “Unexpected token”，请先补 BOM。
+
 .EXAMPLE
   pwsh -File tools/vcs.ps1 status
   pwsh -File tools/vcs.ps1 save "feat(ui): 首页迁移到 UI v2"
@@ -40,15 +44,21 @@ Set-Location $Root
 $BarePath    = (($Root -replace '\\', '/') + '/_backup/diannao.git')
 $SnapshotDir = Join-Path $Root '_backup/db-snapshots'
 $ExcludePath = Join-Path $Root '.git/info/exclude'
-$GuardMarker = '小满（diannao）本地版控忽略规则'
+# ASCII 标记：幂等判断只用 ASCII，避免中文在 ANSI/UTF-8 之间往返导致判断失效
+$GuardMarker = '# >>> diannao-local-exclude v1'
+$DefaultHeader = @'
+# git ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+'@
 
 # ── 忽略规则块（写入 .git/info/exclude；等价于原 .gitignore）──────────────
 $ExcludeBlock = @'
-# ═══════════════════════════════════════════════════════════════════
+# >>> diannao-local-exclude v1  （本块由 tools/vcs.ps1 guard 维护）
+# ==================================================================
 # 小满（diannao）本地版控忽略规则
 # 本项目不使用 .gitignore（文件已删除），忽略规则统一放在这里。
 # 维护方式：tools/vcs.ps1 guard（幂等，可随时重刷；也用于新克隆环境）
-# ═══════════════════════════════════════════════════════════════════
+# ==================================================================
 
 # ── 本地备份区（裸仓库与数据快照，绝不入库）──
 _backup/
@@ -107,8 +117,16 @@ function Write-Err2($t) { Write-Host "  ✗ $t" -ForegroundColor Red }
 
 function Invoke-Git {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
-  & git @GitArgs
-  if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') 失败（exit $LASTEXITCODE）" }
+  # git 的提示信息（Switched to branch… / CRLF 提醒等）走 stderr，PowerShell 5.1 会把它
+  # 渲染成红色 NativeCommandError 甚至（在上层 ErrorActionPreference=Stop 下）当成终止错误。
+  # 这里临时放开偏好、捕获输出后当普通信息打印，成功与否一律按退出码判断。
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  $out = & git @GitArgs 2>&1
+  $code = $LASTEXITCODE
+  $ErrorActionPreference = $prevEap
+  $out | ForEach-Object { Write-Host "$_" }
+  if ($code -ne 0) { throw "git $($GitArgs -join ' ') 失败（exit $code）" }
 }
 
 function Get-CurrentBranch { (& git rev-parse --abbrev-ref HEAD).Trim() }
@@ -138,11 +156,19 @@ function Install-Guard {
     Write-Ok "origin → $BarePath"
   } else { Write-Ok 'origin 已指向本地裸仓库' }
 
-  # 3) 忽略规则
+  # 3) 忽略规则：幂等判断只用 ASCII 标记；写文件用 .NET 显式指定 UTF-8 with BOM，
+  #    避免 PowerShell 5.1 的 ANSI 往返把中文注释写坏（历史踩坑）。
   $content = if (Test-Path $ExcludePath) { Get-Content -Raw $ExcludePath } else { '' }
   if ($content -notmatch [regex]::Escape($GuardMarker)) {
-    ($content.TrimEnd() + "`n`n" + $ExcludeBlock + "`n") | Set-Content -Path $ExcludePath -Encoding UTF8
-    Write-Ok '.git/info/exclude 已写入忽略规则'
+    $custom = ($content -split "\r?\n") | Where-Object { $_ -and $_ -notmatch '^\s*#' }
+    if ($custom) {
+      $bakPath = "$ExcludePath.bak-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
+      Copy-Item -LiteralPath $ExcludePath -Destination $bakPath -Force
+      Write-Warn2 "检测到已有自定义忽略规则，已备份到 $bakPath 后重写"
+    }
+    $text = $DefaultHeader + "`n`n" + $ExcludeBlock + "`n"
+    [System.IO.File]::WriteAllText($ExcludePath, $text, (New-Object System.Text.UTF8Encoding($true)))
+    Write-Ok '.git/info/exclude 已写入忽略规则（UTF-8 with BOM）'
   } else { Write-Ok '.git/info/exclude 忽略规则已就绪' }
 }
 
@@ -156,9 +182,9 @@ function Test-Staged {
     foreach ($rx in $ArtifactPatterns) { if ($p -match $rx) { $artifacts += $p; break } }
   }
   if ($secrets.Count -gt 0) {
-    Write-Err2 '检测到疑似密钥文件，已中止提交：'
-    $secrets | ForEach-Object { Write-Host "      $_" }
-    Write-Host '      （如确需提交，请手动 git add/commit；本项目约定密钥永不入库）'
+    Write-Err2 '检测到疑似密钥文件：已从暂存区撤出并中止提交 ——'
+    foreach ($f in $secrets) { Write-Host "      $f"; & git reset -q -- $f }
+    Write-Host '      （本项目约定：密钥永不入库；如确需提交请手动处理）'
     return $false
   }
   if ($artifacts.Count -gt 0 -and -not $Force) {
@@ -199,7 +225,7 @@ switch ($Command.ToLower()) {
     Install-Guard
     $msg = $Arg
     if (-not $msg) { $msg = 'chore: 本地备份 ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') }
-    & git add -A
+    & git add -q -A
     if (-not (Test-Staged)) { throw '提交被守卫中止（见上方提示）' }
     $staged = @(& git diff --cached --name-only)
     if (-not $staged -or $staged.Count -eq 0) { Write-Warn2 '没有需要提交的改动'; break }
@@ -207,7 +233,7 @@ switch ($Command.ToLower()) {
     $staged | ForEach-Object { Write-Host "      $_" }
     Invoke-Git commit -q -m $msg
     $branch = Get-CurrentBranch
-    Invoke-Git push -u origin $branch
+    Invoke-Git push -q -u origin $branch
     if ($WithData) { Do-Snapshot }
     Write-Ok "已提交并推送到本地 origin（分支 $branch）：$msg"
     & git log --oneline --decorate -n 1
@@ -219,7 +245,7 @@ switch ($Command.ToLower()) {
     & git show-ref --verify --quiet refs/heads/develop
     $hasDevelop = ($LASTEXITCODE -eq 0)
     $base = if ($hasDevelop) { 'develop' } else { 'main' }
-    Invoke-Git switch -c "feature/$Arg" $base
+    Invoke-Git switch -q -c "feature/$Arg" $base
     Write-Ok "已基于 $base 创建并切换到 feature/$Arg"
     Write-Host '      完成后执行：pwsh -File tools/vcs.ps1 finish'
   }
@@ -231,13 +257,13 @@ switch ($Command.ToLower()) {
     $target = if ($cur -like 'hotfix/*') { 'main' } else { 'develop' }
     & git show-ref --verify --quiet "refs/heads/$target"
     if ($LASTEXITCODE -ne 0) {
-      Invoke-Git branch $target main
+      Invoke-Git branch -q $target main
       Write-Ok "已从 main 创建 $target"
     }
-    Invoke-Git switch $target
+    Invoke-Git switch -q $target
     Invoke-Git merge --no-ff -m "Merge branch '$cur' into $target" $cur
     Invoke-Git branch -d $cur
-    Invoke-Git push -u origin $target
+    Invoke-Git push -q -u origin $target
     Write-Ok "已把 $cur 以 --no-ff 合并进 $target 并删除该分支（等价 GitHub 上合并 PR 后删除分支）"
   }
 
@@ -247,13 +273,13 @@ switch ($Command.ToLower()) {
     $ver = $Arg.TrimStart('v')
     $cur = Get-CurrentBranch
     if ($cur -ne 'develop') { Write-Warn2 "当前不在 develop（在 $cur），仍继续（如需严格发布请先切回 develop）" }
-    Invoke-Git switch main
+    Invoke-Git switch -q main
     Invoke-Git merge --no-ff -m "Merge branch 'develop' (release v$ver)" develop
     Invoke-Git tag -a "v$ver" -m "release v$ver"
-    Invoke-Git push -u origin main
-    Invoke-Git push origin develop
-    Invoke-Git push origin --tags
-    if ($cur -ne 'main') { & git switch $cur | Out-Null }
+    Invoke-Git push -q -u origin main
+    Invoke-Git push -q origin develop
+    Invoke-Git push -q origin --tags
+    if ($cur -ne 'main') { & git switch -q $cur | Out-Null }
     Write-Ok "已发布 v$ver：main 合并 develop、打标签并推送到本地 origin"
     & git tag -n1 --sort=-v:refname | Select-Object -First 5
   }
@@ -271,12 +297,12 @@ switch ($Command.ToLower()) {
     if ($LASTEXITCODE -ne 0) { throw "找不到版本：$ref" }
     if ($Hard) {
       Write-Warn2 "危险操作：把当前分支硬重置到 $ref（之后的本地提交将从当前分支消失，但本地 origin 仍保留，可 git reflog / fetch 找回）"
-      Invoke-Git reset --hard $ref
+      Invoke-Git reset -q --hard $ref
       Write-Ok "已硬回退到 $ref"
     } else {
       $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
       $newBranch = "restore/$($ref -replace '[/\\]', '-')-$stamp"
-      Invoke-Git switch -c $newBranch $ref
+      Invoke-Git switch -q -c $newBranch $ref
       Write-Ok "已创建并切换到 $newBranch（工作区内容 = $ref）"
       Write-Host '      验证无误后：git switch main && git merge --no-ff ' + $newBranch
       Write-Host '      确认放弃：  git switch main && git branch -D ' + $newBranch
@@ -286,7 +312,7 @@ switch ($Command.ToLower()) {
   'log'      { & git log --graph --oneline --decorate -n 40 }
   'branches' { Install-Guard; & git branch -avv }
   'versions' { Write-Head '版本标签（新→旧）'; & git tag -n99 --sort=-v:refname }
-  'sync'     { Install-Guard; Invoke-Git fetch origin --prune; & git status -sb }
+  'sync'     { Install-Guard; Invoke-Git fetch -q origin --prune; & git status -sb }
 
   'verify' {
     $py = Get-PythonExe

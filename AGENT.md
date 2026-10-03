@@ -198,6 +198,8 @@
 11. **`eval_results.html` 有 4.8MB**（含内嵌图），别意外提交；它和 `eval_results.csv`/`eval_report.md` 由 `.git/info/exclude` 忽略（原 `.gitignore` 已迁移删除）。
 12. **`app.py` 是 63KB 单体**，改页面时优先改 `core/*_view.py`；`app.py` 只改布局/绑定，尽量别在里边写业务逻辑。
 13. **UI 迁移是分页进行的**，已完成 反馈/学习/账本 三页；首页、为什么这样进、实验验证、项目说明 仍用旧 class（`dn-*` / `ab-*` / inline style）与 emoji，改的时候不要混用两套体系。
+14. **`tools/vcs.ps1` 必须保持 UTF-8 with BOM**（Windows PowerShell 5.1 对无 BOM 的 UTF-8 脚本按 ANSI 解析 → 中文注释破坏语法 → `Unexpected token`）。`.ps1` 的 `.NOTES` 里也写明了这条约束。
+15. **`vcs.ps1 rollback` 要求工作区干净**（Git 会拒绝覆盖未提交改动）—— 这是保护而非 bug：先 `vcs.ps1 save` 再回退。
 
 ---
 

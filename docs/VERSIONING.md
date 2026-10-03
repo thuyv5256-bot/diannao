@@ -240,6 +240,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 guard   # 重�
 | `*.log` / `.vscode/` / `.idea/` 等 | 日志与编辑器杂项 |
 | `data/*.csv` | **不忽略**：CSV 是数据源，必须入库 |
 
+> 补记（2026-10-03）：初始提交 `ca17f07` 曾把一个运行产物 `data/store_memory.db.bak`（1.3MB）误入库。本次已 `git rm --cached` 停止跟踪（文件仍留在磁盘，并由 `data/*.db.bak` 规则忽略）。
+
 **第二道防线（提交守卫）**：`vcs.ps1 save` 在提交前检查暂存区 ——
 命中密钥模式（`.env`/`*.pem`/`*.key`）直接中止；命中产物模式自动撤出暂存并提示。
 （`-Force` 可强制提交产物；密钥无法被强制。）
@@ -317,10 +319,41 @@ A：可以。`git remote add github <url>` 即可，`origin` 仍指向本地备�
 **Q：`save` 之后本地工作区还能继续改吗？**
 A：能。`save` 只是"提交 + 推送本地 origin"，工作区状态不变，随时继续开发。
 
+**Q：执行 `rollback` 报 “Your local changes to the following files would be overwritten by checkout”？**
+A：这是 Git 的保护：回退会覆盖工作区，所以**要求先提交或丢弃本地改动**（`vcs.ps1 save` 后再回退）。脚本不会替你丢掉未提交的工作，这是期望行为。
+
+**Q：为什么 `develop` 比 `main` 新？**
+A：这是 GitHub Flow 的正常状态 —— `main` 只承载已发布版本（每次合并后打 tag），`develop` 持续领先。要发布时执行 `vcs.ps1 release <版本号>`。
+
+**Q：什么时候允许 force-push？**
+A：仅当被改写的提交是**本地误操作/演练产生且尚未交付**时，用 `--force-with-lease`（例：2026-10-03 误产生的 `chore: 守卫演练` 已被改写）。**已发布（打过 tag）或已交付的历史一律不改写**，改用 `git revert` 生成反向提交。
+
 ---
 
-## 13. 变更记录
+## 13. 验证记录（2026-10-03 演练实测）
+
+| # | 演练 | 命令 | 实测结果 |
+|---|---|---|---|
+| 1 | 产物守卫 | `git add -f data/_drill_artifact.db` → `vcs.ps1 save` | 守卫提示「已自动撤出暂存区」，退出码 0，暂存区清空、该文件未入库 ✅ |
+| 2 | 密钥守卫 | `git add -f .env` → `vcs.ps1 save` | 守卫中止提交并把 `.env` 撤出暂存区，退出码 1，`.env` 未入库 ✅ |
+| 3 | 安全回退 | `vcs.ps1 rollback v0.1.0` | 成功创建并切到 `restore/v0.1.0-20261003-173535`（该版本下 `tools/vcs.ps1` 不存在，符合预期）；切回 `develop` 后文件恢复；分支可安全删除 ✅ |
+| 4 | 灾难恢复 | `git clone _backup/diannao.git _backup/_drill-clone` | 克隆成功，历史与 `v0.1.0`/`v0.2.0` 标签齐全 ✅ |
+| 5 | 忽略规则 | `git check-ignore` 探针 `_backup/` `data/*.db` `.env` `.pytest_tmp/` `eval_results.html` | 7/7 命中（含规则来源行号）✅ |
+| 6 | guard 幂等 | 连续两次 `vcs.ps1 guard` | 第一次写入规则、第二次提示「已就绪」，无重复追加 ✅ |
+| 7 | 发布流程 | `vcs.ps1 release 0.2.0` | `main` 生成 `--no-ff` 合并提交并打 tag `v0.2.0`；`main`/`develop`/tags 全部推送到本地 origin ✅ |
+
+**演练中发现并修掉的两个真问题**（提交 `1de5f08`）：
+
+1. 守卫中止密钥提交后**没有把密钥撤出暂存区** → 改为先 `git reset` 撤出再中止；
+2. `guard` 重写 `.git/info/exclude` 时走了 PowerShell 5.1 的 ANSI 编码往返，**中文注释被写坏且幂等判断失效** → 改为 ASCII 标记判断 + `[System.IO.File]::WriteAllText(..., UTF8Encoding($true))` 写入。
+
+**另一处真问题**：`rollback`/`release` 里 git 的提示信息（`Switched to branch…`）与 CRLF 提醒会被 PowerShell 5.1 渲染成红色 `NativeCommandError`，甚至因上层 `$ErrorActionPreference='Stop'` 变成终止错误 → 已把相关子命令加 `-q`，并在 `Invoke-Git` 内临时放开错误偏好、捕获取缔后再按退出码判断。
+
+---
+
+## 14. 变更记录
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
 | 2026-10-03 | v1.0 | 建立本地备份区（裸仓库 `_backup/diannao.git` 作为 origin）、GitHub 式分支/标签/发布/回退流程、`tools/vcs.ps1` 工具、以及删除 `.gitignore` 后的忽略与守卫策略；基线与首发版本 tag `v0.1.0`/`v0.2.0` |
+| 2026-10-03 | v1.1 | 新增 §13 演练验证记录；修掉守卫不撤出密钥、guard 编码往返两个真问题（`1de5f08`）；`-q` + 错误偏好收敛消除红色假报错；停止跟踪误入库的 `data/*.db.bak`；FAQ 增补 BOM、回退前置条件、force-push 边界；发布 `v0.2.1` |
