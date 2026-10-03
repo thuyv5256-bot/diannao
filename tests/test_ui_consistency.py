@@ -36,8 +36,13 @@ MIGRATED = {
     "core/learn_view.py",
     "core/ledger_view.py",
     "core/settings_view.py",
+    # T-UI-02 / T-UI-03 / T-UI-04：三页已完成 v2 迁移（白名单清零）
+    "core/why_view.py",
+    "core/final_view.py",
+    "core/about_view.py",
 }
-PENDING_MIGRATION = {"core/why_view.py", "core/final_view.py", "core/about_view.py"}
+# 迁移完成后再无豁免：新页面若还没迁移，必须显式登记在这里 + 在 ARD 建对应任务
+PENDING_MIGRATION: set = set()
 
 LEGACY_PATTERNS = ("dn-card", "dn-hero", "dn-row", "dn-risk", "badge b-", "kpi-row", 'class="kpi"')
 
@@ -79,11 +84,19 @@ def test_color_homes_are_clean():
         "ui_theme.py 不应写死颜色，组件一律用 --xm-* token"
 
 
-def test_pending_pages_are_actually_listed_for_migration():
-    """待迁移页面必须仍在 ARD 里有对应任务（防止白名单烂掉）。"""
-    ard = _read("docs/ARD.md")
-    for task in ("T-UI-02", "T-UI-03", "T-UI-04"):
-        assert task in ard, "%s 已不在 ARD 中，请同步 PENDING_MIGRATION" % task
+def test_every_view_module_is_classified():
+    """每个 *_view.py 要么在 MIGRATED（受颜色/emoji 约束），要么在 PENDING（且 ARD 里有任务）。
+
+    这条防的是"新加一个页面视图却没人管"——迁移完之后 MIGRATED 就是唯一入口。
+    """
+    views = {str(p.relative_to(ROOT)).replace("\\", "/")
+             for p in (ROOT / "core").glob("*_view.py")}
+    unclassified = views - MIGRATED - PENDING_MIGRATION
+    assert unclassified == set(), "这些视图模块既不在 MIGRATED 也不在 PENDING：%s" % unclassified
+    if PENDING_MIGRATION:
+        ard = _read("docs/ARD.md")
+        for task in ("T-UI-01", "T-UI-02", "T-UI-03", "T-UI-04"):
+            assert task in ard, "%s 已不在 ARD 中，请同步 PENDING_MIGRATION" % task
 
 
 def test_no_legacy_class_names_in_app():

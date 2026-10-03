@@ -153,6 +153,20 @@ input.xm-input:focus, textarea.xm-input:focus { border:2px solid var(--xm-primar
 /* 只用于承载 <style> 的隐藏容器（样式仍生效，不占版面） */
 .xm-hidden { display:none !important; height:0 !important; padding:0 !important; margin:0 !important; }
 
+/* ═══ 通用键值行 / 轻量条形 / 徽标行（设置页、实验页、仿真指标共用）═════ */
+.xm-kv-row { display:flex; flex-wrap:wrap; gap: var(--xm-space-xl); }
+.xm-kv { display:flex; flex-direction:column; gap:2px; min-width:150px; }
+.xm-kv-k { font-size:12px; color: var(--xm-steel); }
+.xm-kv-v { font-size:20px; font-weight:600; color: var(--xm-ink); }
+.xm-kv-sub { font-size:12px; color: var(--xm-steel); margin-top:2px; }
+.xm-bar-row { display:flex; align-items:center; gap: var(--xm-space-md); margin:6px 0; }
+.xm-bar-label { flex:0 0 150px; font-size:13px; color: var(--xm-slate); }
+.xm-bar-track { flex:1; height:20px; background: var(--xm-surface);
+  border-radius: var(--xm-radius-xs); overflow:hidden; }
+.xm-bar-fill { height:20px; background: var(--xm-primary); border-radius: var(--xm-radius-xs); }
+.xm-bar-val { flex:0 0 76px; text-align:right; font-size:13px; font-weight:600; color: var(--xm-ink); }
+.xm-chips { display:flex; flex-wrap:wrap; gap:8px; margin: var(--xm-space-sm) 0 4px; }
+
 /* ═══ 设置页 ════════════════════════════════════════════════════════ */
 .st-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(238px, 1fr));
   gap: var(--xm-space-md); margin: var(--xm-space-sm) 0 var(--xm-space-lg); }
@@ -171,10 +185,6 @@ input.xm-input:focus, textarea.xm-input:focus { border:2px solid var(--xm-primar
 .st-cur { position:absolute; top:12px; right:12px; font-size:12px; font-weight:600;
   color:var(--xm-on-primary); background:var(--xm-primary);
   border-radius:var(--xm-radius-full); padding:3px 9px; }
-.st-kv { display:flex; flex-wrap:wrap; gap: var(--xm-space-xl); margin-top:4px; }
-.st-kv-item { display:flex; flex-direction:column; gap:2px; min-width:150px; }
-.st-kv-k { font-size:12px; color:var(--xm-steel); }
-.st-kv-v { font-size:15px; font-weight:600; color:var(--xm-ink); }
 
 /* ═══ 兼容旧内联样式的硬编码色（Tab1 完整迁移见 ARD T-UI-01）═════════ */
 h3 { color: var(--xm-ink) !important; }
