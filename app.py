@@ -362,8 +362,7 @@ def apply_theme(theme_id: str, sku: str = ""):
         gr.Info("已应用主题：%s" % th["name"])
     except Exception:
         pass
-    return (tag, settings_view.render_theme_cards(tid),
-            settings_view.render_status(tid), settings_view.render_env_panel(tid),
+    return (tag, settings_view.render_status(tid), settings_view.render_env_panel(tid),
             sidebar_brand_html(tid), evolution_chart(sku or ""))
 
 
@@ -981,13 +980,14 @@ def build_app():
                     with gr.Tab("设置", id="settings"):
                         gr.HTML(settings_view.PAGE_HEAD())
                         gr.HTML(settings_view.SECTION_HEAD())
+                        # 主题选择器：Radio 本体，靠 settings_view 的 CSS 渲染成卡片网格
+                        # （点卡片 = 点 radio，状态只有这一份；不要另做装饰性卡片副本）
                         theme_radio = gr.Radio(
-                            choices=[(t["name"] + "（" + t["tag"] + "）", t["id"])
-                                     for t in themes.list_themes()],
-                            value=ACTIVE_THEME, label="应用主题", elem_id="st-theme-radio",
-                            container=False, interactive=True)
+                            choices=settings_view.theme_choices(),
+                            value=ACTIVE_THEME, label="应用主题",
+                            info="点卡片或上面的选项都能换主题，立即生效",
+                            elem_id="st-theme-radio", container=False, interactive=True)
                         theme_status = gr.HTML(settings_view.render_status(ACTIVE_THEME))
-                        theme_cards = gr.HTML(settings_view.render_theme_cards(ACTIVE_THEME))
                         env_panel = gr.HTML(settings_view.render_env_panel(ACTIVE_THEME))
 
         # ── 事件绑定统一放在末尾，便于跨标签页联动 ──
@@ -1024,8 +1024,7 @@ def build_app():
         btn_sim.click(do_digital_store, sim_budget, [sim_out, sim_plot1, sim_plot2])
         # 设置：应用主题（就地换肤 + 落盘，不刷新页面）
         theme_radio.change(apply_theme, [theme_radio, sku_dd],
-                           [theme_style, theme_cards, theme_status, env_panel, side_brand,
-                            evo_chart])
+                           [theme_style, theme_status, env_panel, side_brand, evo_chart])
 
     return demo
 

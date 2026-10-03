@@ -8,7 +8,7 @@
 | 文档版本 | v1.0 |
 | 最后更新 | 2026-10-03 |
 | 代码基线 | git `ca17f07` + 未提交改动（详见 T-ENV-02） |
-| 任务总数 | 34（已完成 34 · 进行中 0 · 阻塞 0 · 待办 0）|
+| 任务总数 | 35（已完成 35 · 进行中 0 · 阻塞 0 · 待办 0）|
 | 更新义务 | **每次开始/完成/阻塞一个任务，必须回来改本文件**（见 §0.4） |
 
 ---
@@ -67,7 +67,7 @@
 
 | 状态 | 数量 | 任务 |
 |---|---|---|
-| 已完成 | 34 | T-CORE-01..05、T-MEM-01..03、T-EXP-01..04、T-UI-01..09、T-QA-01..06、T-DOC-01..03、T-ENV-01..04 |
+| 已完成 | 35 | T-CORE-01..05、T-MEM-01..03、T-EXP-01..04、T-UI-01..10、T-QA-01..06、T-DOC-01..03、T-ENV-01..04 |
 | 进行中 | 0 | —（当前没有进行中任务，取活见 §6） |
 | 阻塞 | 0 | —（T-ENV-01 已解除：依赖装齐、网页起得来、测试全绿） |
 | 待办 | 0 | 任务池已清空；持续改进清单见 §6 |
@@ -76,7 +76,7 @@
 
 | 检查项 | 结果 | 证据 |
 |---|---|---|
-| 测试 | **177 passed 全绿**（约 62s） | `pytest -q --basetemp .pytest_tmp`（新增 `tests/test_ui_consistency.py` 8 项） |
+| 测试 | **179 passed 全绿** | `pytest -q --basetemp .pytest_tmp`（含 `tests/test_ui_consistency.py` 8 项 + 设置页选择器回归防线） |
 | 网页 | ✅ 已跑起来 | `python app.py` → http://127.0.0.1:7861，HTTP 200；左侧边栏 8 栏目 + 6 套主题即时切换；**首页 v2 迁移后页面可见 emoji = 0**（浏览器实测 `innerText` 扫描）；深色主题下 plotly 图表纸底 `#1a1d23`、字色 `#f0f2f5`（随主题重渲染） |
 | 预览截图 | 12 张 | `_backup/preview/01-home.png`…`07-about.png`（8 栏目版另有 `side-01-home.png`/`side-02-settings.png` 与 `theme-01-animal.png`/`theme-02-wenyang.png`/`theme-03-dark.png`/`theme-04-restored.png`）（agent-browser 自动截图，目录已忽略） |
 | 命令行脚本 | ✅ 可跑 | pandas / numpy / scipy / pytest / **gradio 6.29.1** / **plotly 7.1.0** 均已安装 |
@@ -149,6 +149,8 @@
 | T-UI-07 | 「店里的老账本」v2 迁移 | 五 section + 紧凑 summary；不引实验数据；空状态如实 | 重写 `core/ledger_view.py`；相关 24 项通过 | `core/ledger_view.py` `app.py`(Tab5) `tests/test_ledger_view.py` |
 | T-UI-08 | 顶部导航 → **左侧边栏** | 8 个栏目竖排、当前项高亮、点击即切、窄屏折叠为横排 | 新增 `gr.Row#xm-shell` + `Column#xm-side` + `Radio#xm-nav` → `gr.Tabs(selected=…)`；绕开 Gradio 6「More tabs」折叠（隐藏 `.tab-wrapper`）。实测：`navLabels=8`、`tabWrapperDisplay=none`、`moreTabs=0`、`#xm-side=236px`；截图 `_backup/preview/side-01-home.png` | `app.py` `core/ui_theme.py` |
 | T-UI-09 | 新增「设置」栏目 + **应用主题**（移植 CodeForge 4 套） | 6 套主题选中即生效、无需刷新；选择持久化；只影响观感；环境信息真实 | `core/themes.py`（6 主题 / 37 必需 token / Gradio 变量）+ `core/settings_store.py` + `core/settings_view.py` + 外壳样式；实测切换森友会/纹样/深色时 `--xm-primary` 分别变为 `#19c8b9`/`#b91c1c`/`#facc15`、侧边栏「当前主题」同步刷新；落盘 `data/ui_settings.json`；新增 27 项测试；截图 `theme-01..04`、`side-02-settings.png` | `core/themes.py` `core/settings_store.py` `core/settings_view.py` `core/ui_theme.py` `app.py` |
+| T-UI-10 | **修复：设置页主题卡片点不动** | 点卡片即换主题（无需刷新）；当前主题高亮与「当前」角标正确；键盘可达（Radio 隐藏但可聚焦）；不再有第二份装饰性展示层 | 根因：页面同时存在「好看的主题卡片（`render_theme_cards` 生成的纯 `div`）」与「真正可交互的 `gr.Radio` 胶囊」，用户点的是前者；先试过 `gr.HTML(js_on_load=…)` 转发点击 —— 实测 `window.__xmThemeCardBound` 仍为 false（该参数只对模板模式 `html_template` 生效），放弃 JS。最终改为**让 Radio 本体就是卡片**：`settings_view.theme_choices()` 提供选项、`theme_card_css()` 按 `:nth-of-type(n)` 给每套主题生成色板与标签/说明/来源（CSS 变量不参与状态），删除 `render_theme_cards`；隐藏 input 用 `opacity:0` 保留 tab 顺序（实测 `display:block / opacity:0 / focusable:true / tabIndex:0`）。**浏览器实测**：点「森友会」卡片 → `--xm-primary=#19c8b9`、侧边栏「当前主题：森友会」、`.selected` 移到该卡片；截图 `bug-settings-card-01/02.png` | `core/settings_view.py` `app.py` `tests/test_settings_view.py` |
+
 
 > UI 迁移的详细业务事实与约束记录在 `.workbuddy/memory/2026-10-03.md`（B.2/B.3/B.4），建议后续把有效内容并入 TRD §7.2 或本文件。
 
@@ -235,11 +237,24 @@
 | R14 | 装 gradio 6 时它拉入 `huggingface-hub 2.1.1`，与本机 `tokenizers 0.23.1`（要求 hub<2.0）冲突 | 低（对本项目无影响） | 已知：本项目不依赖 tokenizers；但 `E:\Python` 是共享环境，**该环境里其他依赖 tokenizers 的项目可能受影响** —— 如需修复可在那些项目自己的虚拟环境里约束版本 | T-ENV-01 |
 | R15 | `跟随系统` 主题下**图表按浅色渲染**（plotly 图是服务端生成的，服务端不知道浏览器偏好） | 低 | 已记录为已知限制（DESIGN §8 / TRD §7.4）；如需精确跟随，可改为生成时同时输出两套图或用 JS 重绘 | T-UI-01 |
 | R16 | 冻结记录里的 `metrics_version` 哈希与当前 `core/metrics.py` 不一致（`c28cf12a…` vs `e5e64a08…`） | 低 | 已知并已量化：仓库只有一次导入提交，差异应发生在冻结之后、入库之前；**重跑验收 18/18 指标与冻结值逐位一致**（`tools/experiments/_step92_verify.py`），故证据仍有效。今后改 `core/metrics.py` 口径必须新建目录重新冻结（铁律 4） | T-DOC-02 |
+| R17 | ~~设置页主题选择器有两份展示层（装饰卡片点不动、可用的 Radio 在最上面）~~ | 低 | ✅ 已解除（T-UI-10）：控件本体即卡片，`tests/test_settings_view.py::test_picker_is_a_single_control` 兜住「不许再出现装饰性副本」 | T-UI-10 |
 
 ---
 
 ## 8. 交接记录
 
+### 交接：T-UI-10 修复「设置页主题卡片点不动」
+- 日期 / 交接人：2026-10-03 / 初始化 Agent
+- 状态：已完成
+- 现象与根因：设置页同时存在两份「主题选择」——`render_theme_cards()` 生成的好看卡片（纯 `div`，无任何事件）与真正可交互的 `gr.Radio` 胶囊；用户点的是卡片，所以毫无反应。
+- 走过的弯路（已记录，避免重犯）：先试图用 `gr.HTML(js_on_load=…)` 把卡片点击转发给 Radio —— 浏览器实测 `window.__xmThemeCardBound` 仍为 false，说明该参数只对模板模式（`html_template`）生效，普通 `value=` 模式不执行脚本。
+- 最终做法：**让控件本体就是卡片** —— `theme_choices()` 提供 Radio 选项，`theme_card_css()` 按 `:nth-of-type(n)` 为每套主题生成色板渐变与「标签/说明/来源」文案（`::after` content）；删除 `render_theme_cards` 与 `CARD_CLICK_JS`；原生 input 用 `opacity:0` 隐藏以保留 tab 顺序与键盘切换。
+- 证据（浏览器实测）：点「森友会」卡片 → `--xm-primary=#19c8b9`、侧边栏「当前主题：森友会」、`.selected` 类移到该卡片；`display:block / opacity:0 / focusable:true / tabIndex:0`；截图 `_backup/preview/bug-settings-card-01.png`（默认态）、`bug-settings-card-02.png`（点后）。`pytest` **179 passed**（含新增 `test_picker_is_a_single_control` 回归防线）。
+- 没做完的部分：无。
+- 下一步具体动作：若继续做 §6 的改进项，注意沿用「控件本体承担外观」这条规则（已写进 CLAUDE 铁律 8、DESIGN §8 第 6 条、AGENT 踩坑 23）。
+- 需要谁配合：无
+
+---
 ### 交接：收尾 7 项（文档对齐 / 常量裁决 / 两个实验异常项 / 脚本归档 / 测试降级依赖 / 自动备份）
 - 日期 / 交接人：2026-10-03 / 初始化 Agent
 - 状态：已完成（任务池 34/34 清零）
@@ -339,6 +354,7 @@
 | 2026-10-03 | 初始化 Agent | **版本控制演练 + 加固**（T-ENV-03）：跑 7 项演练（产物/密钥守卫、安全回退、灾难恢复克隆、忽略探针、guard 幂等、发布流程），暴露并修掉 3 个真问题 → 提交 `1de5f08`（守卫撤出密钥/产物、ASCII 标记 + UTF-8(BOM) 写 exclude、停止跟踪误入库的 `data/*.db.bak`）与 `69f9867` `fix(vcs)`（`-q` + 错误偏好收敛，消除红色假报错）、`42afc03` `docs(vcs)`（验证记录与边界说明）；证据与修法见 [VERSIONING.md §13](VERSIONING.md)；新增风险 R13；发布点 = `main` 合并提交 `763a676` + tag `v0.2.1`。随后 `6ff13e2`（rollback 提示修复）+ `8e3c536`（版本表）发布 `v0.2.2`（合并提交 `51ee83c`）。**最终状态校验**：工作区干净；`origin` 同步 `main`/`develop`；4 个 tag（v0.1.0/v0.2.0/v0.2.1/v0.2.2）；`.gitignore` 已删除、`.git/info/exclude` 生效（6/6 忽略探针命中）；跟踪文件 108 个、其中**无任何产物或密钥**；数据源 `data/*.csv` 已入库；备份区 `_backup/` 3.14MB（本地 origin 已同步：`git ls-remote --heads --tags origin` 可见 main/develop/v0.1.0/v0.2.0/v0.2.1） |
 | 2026-10-03 | 初始化 Agent | **T-ENV-01 解除（依赖 + 网页验证 + 预览截图）**：`pip install -r requirements.txt` → gradio 6.29.1 / plotly 7.1.0；测试从 138 passed / 2 failed / 2 skipped 变为 **142 passed 全绿（92s）**；`python app.py` 起在 http://127.0.0.1:7861（HTTP 200、页面 396KB），用 `agent-browser` 逐页截图 7 个标签页存于 `_backup/preview/`（首页/为什么这样进/今天生意怎么样/它学会了什么/店里的老账本/实验验证/项目说明）；同步 CLAUDE §2/§6、AGENT §8.1/§8.2/§11（新增截图工作流）、TRD §10 与 §12 D1、PRD FR-07、VERSIONING §10、ARD 计数（19 完成 / 0 阻塞 / 11 待办）与 Top3；新增风险 R14（共享环境的 huggingface-hub 版本冲突） |
 | 2026-10-03 | 初始化 Agent | **修掉 `vcs.ps1 save` 的致命缺陷**（预览时发现）：给 `git add` 误加 `-q`（`git add` 不支持该选项，退出码 129）会导致 `save` 永远"没有需要提交的改动"；改为捕获输出 + `Write-Host`，并用 `save` 自身提交修复完成端到端验证（`3de3c8e`）；记录于 [VERSIONING.md §13](VERSIONING.md) |
+| 2026-10-03 | 初始化 Agent | **T-UI-10 修复设置页主题卡片点不动**：根因是「装饰性卡片 + 隐藏 Radio」双份展示层；改为 Radio 本体渲染成卡片（`theme_choices()` + `theme_card_css()`，删除 `render_theme_cards`），隐藏 input 保留键盘可达；浏览器实测点卡即换肤；测试 177 → 179 passed |
 | 2026-10-03 | 初始化 Agent | **收尾 7 项（T-DOC-01 / T-QA-01 / T-EXP-02 / T-EXP-03 / T-DOC-02 / T-QA-04 / T-ENV-04）→ 任务池清零**：README 全面对齐（含删除无法复现的 7.9pp 声称）；9 个未使用常量 8 删 1 接线；两个实验异常项查清并写进 TRD §6.3 + 页面现算展示；`_step*.py` 归档 `tools/experiments/` 并实测复现 18/18 指标；UI 层测试缺依赖时 skip；每日自动备份计划任务已注册实测。测试仍 **177 passed** |
 | 2026-10-03 | 初始化 Agent | **全站 v2 迁移收尾（T-UI-02/03/04）+ 死代码清理（T-QA-06）**：为什么这样进 / 实验验证 / 项目说明三页迁完 → `test_ui_consistency.py` 的 `PENDING` 白名单清零、三页进 `MIGRATED`；`final_view` 顺带修掉引用已删除 `.dn-card`/`table.dn` 的遗留破损；新增共享组件 `.xm-kv*`/`.xm-bar*`/`.xm-chips`（`.st-kv*` 并入）；删除 7 个无引用渲染函数（166 行）与失效导入，`test_memory_persistence` 改用 `learn_view`；新增测试「每个 `*_view.py` 必须已分类」；测试仍 177 passed；D3/D4 关闭 |
 | 2026-10-03 | 初始化 Agent | **T-UI-01 首页 v2 迁移 + T-QA-02 UI 一致性校验**：删除 app.py 旧内联 CSS（≈3.5KB）与两个死函数；事件图标 → `.xm-badge` 语气徽标；`_hero`/`_trim_flag`/经验卡/KPI/分区标题全部 token 化；**页面可见 emoji 归零**；新增 `themes.plotly_layout/palette` 并让演进曲线、离线评测图、180 天仿真图随主题（深色实测纸底 `#1a1d23`、字色 `#f0f2f5`），换主题时 `apply_theme` 一并重画曲线；新增 `tests/test_ui_consistency.py`（8 项，含 PENDING 白名单与 ARD 联动）；测试 169 → **177 passed**；风险 R6 降级、新增 R15（system 主题图表按浅色） |

@@ -1,23 +1,45 @@
 # -*- coding: utf-8 -*-
-"""「设置」页渲染测试：主题卡片 / 当前态 / 真实环境信息 / 转义 / 无 emoji。"""
+"""「设置」页渲染测试：主题选择器（Radio 卡片）/ 当前态 / 真实环境信息 / 转义 / 无 emoji。
+
+T-UI-10 之后：主题选择器只有**一份控件** —— app.py 的 gr.Radio#st-theme-radio；
+卡片外观由 settings_view 生成的 CSS 负责。所以这里测「选项清单 + 每套主题都有卡片规则」，
+不再测已经不存在的装饰性卡片 HTML（旧的两份展示层正是点击失效的根因）。
+"""
 
 import re
 
 from core import settings_view, themes
 
 
-def test_theme_cards_render_every_theme():
-    html = settings_view.render_theme_cards("animal")
+def test_theme_choices_cover_every_theme():
+    """选项清单必须覆盖全部主题，顺序与 themes.THEME_IDS 一致（CSS 靠顺序对位）。"""
+    choices = settings_view.theme_choices()
+    assert [tid for _label, tid in choices] == list(themes.THEME_IDS)
     for th in themes.list_themes():
-        assert th["name"] in html
-        assert th["source"] in html
-    assert html.count("st-card") >= len(themes.THEME_IDS)
+        assert (th["name"], th["id"]) in choices
 
 
-def test_only_current_theme_is_marked():
-    html = settings_view.render_theme_cards("dark")
-    assert html.count(">当前<") == 1
-    assert "is-active" in html
+def test_card_css_has_one_rule_set_per_theme():
+    """每套主题都要有色板、说明/来源文案与「当前」角标所需的规则。"""
+    css = settings_view.SETTINGS_CSS
+    for i, th in enumerate(themes.list_themes(), start=1):
+        assert "label:nth-of-type(%d) {" % i in css
+        assert "label:nth-of-type(%d)::after" % i in css
+        assert th["desc"][:8] in css
+        assert th["source"][:8] in css
+    assert css.count("background-image: linear-gradient") == len(themes.THEME_IDS)
+    assert len(re.findall("nth-of-type", css)) == len(themes.THEME_IDS) * 2
+
+
+def test_picker_is_a_single_control():
+    """回归防线（T-UI-10）：不要又出现「好看的卡片点不动」的第二份展示层。"""
+    css = settings_view.SETTINGS_CSS
+    assert "#st-theme-radio .wrap > label" in css      # 被样式化的是 Radio 的 label 本体
+    assert ".st-card" not in css and ".st-grid" not in css
+    assert not hasattr(settings_view, "render_theme_cards")
+    # 原生日志隐藏但仍在 tab 顺序里（键盘可达）：用 opacity/尺寸隐藏，而不是 display:none
+    assert "> input { position:absolute; opacity:0" in css
+    assert "display:none" not in css.split("#st-theme-radio")[1][:600]
 
 
 def test_page_contains_both_sections():
@@ -40,9 +62,20 @@ def test_theme_names_are_escaped(monkeypatch):
     evil = dict(themes.THEMES["animal"])
     evil["name"] = "<img src=x onerror=alert(1)>"
     monkeypatch.setitem(themes.THEMES, "animal", evil)
-    html = settings_view.render_theme_cards("animal")
+    html = settings_view.render_page("animal")
     assert "<img" not in html
     assert "&lt;img" in html
+
+
+def test_css_escapes_quotes_from_theme_metadata(monkeypatch):
+    """主题说明里若出现英文引号，生成的 CSS 不能被打断（否则整页样式崩）。"""
+    evil = dict(themes.THEMES["animal"])
+    evil["desc"] = '引号 " 与反斜杠 \\ 都要安全'
+    monkeypatch.setitem(themes.THEMES, "animal", evil)
+    css = settings_view.theme_card_css()
+    line = [l for l in css.split("\n") if "nth-of-type(4)::after" in l][0]
+    assert '\\"' in line
+    assert line.rstrip().endswith(chr(34) + "; }")   # 字符串正常闭合
 
 
 def test_env_panel_uses_real_memory_counts(db):

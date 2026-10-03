@@ -2,8 +2,10 @@
 """小满 · 「设置」页（左侧边栏的新栏目，UI v2）
 
 两块内容：
-  1. 外观 · 应用主题 —— 主题卡片网格；其中 4 套移植自 CodeForge（野兽风浅/深、森友会、纹样·宣纸），
-     另加"小满默认"与"跟随系统"。见 core/themes.py 顶部的移植说明。
+  1. 外观 · 应用主题 —— **主题选择器就是 gr.Radio 本体**，用 CSS 渲染成卡片网格
+     （主题名 + 标签/说明/来源 + 主题色板 + 「当前」角标）。点卡片 = 点对应的 radio 选项，
+     状态只有 Radio 一份 —— 不再有"好看的卡片点不动"的第二份展示层（见 ARD T-UI-10）。
+     4 套主题移植自 CodeForge（野兽风浅/深、森友会、纹样·宣纸），另加"小满默认"与"跟随系统"。
   2. 数据与运行环境 —— 真实读取（记忆库规模 / 数据日期范围 / 当前主题 / 数据源文件），不写死。
 
 本模块只渲染，不落盘；主题持久化由 app.py 调 core.settings_store 完成。
@@ -15,19 +17,79 @@ import html as _html
 from . import dataset, memory, settings_store, themes
 from .config import APP_NAME, APP_SUBTITLE
 
+
+def theme_choices():
+    """Radio 的选项：[(主题名, 主题 id), ...]，顺序即卡片顺序（CSS 用 :nth-of-type 对位）。"""
+    return [(th["name"], th["id"]) for th in themes.list_themes()]
+
+
+def _css_text(text) -> str:
+    """把文案安全地放进 CSS 字符串（转义反斜杠与引号；换行由调用方换成 \\A ）。"""
+    return str(text).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _swatch_gradient(theme_id: str) -> str:
+    """把该主题的 2~3 个色板色拼成"并排色块"渐变，一行就能看出主题气质。"""
+    cols = themes.swatches(theme_id)
+    if not cols:  # 兜底也从主题 token 取，本模块不允许出现写死颜色（tests/test_ui_consistency.py 会拦）
+        p = themes.palette(theme_id)
+        cols = [p["canvas"], p["ink"]]
+    parts = []
+    x = 0
+    for i, c in enumerate(cols):
+        parts.append("%s %dpx %dpx" % (c, x, x + 26))
+        if i < len(cols) - 1:
+            parts.append("transparent %dpx %dpx" % (x + 26, x + 32))
+        x += 32
+    return "linear-gradient(90deg, %s)" % ", ".join(parts)
+
+
+def _swatch_width(theme_id: str) -> int:
+    n = max(1, len(themes.swatches(theme_id)))
+    return n * 26 + (n - 1) * 6
+
+
+def theme_card_css() -> str:
+    """按主题逐个生成卡片样式（顺序与 theme_choices 一致，所以 nth-of-type 能对上）。"""
+    rows = []
+    for i, th in enumerate(themes.list_themes(), start=1):
+        meta = "%s\n%s\n来源：%s" % (th["tag"], th["desc"], th["source"])
+        rows.append(
+            "#st-theme-radio .wrap > label:nth-of-type(%d) "
+            "{ background-image: %s; background-size: %dpx 26px; }"
+            % (i, _swatch_gradient(th["id"]), _swatch_width(th["id"])))
+        rows.append(
+            '#st-theme-radio .wrap > label:nth-of-type(%d)::after { content: "%s"; }'
+            % (i, _css_text(meta).replace("\n", "\\A ")))
+    return "\n".join(rows)
+
+
 SETTINGS_CSS = """
-/* 主题选择器（Gradio Radio 的外观，尽量贴近卡片语言） */
-#st-theme-radio .wrap { gap:8px !important; }
-#st-theme-radio label { background:var(--xm-canvas); border:var(--xm-border-w) solid var(--xm-card-border);
-  border-radius:var(--xm-radius-full) !important; padding:6px 14px !important;
-  color:var(--xm-charcoal) !important; box-shadow:var(--xm-card-shadow); }
-#st-theme-radio label.selected, #st-theme-radio label:has(input:checked) {
-  border-color:var(--xm-primary) !important; color:var(--xm-primary) !important; }
-#st-theme-radio input { display:none !important; }
-/* 页内小节分隔 */
+/* 主题选择器：Radio 本体渲染成卡片（点卡片就是选主题，状态只有一份） */
+#st-theme-radio { border:0 !important; padding:0 !important; min-width:0 !important; }
+#st-theme-radio .info-text { font-size:12px; color:var(--xm-steel); margin:2px 0 10px; }
+#st-theme-radio .wrap { display:grid !important;
+  grid-template-columns:repeat(auto-fill, minmax(238px, 1fr)); gap:var(--xm-space-md) !important; }
+#st-theme-radio .wrap > label { position:relative; display:block; padding:16px 18px 50px;
+  background-color:var(--xm-canvas); background-repeat:no-repeat;
+  background-position:18px calc(100% - 16px);
+  border:var(--xm-border-w) solid var(--xm-card-border); border-radius:var(--xm-radius-lg);
+  box-shadow:var(--xm-card-shadow); cursor:pointer; transition:border-color .15s ease; }
+#st-theme-radio .wrap > label:hover { border-color:var(--xm-primary); }
+#st-theme-radio .wrap > label.selected { border-color:var(--xm-primary); }
+/* 原生圆点视觉隐藏但保留在 tab 顺序里（键盘可用） */
+#st-theme-radio .wrap > label > input { position:absolute; opacity:0; width:1px; height:1px; margin:0; }
+#st-theme-radio .wrap > label:focus-within { outline:2px solid var(--xm-primary); outline-offset:2px; }
+#st-theme-radio .wrap > label > span { font-size:15px; font-weight:600; color:var(--xm-ink); }
+#st-theme-radio .wrap > label::after { display:block; margin-top:6px; font-size:13px;
+  color:var(--xm-slate); line-height:1.7; white-space:pre-line; }
+#st-theme-radio .wrap > label.selected > span::after { content:"当前"; position:absolute;
+  top:12px; right:12px; font-size:12px; font-weight:600; color:var(--xm-canvas);
+  background:var(--xm-primary); border-radius:var(--xm-radius-full); padding:2px 10px; }
+/* 页内小节分隔 / 状态条 */
 .st-block { margin-top:var(--xm-space-xl); }
 .st-radio-row { margin:var(--xm-space-sm) 0 var(--xm-space-xs); }
-"""
+""" + theme_card_css()
 
 
 def _e(v) -> str:
@@ -44,35 +106,13 @@ def render_head() -> str:
 
 def render_theme_section_head() -> str:
     return ('<div class="xm-sec"><div class="xm-sec-title">外观 · 应用主题</div>'
-            '<div class="xm-hint">选一个主题立即生效；选择会被记住，下次打开还是它。'
-            '主题只改颜色、字体、圆角与描边强度，不影响任何计算结果。</div></div>')
-
-
-def render_theme_cards(current=None) -> str:
-    """主题卡片网格（换主题后重新渲染的就是这一块）；当前主题高亮并打「当前」标。"""
-    cur = themes.normalize(current if current is not None else settings_store.current_theme())
-    cards = []
-    for th in themes.list_themes():
-        active = (th["id"] == cur)
-        sw = ''.join('<span class="st-swatch" style="background:%s"></span>' % _e(c)
-                     for c in themes.swatches(th["id"]))
-        cards.append(
-            '<div class="st-card%s">%s'
-            '<div class="st-card-h"><span class="st-card-name">%s</span>'
-            '<span class="st-card-tag">%s</span></div>'
-            '<div class="st-card-desc">%s</div>'
-            '<div class="st-swatches">%s</div>'
-            '<div class="st-card-src">来源：%s</div>'
-            '</div>' % (
-                ' is-active' if active else '',
-                '<span class="st-cur">当前</span>' if active else '',
-                _e(th["name"]), _e(th["tag"]), _e(th["desc"]), sw, _e(th["source"])))
-    return '<div class="st-grid">%s</div>' % ''.join(cards)
+            '<div class="xm-hint">点卡片或上面的选项都能换主题，立即生效；选择会被记住，'
+            '下次打开还是它。主题只改颜色、字体、圆角与描边强度，不影响任何计算结果。</div></div>')
 
 
 def render_theme_grid(current=None) -> str:
-    """整块主题区（小节标题 + 卡片网格），供整页渲染与测试使用。"""
-    return render_theme_section_head() + render_theme_cards(current)
+    """整块主题区（小节标题 + 状态条）；交互控件是 app.py 里的 gr.Radio#st-theme-radio。"""
+    return render_theme_section_head() + render_status(current)
 
 
 def render_status(current=None) -> str:
