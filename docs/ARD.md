@@ -215,8 +215,18 @@
 | I-5 | `app.py` 继续瘦身 | 已从 1213 行降到 995 行，但 Tab1 仍有内联 HTML（风险面板 / Agent 区块） | 把这两块搬进 `core/home_view.py`，app.py 只留布局与绑定 |
 | I-6 | 把 `.workbuddy/memory/*.md` 有效内容并入 TRD/ARD | 见 §3.4 末尾提示；现在信息在两处，接手人可能只看一处 | 逐条比对后归档，失效的删除 |
 | I-7 | 每日备份做异地副本 | 备份区与工作仓库同盘同目录（风险 R12） | 计划任务里追加一步 robocopy 到网盘/移动盘 |
+| I-8 | **排版整改（已调研，待选方向）** | 现状：内容列在 1248px 视口下只有 700px、首页单页 4022px 高（其中 57 行表格占大半）、缺 KPI 摘要条与右侧信息栏；参考 `vue-element-admin` / `shadcn dashboard` / `refine Finefoods` / `Tremor Blocks`（截图见 `_backup/preview/research/ref-*.png`，不入库）—— 共同点是「左导航 + 流体主区 + 3~4 张 KPI 卡 + 卡片内右上角工具条 + 2/3+1/3 工作台 + 表格分页/筛选」 | 先定方向（A 现代极简 / B 中文后台经典 / C 保持 Notion 风只修布局与表格），再按 §7「先建任务」流程开工 |
+
 
 ---
+
+> **排版调研结论（2026-10-03，未开工）**：无头浏览器实测当前首页几何 —— 视口 1248px、左侧栏 236px、主区仅 **700px**、首页总高 **4022px**、单页 `xm-table` **57 行**。
+> 四个能正常截图的参考站（Ant Design Pro preview / Grafana play / Shopify Polaris / 秦丝官网 在无头浏览器里分别白屏、白屏、超时、证书错误，已如实记录）：
+> ① [`vue-element-admin`](https://panjiachen.github.io/vue-element-admin/)(admin/111111) 中文后台经典：满宽 4 KPI 卡 + 图表网格 + 表格/待办双栏；
+> ② [`shadcn dashboard`](https://ui.shadcn.com/examples/dashboard) 现代极简：KPI 卡带涨跌徽标与一句话解读、卡内右上角工具条（时间范围、列设置）、表格带标签页与分页脚；
+> ③ [`refine Finefoods admin`](https://example.admin.refine.dev/) 业务后台：3 张带迷你图的 KPI 卡、地图(2/3)+时间线(1/3)、订单表(2/3)+热门商品(1/3)、状态徽标与行操作；
+> ④ [`Tremor Blocks`](https://blocks.tremor.so/) 组件图鉴：大数字 + 说明 + 涨跌的小卡片族与图表卡片规范。
+> 结论草案：**取结构与密度，不取它们的配色装饰**（本项目 DESIGN.md 是 Notion 风：白底、1px 边、无阴影、单一强调色）。候选方向 A/B/C 与线框见本轮对话，选定后在 ARD 建正式任务（届时 T-UI-11）再动代码。
 ## 7. 风险与问题台账
 
 | # | 风险/问题 | 等级 | 当前状态 | 对应任务 |
