@@ -16,7 +16,7 @@
 | 入口 | 网页 `app.py`（**左侧边栏 8 个栏目**：7 个业务页 + 设置）／演示 `demo_flow.py`／离线评测 `eval.py`／长期实验 `run_digital_store.py` |
 | 数据 | 仿真数据 `data/shopmind_*.csv`（50 SKU × 180 天，2026-03-01 ~ 2026-08-27），**不是真实门店采集数据** |
 | 存储 | SQLite 长期记忆库 `data/store_memory.db`（由 `.git/info/exclude` 忽略，首次运行自动重建） |
-| 当前状态 | 核心闭环已完成、FINAL 实验已冻结、**UI v2 全站迁移完成**、文档与本地版控齐备；任务池 35/35 完成。**进度以 [docs/ARD.md](docs/ARD.md) 为唯一事实来源** |
+| 当前状态 | **项目暂停（可随时续）**：核心闭环、FINAL 冻结证据、UI v2 全站迁移（Direction A 排版）、文档与本地版控均已完成；任务池 36/36。⚠️ 本地服务器与每日自动备份任务**已关闭**（重启用 `python app.py` / `tools/install-daily-backup.ps1`，见 ARD §8 交接记录）。**进度以 [docs/ARD.md](docs/ARD.md) 为唯一事实来源** |
 
 ---
 
