@@ -63,7 +63,7 @@ def _card(value, label, sub=None):
 
 def _howto(text):
     return ("<div style='margin:10px 0 0;padding:8px 12px;background:#eef4f9;border-radius:6px;"
-            "font-size:13px;color:#2c5f8a'>👀 怎么看：%s</div>" % text)
+            "font-size:13px;color:#2c5f8a'>怎么看：%s</div>" % text)
 
 
 def _kv_delta(name, a, b, is_pct=False, better_low=False):

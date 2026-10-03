@@ -108,6 +108,15 @@ input.xm-input, textarea.xm-input { background:var(--xm-canvas) !important; colo
   min-height:44px !important; font-size:15px !important; }
 input.xm-input:focus, textarea.xm-input:focus { border:2px solid var(--xm-primary) !important; outline:none !important; }
 
+/* ═══ 行内布局 / 提示块（v2 取代旧的 dn-row 与 note/good）══════════════ */
+.xm-row { --layout-gap: var(--xm-space-lg) !important; gap: var(--xm-space-lg) !important; }
+.xm-callout { background: var(--xm-warning-soft); border-left: 4px solid var(--xm-warning);
+  padding: 14px 18px; border-radius: var(--xm-radius-md); font-size: 14px;
+  color: var(--xm-charcoal); line-height: 1.85; }
+.xm-callout-ok { background: var(--xm-success-soft); border-left-color: var(--xm-success); }
+.xm-callout-info { background: var(--xm-info-soft); border-left-color: var(--xm-primary); }
+.xm-callout b { color: var(--xm-ink); }
+
 /* ═══ 卡片（边框与阴影强度由主题决定）═════════════════════════════════ */
 .xm-card { background:var(--xm-canvas); border: var(--xm-border-w) solid var(--xm-card-border);
   border-radius:var(--xm-radius-lg); padding:var(--xm-space-lg); margin-bottom:var(--xm-space-md);
