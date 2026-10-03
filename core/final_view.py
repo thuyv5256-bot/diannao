@@ -150,10 +150,17 @@ def _bars(title, pairs):
     return '<div class="xm-h3" style="margin:14px 0 2px">%s</div>%s' % (title, rows)
 
 
-def _section(title, body):
-    """统一的小节外壳：卡片 + 小节标题。"""
-    return ('<div class="xm-card" style="margin-top:14px">'
-            '<div class="xm-h3">%s</div>%s</div>' % (title, body))
+def _section(title, body, summary=None):
+    """统一的小节外壳：不给 summary 就展开成卡片；给了就折成 .xm-fold（默认收起）。
+
+    Direction A：结论（①③）保持展开，明细（②④）默认收起，页高从 2837px 降下来。
+    """
+    if summary is None:
+        return ('<div class="xm-card" style="margin-top:14px">'
+                '<div class="xm-h3">%s</div>%s</div>' % (title, body))
+    return ('<details class="xm-fold" style="margin-top:14px"><summary>%s'
+            '<span class="xm-fold-meta">%s</span></summary>'
+            '<div class="xm-fold-body">%s</div></details>' % (title, summary, body))
 
 
 def render_html():
@@ -213,7 +220,7 @@ def render_html():
         "<p class='xm-note' style='margin:0 0 8px'>关掉 R³ 某一个目标后的真实变化（不做综合评分、不排名）。</p>"
         + b_so + b_liv
         + "<table class='xm-table' style='margin-top:12px'><tr><th>方案</th><th class='xm-num'>累计毛利</th><th class='xm-num'>总体缺货率</th><th class='xm-num'>民生缺货率</th></tr>"
-        + abl_table + "</table>" + _howto(h2) + mech_html)
+        + abl_table + "</table>" + _howto(h2) + mech_html, summary='2 张对比图 + 明细表')
     mem = res.get('memory_ab', {})
     m_on = mem.get('memory_on', {})
     m_off = mem.get('memory_off', {})
@@ -253,7 +260,7 @@ def render_html():
         '④ 损耗控制 A/B',
         "<table class='xm-table'><tr><th>指标</th><th class='xm-num'>ON</th><th class='xm-num'>OFF</th><th class='xm-num'>变化</th></tr>" + srows + "</table>"
         "<div class='xm-cap' style='margin-top:8px'>若 ON 与 OFF 各项一致，说明损耗控制在该数据下未触发（如实显示，不做美化）。</div>"
-        + _howto(h4) + head_html)
+        + _howto(h4) + head_html, summary='ON / OFF 逐项对照')
     intro = ('<div class="xm-card" style="margin-top:14px">'
              '<div class="xm-cap">实验问题</div>'
              '<div class="xm-h3" style="margin-top:4px">小满与传统补货方法有什么区别？R³ 与经营经验是否产生了真实影响？</div>'

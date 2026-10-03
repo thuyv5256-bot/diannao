@@ -330,11 +330,11 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | # | 栏目（Tab id） | 面向 | 渲染来源 |
 |---|---|---|---|
 | 1 | 今天该进什么货（`home`） | 店主 | `home_view.render_home_html(plan, part)`：`top`=页头+KPI 条（整宽）、`rail`=右栏「今天提醒」、`result`=主区（重点关注 + 完整清单折叠）；app.py 负责 2/3+1/3 分栏与风险/Agent 控件 |
-| 2 | 为什么这样进（`why`） | 店主 | `why_view.render_why_page(it)` ← `decision_basis` |
+| 2 | 为什么这样进（`why`） | 店主 | `why_view.render_head()` + `render_why_page(it)`：KPI 条 + 2/3 六步依据链 + 1/3 结论与口径 ← `decision_basis` |
 | 3 | 今天生意怎么样（`feedback`） | 店主 | `feedback_view.*`（head/date_hint/table_hint/render_result/render_invalid/render_empty） |
 | 4 | 它学会了什么（`learn`） | 店主/评委 | `learn_view.*` + `app.evolution_chart` |
 | 5 | 店里的老账本（`ledger`） | 评委 | `ledger_view.render_ledger()` 等 |
-| 6 | 实验验证（`experiment`） | 评委 | `final_view.render_html()` ← `eval/final/*.json` |
+| 6 | 实验验证（`experiment`） | 评委 | `final_view.render_html()` ← `eval/final/*.json`：①③ 结论展开、②④ 明细用 `.xm-fold` 收起 |
 | 7 | 项目说明（`about`） | 评委 | `about_view.render_about()` + 内嵌离线评测按钮 |
 | 8 | **设置（`settings`）** | 所有人 | `settings_view.PAGE_HEAD/SECTION_HEAD/render_status/render_env_panel`；主题选择器 = `gr.Radio#st-theme-radio`（选项来自 `theme_choices()`，卡片外观来自 `theme_card_css()`） |
 

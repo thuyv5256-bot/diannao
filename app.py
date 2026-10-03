@@ -901,7 +901,7 @@ def build_app():
 
                     # ── Tab 2 ── 为什么这样进
                     with gr.Tab("为什么这样进", id="why"):
-                        gr.Markdown("## 为什么这样进\n看看每一笔补货建议背后的依据")
+                        gr.HTML(why_view.render_head())
                         with gr.Row(elem_classes=["xm-row"]):
                             why_sku = gr.Dropdown(choices=sku_choices, value=default_sku, label="正在查看", scale=3)
                             btn_why = gr.Button("查看", variant="primary", scale=1)
