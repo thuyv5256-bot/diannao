@@ -20,13 +20,13 @@ import plotly.graph_objects as go
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, simulator, ui_theme, why_view, about_view
+    from core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, simulator, ui_theme, why_view, about_view
     from core.config import (
         CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 else:
-    from .core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, simulator, ui_theme, why_view, about_view
+    from .core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, simulator, ui_theme, why_view, about_view
     from .core.config import (
         CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
@@ -122,7 +122,7 @@ footer { display: none !important; }
 /* 顶部导航：图标与文字颜色统一（默认低强调，激活为品牌蓝） */
 [role="tab"] { color: #66737F !important; }
 [role="tab"][aria-selected="true"] { color: #234E70 !important; font-weight: 600; }
-""" + home_view.HOME_CSS + why_view.WHY_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + ui_theme.THEME_CSS
+""" + home_view.HOME_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + ui_theme.THEME_CSS
 
 # Gradio 6.0 起 css/theme 从 Blocks() 挪到了 launch()，这里做版本兼容
 _BLOCKS_KW = {"title": "小满 · 自进化智能补货 Agent"}
@@ -685,46 +685,60 @@ def do_digital_store(budget):
     return html, fig1, fig2
 
 
-def load_feedback_template():
-    """载入昨日经营数据作为反馈录入的初值，省得店主从零填。"""
+def load_feedback_template(day_str: str = LAST_DAY):
+    """载入某一天已有的历史经营数据作为录入初值，省得店主从零填。
+
+    数据来源是 memory 里的历史经营记录（sales 表），**不是 POS 自动采集**：
+    实际销量有历史值可直接载入；断货/损耗两列在历史记录中恒为 0，
+    仍必须由店主按当天实际情况填写。day_str 只用于校验，不改变任何数据源。
+    """
+    day = str(day_str or LAST_DAY).strip()
+    try:
+        date.fromisoformat(day)
+    except Exception:
+        day = LAST_DAY
     products = memory.get_products()
     rows = []
     for p in products:
-        recs = memory.get_sales_range(p["sku"], LAST_DAY, LAST_DAY)
+        recs = memory.get_sales_range(p["sku"], day, day)
         r = recs[0] if recs else None
         rows.append([
-            p["sku"], p["name"],
+            p["name"],
             int(round(r["qty_sold"])) if r else 0,
             int(round(r["qty_stockout"])) if r else 0,
             int(round(r["qty_spoilage"])) if r else 0,
+            p["sku"],
         ])
-    return pd.DataFrame(rows, columns=["编号", "商品", "昨天卖出", "没买到（断货）", "坏掉/报废"])
+    df = pd.DataFrame(rows, columns=feedback_view.FB_COLUMNS)
+    return df, feedback_view.render_table_hint(day)
 
 
 def submit_feedback(day_str: str, df: pd.DataFrame):
     if df is None or len(df) == 0:
-        return "<div class='note'>还没有填写内容。</div>", render_evolution_html()
+        return feedback_view.render_empty(), render_evolution_html()
     try:
         d = str(day_str).strip()
         date.fromisoformat(d)
     except Exception:
-        return "<div class='note'>日期格式不对。</div>", render_evolution_html()
+        return feedback_view.render_invalid("日期格式不对，请填 2026-08-27 这样的日期。"), render_evolution_html()
 
     feedback = []
     for _, row in df.iterrows():
         try:
-            sold = float(row["昨天卖出"] or 0)
-            stockout = float(row["没买到（断货）"] or 0)
-            spoilage = float(row["坏掉/报废"] or 0)
+            sold = float(row[feedback_view.COL_SOLD] or 0)
+            stockout = float(row[feedback_view.COL_STOCKOUT] or 0)
+            spoilage = float(row[feedback_view.COL_SPOILAGE] or 0)
         except (TypeError, ValueError):
             continue
         # 输入限制：必须为大于等于 0 的数字，不能出现负数（NaN 也会在此被拦截）
         if not (sold >= 0 and stockout >= 0 and spoilage >= 0):
-            return ("<div class='note'>❌ 输入有误：昨天卖出 / 没买到（断货）/ 坏掉报废 "
-                    "都必须填大于等于 0 的数字，不能出现负数，请检查后再提交。</div>",
+            return (feedback_view.render_invalid(
+                        "%s / %s / %s 都必须填大于等于 0 的数字，不能出现负数，请检查后再保存。"
+                        % (feedback_view.COL_SOLD, feedback_view.COL_STOCKOUT,
+                           feedback_view.COL_SPOILAGE)),
                     render_evolution_html())
         feedback.append({
-            "sku": str(row["编号"]).strip(),
+            "sku": str(row[feedback_view.COL_SKU]).strip(),
             "qty_sold": sold,
             "qty_stockout": stockout,
             "qty_spoilage": spoilage,
@@ -741,60 +755,7 @@ def submit_feedback(day_str: str, df: pd.DataFrame):
     }
 
     result = evolution.process_feedback(d, feedback, plan_context=plan_context)
-    changes = result["changes"]
-    summary = result["summary"]
-    skipped = summary.get("skipped", 0)
-
-    # 提交成功提示（无论是否触发策略校准都显示）
-    success = "<div class='good'>今天的经营情况已记下</div>"
-
-
-    if not changes:
-        if skipped > 0:
-            # 幂等去重：完全相同的反馈已经学习过，本次不重复调整策略
-            body = ("<div class='good'>今天的经营情况已记下（此前已记录过）。</div>"
-                    f"<div class='note'>已跳过 {skipped} 条与历史完全一致的经营反馈"
-                    "（同一天、同一商品、同一销量/断货/报损），小满不会把同一结果重复学习两次。</div>")
-        elif summary.get("updated", 0) > 0:
-            body = success + ("<div class='note'>本次为经营数据修正：已更新原记录并重算"
-                              "策略影响，策略参数保持不变（未累计学习两次）。</div>")
-        elif summary.get("removed", 0) > 0:
-            body = success + ("<div class='note'>本次为经营数据修正：原异常已消除，"
-                              "已撤销对应的策略调整。</div>")
-        else:
-            body = success + (f"<div class='note'>已记录。本次没有触发新的策略调整。"
-                              f"今天断货 {summary['stockout_days']} 项、损耗 {summary['spoilage_days']} 项，"
-                              f"都在正常波动范围内，不需要调整策略。</div>")
-    else:
-        rows = []
-        for ch in changes:
-            o_s, n_s = ch["safety_factor"]
-            arrow = "↑ 上调" if n_s > o_s else "↓ 下调"
-            cls = "liv" if ch["is_livelihood"] else "nor"
-            tag = ('<span class="badge b-liv">断货</span>' if ch["trigger"] == "断货"
-                   else '<span class="badge b-warn">积压损耗</span>')
-            scene = ch.get("scene", "")
-            rows.append(f"""
-            <tr class="{cls}">
-              <td>{ch['name']}</td>
-              <td>{tag}</td>
-              <td>{arrow}（下次{scene}：{o_s:.2f} → {n_s:.2f}）</td>
-              <td class="dn-left" style="font-size:13px;color:#5a6b7d">{ch['reason']}</td>
-            </tr>""")
-        body = success + f"""
-        <div class="dn-card">
-          <h3 style="margin-top:0">这次记录让小满更新了 {len(changes)} 个商品的经营经验</h3>
-          <table class="dn">
-            <tr><th>商品</th><th>发生了什么</th><th>怎么调整</th><th>为什么</th></tr>
-            {''.join(rows)}
-          </table>
-        </div>
-        <div class="good">
-          下次再遇到类似情况时，小满会参考这条经验，
-          对之后的补货建议做小幅调整。
-        </div>"""
-
-    return body, render_evolution_html()
+    return feedback_view.render_result(result, d), render_evolution_html()
 
 
 def render_evolution_html() -> str:
@@ -812,34 +773,22 @@ def render_evolution_html() -> str:
         param_cn = {"safety_factor": "安全库存（备货宽裕度）",
                     "base_days": "备货天数"}.get(lg["param"], lg["param"])
         arrow = "↑" if (lg["new_value"] or 0) > (lg["old_value"] or 0) else "↓"
-        tag = ('<span class="badge b-bad">断货</span>' if lg["trigger"] == "断货"
-               else '<span class="badge b-warn">积压损耗</span>')
-        rows.append(f"""
-        <tr class="{'liv' if p.get('is_livelihood') else 'nor'}">
-          <td>{lg['day']}</td><td>{star}{nm}</td><td>{tag}</td>
-          <td>{param_cn}</td>
-          <td><b style="color:{'#c0564f' if arrow == '↑' else '#3f8f6b'}">{arrow}
-              {lg['old_value']:.3f} → {lg['new_value']:.3f}</b></td>
-        </tr>""")
+        tag = ('<span class="xm-badge xm-badge-red">断货</span>' if lg["trigger"] == "断货"
+               else '<span class="xm-badge xm-badge-orange">积压损耗</span>')
+        rows.append("<tr><td>%s</td><td>%s%s</td><td>%s</td><td>%s</td>"
+                    "<td><b style=\"color:var(--xm-error)\">%s %s → %s</b></td></tr>"
+                    % (lg["day"], star, nm, tag, param_cn, arrow,
+                       "%.3f" % (lg["old_value"] or 0), "%.3f" % (lg["new_value"] or 0)))
 
-    n_up = sum(1 for lg in logs if (lg["new_value"] or 0) > (lg["old_value"] or 0))
+    n_up = sum(1 for lg in logs
+               if (lg["new_value"] or 0) > (lg["old_value"] or 0))
     n_down = len(logs) - n_up
 
-    return f"""
-    <div class="dn-card">
-      <div class="kpi-row">
-      <div class="kpi"><div class="v">{len(logs)}</div><div class="l">累计学习次数</div></div>
-      <div class="kpi"><div class="v">{n_up}</div><div class="l">为避免断货上调</div></div>
-      <div class="kpi"><div class="v">{n_down}</div><div class="l">为减少积压下下调</div></div>
-      </div>
-    </div>
-    <div class="dn-card">
-      <h3 style="margin-top:0">策略自进化轨迹</h3>
-      <table class="dn">
-        <tr><th>日期</th><th>商品</th><th>触发原因</th><th>调整了什么</th><th>变化</th></tr>
-        {''.join(rows)}
-      </table>
-    </div>"""
+    return ('<div class="xm-cap" style="margin-bottom:8px">'
+            '共 %d 次有效调整（%d 次为避免断货上调，%d 次为减少积压下调）。</div>'
+            '<table class="xm-table">'
+            '<tr><th>日期</th><th>商品</th><th>触发原因</th><th>调整了什么</th><th>变化</th></tr>'
+            '%s</table>' % (len(logs), n_up, n_down, ''.join(rows)))
 
 
 def _scene_label(event_type) -> str:
@@ -864,42 +813,44 @@ def render_sku_strategy_html(sku: str) -> str:
     # 边界提示：达到系统硬上下限，或单商品累计校准 ±0.06（自适应边界）
     boundary = ""
     if current >= SAFETY_FACTOR_MAX - 1e-9:
-        boundary = ("<div class='note' style='border-left-color:#c0564f;background:#fbf0ee;color:#8a3d37;'>"
-                    "🛑 已达到策略安全边界（系统上限），本次不再继续调整。</div>")
+        boundary = ('<div class="xm-brief"><span class="xm-badge xm-badge-red">已达上限</span>'
+                    '<div class="xm-brief-sub">该商品已达到策略安全边界（系统上限），'
+                    '本次不再继续调整。</div></div>')
     elif current <= SAFETY_FACTOR_MIN + 1e-9:
-        boundary = ("<div class='note' style='border-left-color:#c0564f;background:#fbf0ee;color:#8a3d37;'>"
-                    "🛑 已达到策略安全边界（系统下限），本次不再继续调整。</div>")
+        boundary = ('<div class="xm-brief"><span class="xm-badge xm-badge-red">已达下限</span>'
+                    '<div class="xm-brief-sub">该商品已达到策略安全边界（系统下限），'
+                    '本次不再继续调整。</div></div>')
     elif abs(current - base) >= MEMORY_SAFETY_MAX_DELTA - 1e-9:
-        boundary = ("<div class='note' style='border-left-color:#c0564f;background:#fbf0ee;color:#8a3d37;'>"
-                    f"🛑 该商品累计校准已达 ±{MEMORY_SAFETY_MAX_DELTA:.2f} 的自适应边界，"
-                    "后续同类反馈不再继续调整安全系数。</div>")
+        boundary = ('<div class="xm-brief"><span class="xm-badge xm-badge-red">累计校准到顶</span>'
+                    '<div class="xm-brief-sub">该商品累计校准已达 ±%.2f 的自适应边界，'
+                    '后续同类反馈不再继续调整安全系数。</div></div>'
+                    % MEMORY_SAFETY_MAX_DELTA)
 
     if not details:
         last_reason = "—"
-        change_line = ("<span style='color:#8b98a8'>暂未形成有效调整 —— "
-                       "提交一次真正触发阈值的经营反馈后，这里会出现变化。</span>")
+        change_line = ('<span class="xm-cap">暂未形成有效调整 —— '
+                       '提交一次真正触发阈值的经营反馈后，这里会出现变化。</span>')
     else:
         last = details[-1]
         signal = "发生断货" if last["trigger"] == "断货" else "发生报损"
-        last_reason = f"{last['day']} {_scene_label(last['event_type'])}{signal}"
-        change_line = (f"<b style='color:#c0564f'>{base:.2f} → {current:.2f}</b>"
-                       f"<span style='color:#8b98a8;font-size:13px;margin-left:8px'>"
-                       f"（累计 {n_learn} 次有效调整）</span>")
+        last_reason = "%s %s%s" % (last["day"], _scene_label(last["event_type"]), signal)
+        change_line = ('<b style="color:var(--xm-error)">%s → %s</b>'
+                       '<span class="xm-cap" style="margin-left:8px">（累计 %d 次有效调整）</span>'
+                       % ("%.2f" % base, "%.2f" % current, n_learn))
 
-    return f"""
-    <div class="dn-card" style="border-left:6px solid #2c5f8a;">
-      <h3 style="margin-top:0">📊 当前策略状态 · {star}{p['name']}</h3>
-      <div class="kpi-row">
-        <div class="kpi"><div class="v">{base:.2f}</div><div class="l">基础安全库存系数</div></div>
-        <div class="kpi"><div class="v" style="color:#c0564f">{current:.2f}</div><div class="l">当前安全库存系数</div></div>
-        <div class="kpi"><div class="v">{n_learn}</div><div class="l">累计有效学习</div></div>
-      </div>
-      <div style="margin-top:14px;font-size:15px;color:#2c3e50;line-height:1.9;">
-        <div><b>最近一次调整原因：</b>{last_reason}</div>
-        <div><b>策略变化：</b>{change_line}</div>
-      </div>
-      {boundary}
-    </div>"""
+    return ('<div class="xm-card">'
+            '<div class="xm-h3" style="margin:0 0 12px">当前策略状态 · %s%s</div>'
+            '<div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:12px">'
+            '<div><div class="xm-num">%.2f</div><div class="xm-cap">基础安全库存系数</div></div>'
+            '<div><div class="xm-num" style="color:var(--xm-error)">%.2f</div>'
+            '<div class="xm-cap">当前安全库存系数</div></div>'
+            '<div><div class="xm-num">%d</div><div class="xm-cap">累计有效学习</div></div>'
+            '</div>'
+            '<div class="xm-sm" style="line-height:1.9">'
+            '<div><b>最近一次调整原因：</b>%s</div>'
+            '<div><b>策略变化：</b>%s</div>'
+            '</div>%s</div>'
+            % (star, p["name"], base, current, n_learn, last_reason, change_line, boundary))
 
 
 def evolution_chart(sku: str):
@@ -977,7 +928,7 @@ def evolution_chart(sku: str):
 
 def submit_feedback_full(day_str: str, df: pd.DataFrame):
     """
-    提交反馈的完整联动：更新「学到了什么」+ 自动刷新「它学会了什么」页，
+    提交反馈的完整联动：本页展示保存结果 + 自动刷新「它学会了什么」页，
     并让图表对准最近发生调整的商品。避免用户提交完还要手动翻页刷新。
     """
     body, evo = submit_feedback(day_str, df)
@@ -989,7 +940,7 @@ def submit_feedback_full(day_str: str, df: pd.DataFrame):
     sku = logs[0]["sku"] if logs else ""
     if sku not in products:
         sku = next(iter(products), "")
-    return (body, evo, render_sku_strategy_html(sku), evo,
+    return (body, render_sku_strategy_html(sku), evo,
             evolution_chart(sku), sku, learn_view.render_learn_page())
 
 
@@ -1146,31 +1097,35 @@ def build_app():
 
             # ── Tab 3 ──
             with gr.Tab("今天生意怎么样", id="feedback"):
-                gr.Markdown("## 今天生意怎么样")
-                gr.Markdown("记录今天真实卖货情况，小满会据此调整之后的建议。")
-                with gr.Row(elem_classes=["dn-row"]):
-                    fb_date = gr.Textbox(value=LAST_DAY, label="记录日期",
-                                         scale=2, info="格式：2026-09-24")
-                    btn_tpl = gr.Button("载入昨日实际数据", scale=1)
-                    btn_submit = gr.Button("保存今日经营情况", variant="primary", scale=1)
+                gr.HTML(feedback_view.render_head())
+                with gr.Group(elem_classes=["xm-flow"]):
+                    gr.HTML('<div class="xm-sec"><div class="xm-sec-title">经营日期</div></div>')
+                    with gr.Group(elem_classes=["fb-date"]):
+                        fb_date = gr.Textbox(value=LAST_DAY, label="经营日期",
+                                             info="已卖完货的那一天，如 2026-08-27")
+                        gr.HTML(feedback_view.render_date_hint(LAST_DAY))
+                    # 次级操作：载入历史初值，不与保存抢主视觉
+                    btn_tpl = gr.Button("载入实际数据", variant="secondary", scale=1)
 
-                fb_df = gr.Dataframe(
-                    value=load_feedback_template(),
-                    headers=["编号", "商品", "昨天卖出", "没买到（断货）", "坏掉/报废"],
-                    datatype=["str", "str", "number", "number", "number"],
-                    interactive=True, wrap=True, row_count=(16, "fixed"),
-                )
-                gr.Markdown("「没买到（断货）」= 有顾客想买，但店里已经没有；「坏掉/报废」= 过期、破损或无法继续销售。")
-                gr.Markdown("这些真实经营结果会帮助小满调整之后的补货建议。")
+                    gr.HTML('<div class="xm-sec"><div class="xm-sec-title">今日经营记录</div></div>')
+                    _fb_init_df, _fb_init_hint = load_feedback_template(LAST_DAY)
+                    fb_hint = gr.HTML(_fb_init_hint)
+                    fb_df = gr.Dataframe(
+                        value=_fb_init_df,
+                        headers=feedback_view.FB_COLUMNS,
+                        datatype=feedback_view.FB_DATATYPES,
+                        interactive=True, wrap=True, row_count=(16, "fixed"),
+                        elem_classes=["fb-table"],
+                    )
+                    # 主操作：保存独占一行
+                    btn_submit = gr.Button("保存今天的经营情况", variant="primary")
                 fb_out = gr.HTML()
-                evo_out = gr.HTML(render_evolution_html())
 
             # ── Tab 3 ──
             with gr.Tab("它学会了什么", id="learn"):
-                gr.Markdown("## 它学会了什么")
-                gr.Markdown("从每天真实经营结果里，慢慢记住这家店的规律。")
+                gr.HTML(learn_view.render_head())
                 exp_log = gr.HTML(learn_view.render_learn_page())
-                btn_goto_feedback = gr.Button("去记录今天的经营情况 →", scale=1)
+                btn_goto_feedback = gr.Button("去记录经营情况 →", scale=1)
                 with gr.Accordion("查看策略变化详情 · 当前策略参数与变化曲线", open=False):
                     with gr.Row(elem_classes=["dn-row"]):
                         sku_dd = gr.Dropdown(
@@ -1194,8 +1149,6 @@ def build_app():
                 mem_html = gr.HTML(render_memory_html())
                 btn_mem_refresh = gr.Button("刷新", scale=1)
                 btn_goto_learn = gr.Button("看看小满学会了什么 →", scale=1)
-                gr.Markdown("---")
-                gr.HTML(render_analysis_html())
 
             # ── Tab 5 ──（FINAL 实验对比）
             with gr.Tab("实验验证", id="experiment"):
@@ -1225,10 +1178,10 @@ def build_app():
         # 勾选/取消风险事件时，自动重算并同步顶部提醒
         for cb in risk_inputs:
             cb.change(do_plan, plan_inputs, [plan_top_out, plan_out])
-        btn_tpl.click(load_feedback_template, None, fb_df)
+        btn_tpl.click(lambda d: load_feedback_template(d), fb_date, [fb_df, fb_hint])
         btn_submit.click(
             submit_feedback_full, [fb_date, fb_df],
-            [fb_out, evo_out, evo_status, evo_log, evo_chart, sku_dd, exp_log],
+            [fb_out, evo_status, evo_log, evo_chart, sku_dd, exp_log],
         )
         sku_dd.change(refresh_evolution, sku_dd, [evo_status, evo_chart, evo_log])
         btn_evo_refresh.click(refresh_evolution, sku_dd, [evo_status, evo_chart, evo_log])
