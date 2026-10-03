@@ -21,13 +21,13 @@ import plotly.graph_objects as go
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
+    from core import agent, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from core.config import (
         APP_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 else:
-    from .core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
+    from .core import agent, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from .core.config import (
         APP_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
@@ -89,56 +89,12 @@ if GR_MAJOR >= 5:
 # ════════════════════════════════════════════════════════════
 # 通用渲染
 # ════════════════════════════════════════════════════════════
-def _cover_badge(days: float) -> str:
-    if days < 2:
-        return f'<span class="xm-badge xm-badge-red">仅够 {days:.1f} 天</span>'
-    if days < 4:
-        return f'<span class="xm-badge xm-badge-orange">够 {days:.1f} 天</span>'
-    return f'<span class="xm-badge xm-badge-green">够 {days:.1f} 天</span>'
 
 
-def _reorder_basis(it: dict) -> str:
-    """「为什么这样进货」—— 委托 core.decision_basis 输出真实 6 阶段决策链。"""
-    return decision_basis.render_reorder_basis(it)
 
 
-def _reorder_reason(it: dict) -> str:
-    """一句人话说明为什么这样进货 —— 全部来自当前真实字段。"""
-    if it.get("supplier_down"):
-        return "供应商断供，本次不可采购"
-    if float(it.get("reorder_qty") or 0.0) <= 0:
-        return "现有库存约可支撑 %.1f 天，暂无需补货" % float(it.get("supply_cover_days") or 0.0)
-    parts = []
-    if it.get("is_livelihood"):
-        parts.append("民生商品优先保障")
-    if it.get("trimmed"):
-        parts.append("预算/多目标权衡后部分满足")
-    if abs(float(it.get("memory_delta") or 0.0)) > 1e-9:
-        parts.append("参考历史经验微调")
-    if it.get("risk_note"):
-        parts.append("已计入风险事件")
-    return "；".join(parts) if parts else "按目标库存补足"
 
 
-def _trim_flag(it: dict) -> str:
-    """商品行内的「裁剪说明」标签——按 R³ 实际裁剪原因给出更准确的提示。
-
-    只会在 it["trimmed"] 为真（实际采购 < 理论目标）时被调用，因此这里只区分
-    「部分满足 / 民生已兜底 / 非民生取舍 / 民生仍有缺口」四种真实情形。
-    """
-    qty = float(it.get("reorder_qty") or 0.0)
-    cover_now = float(it.get("supply_cover_days") or 0.0)
-    min_cover = float(LIVELIHOOD_MIN_COVER_DAYS)
-
-    if qty > 1e-9:
-        text = "预算受限，R³ 优化后部分满足"
-    elif it.get("is_livelihood") and cover_now >= min_cover - 1e-9:
-        text = "已满足民生最低保障，本次预算优先分配至其他缺口商品"
-    elif not it.get("is_livelihood"):
-        text = "预算受限，R³ 根据收益与库存风险进行取舍"
-    else:
-        text = "当前存在民生保障缺口，R³ 优先补足最低保障库存"
-    return f"<br><span class='xm-cap' style='color:var(--xm-warning)'>{text}</span>"
 
 
 def _hero(sub: str) -> str:
@@ -163,42 +119,6 @@ def render_why_html(sku: str) -> str:
     return why_view.render_why_page(it)
 
 
-def render_decision_trace(trace: dict) -> str:
-    """渲染「小满 Agent 决策过程」—— 每一步的数据都来自真实执行结果。"""
-    rows = []
-    for i, s in enumerate(trace["steps"], start=1):
-        # 最后一步：最终补货方案，用独立高亮块展示
-        if s.get("done"):
-            mark = "✓" if s.get("ok", True) else "✗"
-            color = "var(--xm-success)" if s.get("ok", True) else "var(--xm-error)"
-            rows.append(f"""
-            <div style="margin-top:6px;padding:14px 16px;background:var(--xm-success-soft);border-left:4px solid {color};border-radius:8px;">
-              <div style="font-weight:800;color:var(--xm-ink);font-size:16px;">{mark} {s['tool']}</div>
-              <div style="color:var(--xm-success);font-size:14px;margin-top:6px;line-height:1.7;">{s['detail']}</div>
-            </div>""")
-            continue
-
-        ok = s.get("ok", True)
-        tool = s.get("tool", "")
-        if ok:
-            mark, color, title = "✓", "var(--xm-success)", tool
-        else:
-            mark, color, title = "✗", "var(--xm-error)", f"{tool}：执行失败"
-        rows.append(f"""
-        <div style="padding:10px 0;border-bottom:1px solid var(--xm-hairline-soft);">
-          <div style="font-weight:700;color:var(--xm-ink);font-size:15px;">
-            <span style="color:{color};font-weight:800;margin-right:6px;">{mark}</span>
-            {i}. {title}
-          </div>
-          <div style="color:var(--xm-slate);font-size:14px;margin-top:3px;padding-left:28px;line-height:1.6;">
-            {s['detail']}
-          </div>
-        </div>""")
-    return f"""
-    <div class="xm-card" style="border-left:6px solid var(--xm-primary); margin-bottom:16px;">
-      <div class="xm-h3" style="margin:0 0 8px">小满 Agent 决策过程</div>
-      {''.join(rows)}
-    </div>"""
 
 
 def _compare_verdict(cmp: dict) -> str:
@@ -461,40 +381,6 @@ def _event_badge(event_type: str) -> str:
     return '<span class="xm-badge xm-badge-%s">%s</span>' % (tone, label)
 
 
-def render_experiences_html() -> str:
-    """「它学会了什么」页优先展示的经营经验（来自真实反馈，非随机参数）。"""
-    rows = memory.get_experiences(limit=40)
-    if not rows:
-        return "<div class='xm-callout'>暂无学习记录，请先提交一次经营反馈。</div>"
-
-    products = {p["sku"]: p for p in memory.get_products()}
-    items = []
-    for r in rows:
-        p = products.get(r["sku"], {})
-        nm = p.get("name", r["sku"])
-        unit = p.get("unit", "件")
-        ev_badge = _event_badge(r["event_type"])
-        sig_badge = ('<span class="xm-badge xm-badge-red">断货</span>' if r["signal"] == "断货"
-                     else '<span class="xm-badge xm-badge-orange">积压损耗</span>')
-        items.append(f"""
-        <div style="padding:14px 0;border-bottom:1px solid var(--xm-hairline-soft);">
-          <div style="font-size:15px;font-weight:700;color:var(--xm-ink);">
-            <span>{ev_badge}</span> · {nm} {sig_badge}
-            <span style="font-weight:400;font-size:12px;color:var(--xm-steel);margin-left:10px;">{r['day']}</span>
-          </div>
-          <div style="color:var(--xm-slate);font-size:14px;margin-top:6px;padding-left:4px;line-height:1.9;">
-            原计划：预计卖 <b>{r['forecast_qty']:.1f}</b> {unit}，建议补货 <b>{r['reorder_qty']:.0f}</b> {unit}<br>
-            实际结果：卖出 <b>{r['qty_sold']:.0f}</b> {unit}，断货 <b>{r['qty_stockout']:.0f}</b> {unit}，报损 <b>{r['qty_spoilage']:.0f}</b> {unit}<br>
-            → 学到：{r['lesson']}<br>
-            → 下次：{r['adjustment']}
-          </div>
-        </div>""")
-
-    return f"""
-    <div class="xm-card" style="border-left:6px solid var(--xm-primary);">
-      <div class="xm-h3" style="margin:0 0 8px">最近学到的经营经验</div>
-      {''.join(items)}
-    </div>"""
 
 
 def render_eval_figure():
@@ -919,58 +805,6 @@ def render_memory_html() -> str:
     return ledger_view.render_ledger()
 
 
-def render_analysis_html() -> str:
-    """用 180 天 CSV 经营数据，算清楚高温 / 暴雨 / 节假日把销量抬/压了多少。
-
-    原来的「客流带动效应」分析依赖仿真里埋入的「民生缺货量」信号；
-    CSV 只记录实际销量、不记录缺货量，因此这里改为 CSV 真正支持的
-    「事件对销量的影响」分析 —— 数据直接来自天气/事件列。
-    """
-    summary = events.events_summary()
-    impact_table = events.event_impact_table()
-
-    ev_rows = []
-    for k in events.EVENT_KEY_TO_LABEL:
-        days = summary.get(k, [])
-        if days:
-            ev_rows.append(f"""
-            <tr><td>{events.EVENT_KEY_TO_LABEL[k]}</td><td>{len(days)} 天</td>
-                <td>{days[0]} ~ {days[-1]}</td></tr>""")
-
-    def _fmt(v):
-        return f"{v*100:+.1f}%" if v is not None else "—"
-
-    cat_rows = []
-    for r in impact_table:
-        cat_rows.append(f"""
-        <tr><td>{r['category']}</td>
-            <td><b style="color:var(--xm-error)">{_fmt(r['heat'])}</b></td>
-            <td><b style="color:var(--xm-ink)">{_fmt(r['rain'])}</b></td>
-            <td><b style="color:var(--xm-success)">{_fmt(r['holiday'])}</b></td></tr>""")
-
-    return f"""
-    {_hero("用 180 天经营数据，算清楚高温 / 暴雨 / 节假日到底把销量抬了多少")}
-    <div class="xm-card">
-      <div class="xm-h3" style="margin:0 0 8px">历史事件日历</div>
-      <table class="xm-table">
-        <tr><th>事件</th><th>天数</th><th>发生时段</th></tr>
-        {''.join(ev_rows)}
-      </table>
-      <div style="margin-top:12px;font-size:13px;color:var(--xm-steel)">
-        这些事件直接来自经营仿真数据 CSV 的天气 / 事件列，不是写死的数字。
-      </div>
-    </div>
-    <div class="xm-card">
-      <div class="xm-h3" style="margin:0 0 8px">事件对销量的影响（数据驱动）</div>
-      <table class="xm-table">
-        <tr><th>品类</th><th>高温</th><th>暴雨</th><th>节假日</th></tr>
-        {''.join(cat_rows)}
-      </table>
-      <div style="margin-top:12px;font-size:13px;color:var(--xm-steel)">
-        口径：事件日销量 ÷ 同星期几非事件日均值（已消除星期效应）；
-        勾选风险事件时，预测模块优先用这里的真实乘数，数据缺失再回退先验系数。
-      </div>
-    </div>"""
 
 
 def render_about_html() -> str:

@@ -249,5 +249,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 - **可跑**：全部命令行脚本（依赖 pandas/numpy/scipy 已具备）。
 - **网页可跑**：`python app.py` → http://127.0.0.1:7861（gradio 6.29.1 / plotly 7.1.0 已装，7 个标签页均已人工截图核对）。
 - **测试**：177 passed 全绿（约 62s）。
+- **UI 状态**：8 个栏目 + 6 套主题均已完成 v2 迁移；`tests/test_ui_consistency.py` 的 `MIGRATED` 覆盖全部 `*_view.py`、`PENDING` 为空 —— 新加页面必须进 `MIGRATED`（否则该测试会报未分类）。
 - **有未提交改动**：`app.py`、`core/learn_view.py`、`core/ledger_view.py`、`tests/test_learn_view.py`、`tests/test_ledger_view.py`（修改）；`core/feedback_view.py`、`tests/test_feedback_view.py`（新增）。**接手前先搞清楚这批改动是否要一起提交。**
 - **下一步优先级**：见 [docs/ARD.md](docs/ARD.md) §「下一步任务池」（P0：环境补齐 + 冻结当前改动；P1：剩余页面 UI v2 迁移 + README 对齐；P2：实验异常项排查）。

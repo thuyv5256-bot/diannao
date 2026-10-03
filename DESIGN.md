@@ -135,7 +135,7 @@ ADR-005 同构 —— **CSS 变量作用域覆盖**：默认主题零改动，�
 
 **规则（改主题前必读）**
 
-1. 颜色 / 字体 / 圆角 / 描边强度 / 阴影**只允许**定义在 `core/themes.py` 与 `core/ui_theme.py`；页面与视图模块一律消费 `--xm-*`，禁止写死颜色。
+1. 颜色 / 字体 / 圆角 / 描边强度 / 阴影**只允许**定义在 `core/themes.py` 与 `core/ui_theme.py`；页面与视图模块一律消费 `--xm-*`，禁止写死颜色。当前**全部 7 个业务页 + 设置页 + 应用外壳均已迁移**（`tests/test_ui_consistency.py` 的 `MIGRATED` 清单即准绳，`PENDING` 已清空）。
 2. 每个主题必须覆盖 `themes.REQUIRED_TOKENS` 全部 token（漏一个就会露出默认色）——由 `tests/test_themes.py` 强制。
 3. 主题还要覆盖一组 Gradio 原生变量（`--body-background-fill` 等），否则 Dataframe/Dropdown/Accordion 会留在 Gradio 默认配色。
 4. 换主题**不刷新页面**：设置页选中后重新渲染一个隐藏的 `<style>` 组件即可；选择持久化在 `data/ui_settings.json`。

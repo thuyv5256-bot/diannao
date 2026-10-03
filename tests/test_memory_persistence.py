@@ -7,7 +7,7 @@ import sqlite3
 
 import pytest
 
-from core import evolution, memory, policy
+from core import evolution, learn_view, memory, policy
 
 
 def _fb(sku, sold, stockout, spoilage):
@@ -62,7 +62,7 @@ def test_ui_reads_same_memory_as_algorithm(db):
     import app
     ctx = {"L1": {"forecast_qty": 5.0, "reorder_qty": 10.0}}
     evolution.process_feedback("2026-07-10", [_fb("L1", sold=5, stockout=5, spoilage=0)], plan_context=ctx)
-    html = app.render_experiences_html()
+    html = learn_view.render_learn_page()
     assert "大米" in html and "2026-07-10" in html           # 真实经验出现在 UI
     assert "大米" in app.render_memory_html()                # 老账本读同一来源
     assert policy.memory_safety_calibration([], as_of="2026-07-14")["L1"]["delta"] > 0

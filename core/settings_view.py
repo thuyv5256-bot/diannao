@@ -108,11 +108,11 @@ def render_env_panel(current=None) -> str:
                                     '、'.join(t['name'] for t in themes.list_themes()))),
         ('数据源', '%s + %s' % (dataset.PRODUCTS_CSV.name, dataset.SALES_CSV.name)),
     ]
-    cells = ''.join('<div class="st-kv-item"><span class="st-kv-k">%s</span>'
-                    '<span class="st-kv-v">%s</span></div>' % (_e(k), _e(v))
+    cells = ''.join('<div class="xm-kv"><span class="xm-kv-k">%s</span>'
+                    '<span class="xm-kv-v">%s</span></div>' % (_e(k), _e(v))
                     for k, v in items)
     return ('<div class="st-block"><div class="xm-sec-title">数据与运行环境</div>'
-            '<div class="xm-card"><div class="st-kv">%s</div>'
+            '<div class="xm-card"><div class="xm-kv-row">%s</div>'
             '<div class="xm-cap" style="margin-top:12px">'
             '以上均为当前机器上的真实读数；数据来源是社区小店数字经营仿真数据（非真实门店采集数据）。'
             '</div></div></div>' % cells)

@@ -6,21 +6,28 @@
 """
 
 WHY_CSS = """
-.yw-concl { background:#fff; border:1px solid #E5E9EC; border-left:4px solid #234E70; border-radius:10px; padding:18px 20px; }
-.yw-name { font-size:16px; font-weight:600; }
-.yw-headline { font-size:26px; font-weight:700; color:#234E70; margin:8px 0 4px; }
-.yw-meta { font-size:14px; color:#66737F; }
-.yw-concl-text { font-size:14px; color:#1F2933; margin-top:10px; line-height:1.9; }
-.yw-ev-title { font-size:18px; font-weight:600; margin:22px 0 12px; }
+/* 「为什么这样进」页 —— 只消费 --xm-* token（颜色定义见 core/themes.py） */
+.yw-concl { background: var(--xm-canvas); border: var(--xm-border-w) solid var(--xm-card-border);
+  border-left: 4px solid var(--xm-primary); border-radius: var(--xm-radius-lg);
+  padding: var(--xm-space-lg); box-shadow: var(--xm-card-shadow); }
+.yw-name { font-size:16px; font-weight:600; color: var(--xm-ink); }
+.yw-headline { font-size:26px; font-weight:700; color: var(--xm-primary); margin:8px 0 4px; }
+.yw-meta { font-size:14px; color: var(--xm-slate); }
+.yw-concl-text { font-size:14px; color: var(--xm-charcoal); margin-top:10px; line-height:1.9; }
+.yw-ev-title { font-size:18px; font-weight:600; color: var(--xm-ink); margin:22px 0 12px; }
 .ev-step { display:flex; gap:12px; margin-bottom:14px; }
-.ev-num { flex:0 0 22px; height:22px; line-height:22px; text-align:center; border-radius:999px; background:#EAF1F5; color:#234E70; font-size:12px; font-weight:600; }
-.ev-t { font-size:15px; font-weight:600; color:#1F2933; }
-.ev-l { font-size:13px; color:#66737F; margin-top:3px; line-height:1.8; }
+.ev-num { flex:0 0 22px; height:22px; line-height:22px; text-align:center;
+  border-radius: var(--xm-radius-full); background: var(--xm-info-soft);
+  color: var(--xm-primary); font-size:12px; font-weight:600; }
+.ev-t { font-size:15px; font-weight:600; color: var(--xm-ink); }
+.ev-l { font-size:13px; color: var(--xm-slate); margin-top:3px; line-height:1.8; }
 .ev-r3 { display:flex; gap:10px; margin-top:6px; }
-.ev-r3 > div { flex:1; background:#F6F8FA; border:1px solid #E5E9EC; border-radius:8px; padding:10px 12px; }
-.ev-r3 b { font-size:14px; color:#1F2933; }
-.ev-r3 span { font-size:12px; color:#66737F; display:block; margin-top:3px; line-height:1.7; }
-.yw-foot { font-size:12px; color:#8A959E; margin-top:16px; }
+.ev-r3 > div { flex:1; background: var(--xm-surface-soft);
+  border: var(--xm-border-w) solid var(--xm-hairline); border-radius: var(--xm-radius-md);
+  padding:10px 12px; }
+.ev-r3 b { font-size:14px; color: var(--xm-ink); }
+.ev-r3 span { font-size:12px; color: var(--xm-slate); display:block; margin-top:3px; line-height:1.7; }
+.yw-foot { font-size:12px; color: var(--xm-steel); margin-top:16px; }
 """
 
 
@@ -44,7 +51,7 @@ def render_why_page(it: dict) -> str:
     on_hand = float(it.get('on_hand') or 0)
     qty = float(it.get('reorder_qty') or 0)
     cov = float(it.get('final_cover_days') or 0)
-    tag = '<span class="xm-tag xm-tag-green">民生</span>' if it.get('is_livelihood') else ''
+    tag = '<span class="xm-badge xm-badge-green">民生</span>' if it.get('is_livelihood') else ''
     concl = ('<div class="yw-concl"><div class="yw-name">%s%s</div>'
              '<div class="yw-headline">建议进货 %.0f %s</div>'
              '<div class="yw-meta">当前 %.0f %s · 预计需求 %.1f %s · 进货后约够 %.1f 天</div>'
