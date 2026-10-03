@@ -273,8 +273,7 @@ powershell -File tools/vcs.ps1 verify          # 全量 pytest
 powershell -File tools/vcs.ps1 verify -Fast    # 跳过三个昂贵仿真测试，日常用这个
 ```
 
-当前基线（2026-10-03）：`138 passed / 2 failed / 2 skipped`，
-2 项失败均因本机缺 `plotly`（`import app` 失败），非代码问题 —— 见 [ARD](ARD.md) T-ENV-01。
+当前基线（2026-10-03，依赖补齐后）：**`142 passed` 全绿（约 92s）**。此前缺 `plotly` 时是 138 passed / 2 failed / 2 skipped，随 [ARD](ARD.md) T-ENV-01 解除而消失。
 
 ---
 
@@ -348,6 +347,8 @@ A：仅当被改写的提交是**本地误操作/演练产生且尚未交付**�
 
 1. 守卫中止密钥提交后**没有把密钥撤出暂存区** → 改为先 `git reset` 撤出再中止；
 2. `guard` 重写 `.git/info/exclude` 时走了 PowerShell 5.1 的 ANSI 编码往返，**中文注释被写坏且幂等判断失效** → 改为 ASCII 标记判断 + `[System.IO.File]::WriteAllText(..., UTF8Encoding($true))` 写入。
+
+**第四处真问题（2026-10-03 预览时发现并修复）**：`save` 里给 `git add` 误加了 `-q` —— `git add` **不支持** `-q`（以退出码 129 失败），结果是 `save` 永远暂存不到东西、永远提示「没有需要提交的改动」。已改为捕获输出 + `Write-Host` 打印，并用 `save` **自身**提交该修复以验证（提交 `3de3c8e`）。教训：`-q` 只对 `commit / push / fetch / switch / reset / branch / clone / init` 有效，`add` 没有。
 
 **另一处真问题**：`rollback`/`release` 里 git 的提示信息（`Switched to branch…`）与 CRLF 提醒会被 PowerShell 5.1 渲染成红色 `NativeCommandError`，甚至因上层 `$ErrorActionPreference='Stop'` 变成终止错误 → 已把相关子命令加 `-q`，并在 `Invoke-Git` 内临时放开错误偏好、捕获取缔后再按退出码判断。
 

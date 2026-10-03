@@ -225,7 +225,15 @@ switch ($Command.ToLower()) {
     Install-Guard
     $msg = $Arg
     if (-not $msg) { $msg = 'chore: 本地备份 ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') }
-    & git add -q -A
+    # git add 不支持 -q（`git add -q` 会以 129 退出并让暂存区保持为空）；
+  # 这里捕获输出后当普通信息打印，避免 .gitattributes 的 CRLF 提醒被渲染成红色错误。
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  $addOut = & git add -A 2>&1
+  $addCode = $LASTEXITCODE
+  $ErrorActionPreference = $prevEap
+  $addOut | ForEach-Object { Write-Host "$_" }
+  if ($addCode -ne 0) { throw "git add -A 失败（exit $addCode）" }
     if (-not (Test-Staged)) { throw '提交被守卫中止（见上方提示）' }
     $staged = @(& git diff --cached --name-only)
     if (-not $staged -or $staged.Count -eq 0) { Write-Warn2 '没有需要提交的改动'; break }
