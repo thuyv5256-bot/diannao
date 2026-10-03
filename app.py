@@ -13,6 +13,7 @@
 
 import sys
 from datetime import date, timedelta
+from html import escape as _esc
 from pathlib import Path
 
 import pandas as pd
@@ -20,15 +21,15 @@ import plotly.graph_objects as go
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, simulator, ui_theme, why_view, about_view
+    from core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from core.config import (
-        CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
+        APP_NAME, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 else:
-    from .core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, simulator, ui_theme, why_view, about_view
+    from .core import agent, analysis, decision_basis, decision_trace, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from .core.config import (
-        CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
+        APP_NAME, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 
@@ -40,7 +41,32 @@ GR_MAJOR = int(gr.__version__.split(".")[0])
 DEFAULT_PLAN_DATE = "2026-08-28"
 LAST_DAY = "2026-08-27"
 
-CSS = """
+# 界面主题：启动时读本地设置（data/ui_settings.json，读不到回退默认主题）
+ACTIVE_THEME = settings_store.current_theme()
+NAV_BRAND = APP_NAME + " · 智能补货"
+
+# 左侧边栏导航项：(显示名, gr.Tabs 里对应 Tab 的 id)
+NAV_CHOICES = [
+    ("今天该进什么货", "home"),
+    ("为什么这样进", "why"),
+    ("今天生意怎么样", "feedback"),
+    ("它学会了什么", "learn"),
+    ("店里的老账本", "ledger"),
+    ("实验验证", "experiment"),
+    ("项目说明", "about"),
+    ("设置", "settings"),
+]
+
+
+def sidebar_brand_html(theme_id=None) -> str:
+    """左侧栏顶部品牌区：应用名 + 当前主题（真实读取；换主题时一并刷新）。"""
+    th = themes.get(theme_id if theme_id is not None else settings_store.current_theme())
+    return ('<div class="xm-side-brand">'
+            '<div class="xm-side-name">%s · 智能补货</div>'
+            '<div class="xm-side-sub">当前主题：%s</div></div>'
+            % (_esc(APP_NAME), _esc(th["name"])))
+
+CSS = themes.theme_css(ACTIVE_THEME) + """
 .gradio-container { max-width: 1600px !important; }
 
 /* —— 简约商务蓝主题 —— */
@@ -120,9 +146,8 @@ footer { display: none !important; }
 .gradio-container footer { display: none !important; }
 
 /* 顶部导航：图标与文字颜色统一（默认低强调，激活为品牌蓝） */
-[role="tab"] { color: #66737F !important; }
-[role="tab"][aria-selected="true"] { color: #234E70 !important; font-weight: 600; }
-""" + home_view.HOME_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + ui_theme.THEME_CSS
+/* 顶部 Tab 已改为左侧边栏，导航配色见 core/ui_theme.py 的 #main-nav 规则 */
+""" + home_view.HOME_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + settings_view.SETTINGS_CSS + ui_theme.THEME_CSS
 
 # Gradio 6.0 起 css/theme 从 Blocks() 挪到了 launch()，这里做版本兼容
 _BLOCKS_KW = {"title": "小满 · 自进化智能补货 Agent"}
@@ -503,6 +528,24 @@ def do_agent(request_text: str):
       <div class="note" style="margin:8px 0">{explanation}</div>
     </div>
     {plan_html}"""
+
+
+def apply_theme(theme_id: str):
+    """设置页「应用主题」：落盘 + 就地换肤。
+
+    不刷新页面：主题变量注入 <style> 后立即生效；选择写入 data/ui_settings.json，
+    下次启动由 ACTIVE_THEME 直接读回。只重渲染 <style> 与设置页那几块，代价极小。
+    """
+    tid = settings_store.set_theme(theme_id)["theme"]
+    th = themes.get(tid)
+    tag = themes.theme_style_tag(tid, brand=NAV_BRAND, theme_label=th["name"])
+    try:  # 提示条失败不影响换肤
+        gr.Info("已应用主题：%s" % th["name"])
+    except Exception:
+        pass
+    return (tag, settings_view.render_theme_cards(tid),
+            settings_view.render_status(tid), settings_view.render_env_panel(tid),
+            sidebar_brand_html(tid))
 
 
 _EVENT_ICON = {
@@ -1029,147 +1072,177 @@ def build_app():
 
     with gr.Blocks(**_BLOCKS_KW) as demo:
 
-        with gr.Tabs() as main_tabs:
-            # ── Tab 1 ──
-            with gr.Tab("今天该进什么货"):
-                with gr.Group(elem_classes=["xm-flow"]):
-                    plan_top_out = gr.HTML(home_view.render_home_html(policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False), 'top'))
-                    with gr.Accordion('明天按什么情况进货？　%s · 预算 ¥%.0f · 暂无特殊情况' % (DEFAULT_PLAN_DATE[5:].replace('-', '/'), DEFAULT_BUDGET), open=False):
-                        with gr.Row(elem_classes=["dn-row"]):
-                            date_in = gr.Textbox(value=DEFAULT_PLAN_DATE, label="目标经营日",
-                                                 scale=2, info="为这一天的经营备货，默认=明天")
-                            budget_in = gr.Number(value=DEFAULT_BUDGET, label="这次最多花多少（元）",
-                                                  scale=2)
-                            btn_plan = gr.Button("重新生成进货建议", variant="primary", scale=1)
-                            btn_cmp = gr.Button("与传统算法对比（实验）", scale=1)
+        # 主题变量：<style> 注入（换主题只重渲染这一个隐藏组件，页面立即变）
+        theme_style = gr.HTML(
+            themes.theme_style_tag(ACTIVE_THEME, brand=NAV_BRAND,
+                                   theme_label=themes.get(ACTIVE_THEME)["name"]),
+            elem_classes=["xm-hidden"])
+
+        # 左侧边栏：品牌 + 竖排导航（真正的 Tab 切换由 nav_radio 驱动）
+        with gr.Row(elem_id="xm-shell"):
+            with gr.Column(scale=0, min_width=236, elem_id="xm-side"):
+                side_brand = gr.HTML(sidebar_brand_html(ACTIVE_THEME))
+                nav_radio = gr.Radio(choices=NAV_CHOICES, value="home", show_label=False,
+                                     container=False, elem_id="xm-nav")
+
+            with gr.Column(scale=1, min_width=0, elem_id="xm-main"):
+                with gr.Tabs(elem_id="main-nav") as main_tabs:
+                    # ── Tab 1 ──
+                    with gr.Tab("今天该进什么货", id="home"):
+                        with gr.Group(elem_classes=["xm-flow"]):
+                            plan_top_out = gr.HTML(home_view.render_home_html(policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False), 'top'))
+                            with gr.Accordion('明天按什么情况进货？　%s · 预算 ¥%.0f · 暂无特殊情况' % (DEFAULT_PLAN_DATE[5:].replace('-', '/'), DEFAULT_BUDGET), open=False):
+                                with gr.Row(elem_classes=["dn-row"]):
+                                    date_in = gr.Textbox(value=DEFAULT_PLAN_DATE, label="目标经营日",
+                                                         scale=2, info="为这一天的经营备货，默认=明天")
+                                    budget_in = gr.Number(value=DEFAULT_BUDGET, label="这次最多花多少（元）",
+                                                          scale=2)
+                                    btn_plan = gr.Button("重新生成进货建议", variant="primary", scale=1)
+                                    btn_cmp = gr.Button("与传统算法对比（实验）", scale=1)
     
-                        with gr.Group(elem_classes=["dn-risk-panel"]):
-                            gr.HTML("<div class='dn-risk-head'>明天有没有特殊情况？</div>"
-                                    "<div class='dn-risk-sub'>勾选后小满会把它纳入销量预计与补货计算；"
-                                    "不勾选则按正常情况计算。</div>")
+                                with gr.Group(elem_classes=["dn-risk-panel"]):
+                                    gr.HTML("<div class='dn-risk-head'>明天有没有特殊情况？</div>"
+                                            "<div class='dn-risk-sub'>勾选后小满会把它纳入销量预计与补货计算；"
+                                            "不勾选则按正常情况计算。</div>")
+                                    with gr.Row(elem_classes=["dn-row"]):
+                                        rain_cb = gr.Checkbox(value=False, label="暴雨",
+                                                              info="客流可能下降")
+                                        heat_cb = gr.Checkbox(value=False, label="高温",
+                                                              info="冷饮需求可能上升")
+                                        holiday_cb = gr.Checkbox(value=False, label="节假日",
+                                                                 info="整体备货需求可能增加")
+                                        supplier_cb = gr.Checkbox(value=False, label="供应商断货",
+                                                                  info="需要增加安全库存缓冲")
+
+                            plan_out = gr.HTML(home_view.render_home_html(policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False), 'result'))
+                        with gr.Row():
+                            btn_explain = gr.Button("用大白话解释", scale=1)
+                            btn_goto_exp = gr.Button("查看实验验证 ›", scale=1)
+                        explain_out = gr.HTML()
+
+                        gr.Markdown("---")
+                        gr.Markdown("### 🤖 Agent 智能补货\n"
+                                    "直接说需求，例如「预算600元，明天高温」。"
+                                    "Agent 会读历史数据 → 找历史事件 → 分析销量影响 → 出方案并解释。")
+                        with gr.Row(elem_classes=["dn-row"]):
+                            agent_in = gr.Textbox(label="你的需求", scale=4,
+                                                  placeholder="例如：预算600元，明天高温，帮我算算")
+                            btn_agent = gr.Button("🤖 让 Agent 来算", variant="primary", scale=1)
+                        agent_out = gr.HTML()
+
+                        gr.Markdown("---")
+                        with gr.Accordion('高级实验工具 · 180 天长期仿真（现场无需运行）', open=False):
                             with gr.Row(elem_classes=["dn-row"]):
-                                rain_cb = gr.Checkbox(value=False, label="暴雨",
-                                                      info="客流可能下降")
-                                heat_cb = gr.Checkbox(value=False, label="高温",
-                                                      info="冷饮需求可能上升")
-                                holiday_cb = gr.Checkbox(value=False, label="节假日",
-                                                         info="整体备货需求可能增加")
-                                supplier_cb = gr.Checkbox(value=False, label="供应商断货",
-                                                          info="需要增加安全库存缓冲")
+                                sim_budget = gr.Number(value=simulator.DEFAULT_SIM_BUDGET,
+                                                       label="每日进货预算（元）", scale=2,
+                                                       info="默认 ¥1800，两种策略使用同一预算")
+                                btn_sim = gr.Button("🚀 运行180天仿真", variant="primary", scale=1)
+                            gr.Markdown("⏳ 约需 2 分钟（其中完整小满每次约 100 秒，传统算法约 20 秒）。"
+                                        "完整消融实验请运行 `python run_digital_store.py`。")
+                            sim_out = gr.HTML()
+                            with gr.Row():
+                                sim_plot1 = gr.Plot(scale=1)
+                                sim_plot2 = gr.Plot(scale=1)
 
-                    plan_out = gr.HTML(home_view.render_home_html(policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False), 'result'))
-                with gr.Row():
-                    btn_explain = gr.Button("用大白话解释", scale=1)
-                    btn_goto_exp = gr.Button("查看实验验证 ›", scale=1)
-                explain_out = gr.HTML()
+                    # ── Tab 2 ── 为什么这样进
+                    with gr.Tab("为什么这样进", id="why"):
+                        gr.Markdown("## 为什么这样进\n看看每一笔补货建议背后的依据")
+                        with gr.Row(elem_classes=["dn-row"]):
+                            why_sku = gr.Dropdown(choices=sku_choices, value=default_sku, label="正在查看", scale=3)
+                            btn_why = gr.Button("查看", variant="primary", scale=1)
+                        why_out = gr.HTML(render_why_html(default_sku))
 
-                gr.Markdown("---")
-                gr.Markdown("### 🤖 Agent 智能补货\n"
-                            "直接说需求，例如「预算600元，明天高温」。"
-                            "Agent 会读历史数据 → 找历史事件 → 分析销量影响 → 出方案并解释。")
-                with gr.Row(elem_classes=["dn-row"]):
-                    agent_in = gr.Textbox(label="你的需求", scale=4,
-                                          placeholder="例如：预算600元，明天高温，帮我算算")
-                    btn_agent = gr.Button("🤖 让 Agent 来算", variant="primary", scale=1)
-                agent_out = gr.HTML()
+                    # ── Tab 3 ──
+                    with gr.Tab("今天生意怎么样", id="feedback"):
+                        gr.HTML(feedback_view.render_head())
+                        with gr.Group(elem_classes=["xm-flow"]):
+                            gr.HTML('<div class="xm-sec"><div class="xm-sec-title">经营日期</div></div>')
+                            with gr.Group(elem_classes=["fb-date"]):
+                                fb_date = gr.Textbox(value=LAST_DAY, label="经营日期",
+                                                     info="已卖完货的那一天，如 2026-08-27")
+                                gr.HTML(feedback_view.render_date_hint(LAST_DAY))
+                            # 次级操作：载入历史初值，不与保存抢主视觉
+                            btn_tpl = gr.Button("载入实际数据", variant="secondary", scale=1)
 
-                gr.Markdown("---")
-                with gr.Accordion('高级实验工具 · 180 天长期仿真（现场无需运行）', open=False):
-                    with gr.Row(elem_classes=["dn-row"]):
-                        sim_budget = gr.Number(value=simulator.DEFAULT_SIM_BUDGET,
-                                               label="每日进货预算（元）", scale=2,
-                                               info="默认 ¥1800，两种策略使用同一预算")
-                        btn_sim = gr.Button("🚀 运行180天仿真", variant="primary", scale=1)
-                    gr.Markdown("⏳ 约需 2 分钟（其中完整小满每次约 100 秒，传统算法约 20 秒）。"
-                                "完整消融实验请运行 `python run_digital_store.py`。")
-                    sim_out = gr.HTML()
-                    with gr.Row():
-                        sim_plot1 = gr.Plot(scale=1)
-                        sim_plot2 = gr.Plot(scale=1)
+                            gr.HTML('<div class="xm-sec"><div class="xm-sec-title">今日经营记录</div></div>')
+                            _fb_init_df, _fb_init_hint = load_feedback_template(LAST_DAY)
+                            fb_hint = gr.HTML(_fb_init_hint)
+                            fb_df = gr.Dataframe(
+                                value=_fb_init_df,
+                                headers=feedback_view.FB_COLUMNS,
+                                datatype=feedback_view.FB_DATATYPES,
+                                interactive=True, wrap=True, row_count=(16, "fixed"),
+                                elem_classes=["fb-table"],
+                            )
+                            # 主操作：保存独占一行
+                            btn_submit = gr.Button("保存今天的经营情况", variant="primary")
+                        fb_out = gr.HTML()
 
-            # ── Tab 2 ── 为什么这样进
-            with gr.Tab("为什么这样进"):
-                gr.Markdown("## 为什么这样进\n看看每一笔补货建议背后的依据")
-                with gr.Row(elem_classes=["dn-row"]):
-                    why_sku = gr.Dropdown(choices=sku_choices, value=default_sku, label="正在查看", scale=3)
-                    btn_why = gr.Button("查看", variant="primary", scale=1)
-                why_out = gr.HTML(render_why_html(default_sku))
+                    # ── Tab 3 ──
+                    with gr.Tab("它学会了什么", id="learn"):
+                        gr.HTML(learn_view.render_head())
+                        exp_log = gr.HTML(learn_view.render_learn_page())
+                        btn_goto_feedback = gr.Button("去记录经营情况 →", scale=1)
+                        with gr.Accordion("查看策略变化详情 · 当前策略参数与变化曲线", open=False):
+                            with gr.Row(elem_classes=["dn-row"]):
+                                sku_dd = gr.Dropdown(
+                                    choices=sku_choices,
+                                    value=default_sku,
+                                    label="选择商品", scale=3,
+                                )
+                                btn_evo_refresh = gr.Button("↻ 刷新", scale=1)
+                            evo_status = gr.HTML(render_sku_strategy_html(default_sku))
+                            evo_chart = gr.Plot(evolution_chart(default_sku))
+                            gr.Markdown(
+                                "**小满不会重新训练大模型**，而是根据实际经营结果持续校准补货策略参数。\n\n"
+                                "· 发生**断货**时，在安全范围内适当**提高安全库存**；\n"
+                                "· 发生**持续报损**时，则适当**降低备货强度**。\n\n"
+                                "曲线只保留**真正导致策略变化的有效反馈**节点 —— 重复提交、被去重的反馈不会形成新的节点。"
+                            )
+                            evo_log = gr.HTML(render_evolution_html())
 
-            # ── Tab 3 ──
-            with gr.Tab("今天生意怎么样", id="feedback"):
-                gr.HTML(feedback_view.render_head())
-                with gr.Group(elem_classes=["xm-flow"]):
-                    gr.HTML('<div class="xm-sec"><div class="xm-sec-title">经营日期</div></div>')
-                    with gr.Group(elem_classes=["fb-date"]):
-                        fb_date = gr.Textbox(value=LAST_DAY, label="经营日期",
-                                             info="已卖完货的那一天，如 2026-08-27")
-                        gr.HTML(feedback_view.render_date_hint(LAST_DAY))
-                    # 次级操作：载入历史初值，不与保存抢主视觉
-                    btn_tpl = gr.Button("载入实际数据", variant="secondary", scale=1)
+                    # ── Tab 4 ──
+                    with gr.Tab("店里的老账本", id="ledger") as tab_mem:
+                        mem_html = gr.HTML(render_memory_html())
+                        btn_mem_refresh = gr.Button("刷新", scale=1)
+                        btn_goto_learn = gr.Button("看看小满学会了什么 →", scale=1)
 
-                    gr.HTML('<div class="xm-sec"><div class="xm-sec-title">今日经营记录</div></div>')
-                    _fb_init_df, _fb_init_hint = load_feedback_template(LAST_DAY)
-                    fb_hint = gr.HTML(_fb_init_hint)
-                    fb_df = gr.Dataframe(
-                        value=_fb_init_df,
-                        headers=feedback_view.FB_COLUMNS,
-                        datatype=feedback_view.FB_DATATYPES,
-                        interactive=True, wrap=True, row_count=(16, "fixed"),
-                        elem_classes=["fb-table"],
-                    )
-                    # 主操作：保存独占一行
-                    btn_submit = gr.Button("保存今天的经营情况", variant="primary")
-                fb_out = gr.HTML()
+                    # ── Tab 5 ──（FINAL 实验对比）
+                    with gr.Tab("实验验证", id="experiment"):
+                        gr.HTML(final_view.render_html())
 
-            # ── Tab 3 ──
-            with gr.Tab("它学会了什么", id="learn"):
-                gr.HTML(learn_view.render_head())
-                exp_log = gr.HTML(learn_view.render_learn_page())
-                btn_goto_feedback = gr.Button("去记录经营情况 →", scale=1)
-                with gr.Accordion("查看策略变化详情 · 当前策略参数与变化曲线", open=False):
-                    with gr.Row(elem_classes=["dn-row"]):
-                        sku_dd = gr.Dropdown(
-                            choices=sku_choices,
-                            value=default_sku,
-                            label="选择商品", scale=3,
-                        )
-                        btn_evo_refresh = gr.Button("↻ 刷新", scale=1)
-                    evo_status = gr.HTML(render_sku_strategy_html(default_sku))
-                    evo_chart = gr.Plot(evolution_chart(default_sku))
-                    gr.Markdown(
-                        "**小满不会重新训练大模型**，而是根据实际经营结果持续校准补货策略参数。\n\n"
-                        "· 发生**断货**时，在安全范围内适当**提高安全库存**；\n"
-                        "· 发生**持续报损**时，则适当**降低备货强度**。\n\n"
-                        "曲线只保留**真正导致策略变化的有效反馈**节点 —— 重复提交、被去重的反馈不会形成新的节点。"
-                    )
-                    evo_log = gr.HTML(render_evolution_html())
+                    # ── Tab 6 ──
+                    with gr.Tab("项目说明", id="about"):
+                        gr.HTML(render_about_html())
+                        gr.Markdown("---")
+                        gr.Markdown("### 📊 离线评测对比\n"
+                                    "点击下方按钮，在**隔离临时库**上跑一轮快速评测（2 个随机种子 × 60 天），"
+                                    "不影响当前门店记忆，评委无需命令行即可看到对比柱状图。")
+                        with gr.Row(elem_classes=["dn-row"]):
+                            btn_eval = gr.Button("🔬 生成评测对比图", scale=1)
+                        eval_plot = gr.Plot()
 
-            # ── Tab 4 ──
-            with gr.Tab("店里的老账本") as tab_mem:
-                mem_html = gr.HTML(render_memory_html())
-                btn_mem_refresh = gr.Button("刷新", scale=1)
-                btn_goto_learn = gr.Button("看看小满学会了什么 →", scale=1)
-
-            # ── Tab 5 ──（FINAL 实验对比）
-            with gr.Tab("实验验证", id="experiment"):
-                gr.HTML(final_view.render_html())
-
-            # ── Tab 6 ──
-            with gr.Tab("项目说明"):
-                gr.HTML(render_about_html())
-                gr.Markdown("---")
-                gr.Markdown("### 📊 离线评测对比\n"
-                            "点击下方按钮，在**隔离临时库**上跑一轮快速评测（2 个随机种子 × 60 天），"
-                            "不影响当前门店记忆，评委无需命令行即可看到对比柱状图。")
-                with gr.Row(elem_classes=["dn-row"]):
-                    btn_eval = gr.Button("🔬 生成评测对比图", scale=1)
-                eval_plot = gr.Plot()
+                    # ── Tab 7 · 设置（左侧边栏新栏目）──
+                    with gr.Tab("设置", id="settings"):
+                        gr.HTML(settings_view.PAGE_HEAD())
+                        gr.HTML(settings_view.SECTION_HEAD())
+                        theme_radio = gr.Radio(
+                            choices=[(t["name"] + "（" + t["tag"] + "）", t["id"])
+                                     for t in themes.list_themes()],
+                            value=ACTIVE_THEME, label="应用主题", elem_id="st-theme-radio",
+                            container=False, interactive=True)
+                        theme_status = gr.HTML(settings_view.render_status(ACTIVE_THEME))
+                        theme_cards = gr.HTML(settings_view.render_theme_cards(ACTIVE_THEME))
+                        env_panel = gr.HTML(settings_view.render_env_panel(ACTIVE_THEME))
 
         # ── 事件绑定统一放在末尾，便于跨标签页联动 ──
         risk_inputs = [rain_cb, heat_cb, holiday_cb, supplier_cb]
         plan_inputs = [date_in, budget_in, rain_cb, heat_cb, holiday_cb, supplier_cb]
         btn_plan.click(do_plan, plan_inputs, [plan_top_out, plan_out])
-        btn_goto_exp.click(lambda: gr.Tabs(selected="experiment"), None, main_tabs)
+        # 左侧边栏导航 ↔ 内容面板：Radio 选中即切 Tab；跨页跳转按钮同时回写导航高亮
+        nav_radio.change(lambda v: gr.Tabs(selected=v), nav_radio, main_tabs)
+        btn_goto_exp.click(lambda: (gr.Tabs(selected="experiment"), gr.Radio(value="experiment")),
+                           None, [main_tabs, nav_radio])
         btn_why.click(render_why_html, why_sku, why_out)
         why_sku.change(render_why_html, why_sku, why_out)
         btn_cmp.click(do_compare, plan_inputs, plan_out)
@@ -1185,13 +1258,18 @@ def build_app():
         )
         sku_dd.change(refresh_evolution, sku_dd, [evo_status, evo_chart, evo_log])
         btn_evo_refresh.click(refresh_evolution, sku_dd, [evo_status, evo_chart, evo_log])
-        btn_goto_feedback.click(lambda: gr.Tabs(selected="feedback"), None, main_tabs)
+        btn_goto_feedback.click(lambda: (gr.Tabs(selected="feedback"), gr.Radio(value="feedback")),
+                                None, [main_tabs, nav_radio])
         btn_mem_refresh.click(render_memory_html, None, mem_html)
-        btn_goto_learn.click(lambda: gr.Tabs(selected="learn"), None, main_tabs)
+        btn_goto_learn.click(lambda: (gr.Tabs(selected="learn"), gr.Radio(value="learn")),
+                             None, [main_tabs, nav_radio])
         # 进入「店里的老账本」时自动刷新，确保刚沉淀的经营经验立即可见
         tab_mem.select(render_memory_html, None, mem_html)
         btn_eval.click(render_eval_figure, None, eval_plot)
         btn_sim.click(do_digital_store, sim_budget, [sim_out, sim_plot1, sim_plot2])
+        # 设置：应用主题（就地换肤 + 落盘，不刷新页面）
+        theme_radio.change(apply_theme, theme_radio,
+                           [theme_style, theme_cards, theme_status, env_panel, side_brand])
 
     return demo
 
