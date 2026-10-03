@@ -8,7 +8,7 @@
 | 文档版本 | v1.0 |
 | 最后更新 | 2026-10-03 |
 | 代码基线 | git `ca17f07` + 未提交改动（详见 T-ENV-02） |
-| 任务总数 | 34（已完成 27 · 进行中 0 · 阻塞 0 · 待办 7） |
+| 任务总数 | 34（已完成 34 · 进行中 0 · 阻塞 0 · 待办 0）|
 | 更新义务 | **每次开始/完成/阻塞一个任务，必须回来改本文件**（见 §0.4） |
 
 ---
@@ -67,10 +67,10 @@
 
 | 状态 | 数量 | 任务 |
 |---|---|---|
-| 已完成 | 27 | T-CORE-01..05、T-MEM-01..03、T-EXP-01、T-EXP-04、T-UI-01..09、T-QA-02、T-QA-03、T-QA-05、T-QA-06、T-DOC-03、T-ENV-01、T-ENV-02、T-ENV-03 |
+| 已完成 | 34 | T-CORE-01..05、T-MEM-01..03、T-EXP-01..04、T-UI-01..09、T-QA-01..06、T-DOC-01..03、T-ENV-01..04 |
 | 进行中 | 0 | —（当前没有进行中任务，取活见 §6） |
 | 阻塞 | 0 | —（T-ENV-01 已解除：依赖装齐、网页起得来、测试全绿） |
-| 待办 | 7 | 见 §6（P0 只剩 README 对齐；其余为实验异常项、常量裁决与脚本归档） |
+| 待办 | 0 | 任务池已清空；持续改进清单见 §6 |
 
 **今天的真实状态（可复核）**
 
@@ -103,7 +103,7 @@
 | M1 | 决策闭环 | 预测 → 事件 → 惠民约束 → 自进化 → 页面闭环（demo_flow 五幕可跑通） | ✅ 已完成 |
 | M2 | 实验证据 | 180 天长期仿真 + 消融 + 冻结产物（`eval/final`） | ✅ 已完成（2026-10-02 冻结） |
 | M3 | 交付层收尾 | UI v2 全站迁移 + 文档体系 + 版本控制与备份 + 环境可复现 | ✅ **已完成**（8 栏目全站 v2 + 6 套主题 + PRD/TRD/ARD/CLAUDE/AGENT/VERSIONING + 本地 Git 备份 + 依赖与网页实测） |
-| M4 | 最终交付 | 全绿测试 + 可现场演示 + 接手零障碍 | ⬜ 待办 |
+| M4 | 最终交付 | 全绿测试 + 可现场演示 + 接手零障碍 | ✅ **已完成**（177 passed 全绿；8 栏目网页实测可演示；CLAUDE/AGENT/PRD/TRD/ARD/VERSIONING 与实现一致；任务池 34/34） |
 
 ---
 
@@ -133,6 +133,8 @@
 |---|---|---|---|---|
 | T-EXP-01 | 180 天 FINAL 实验冻结（主对比 + Memory A/B + 三目标消融 + 损耗 A/B） | 结果落盘且页面只读不重跑；结论可归因 | `eval/final/FROZEN.json`（seed 42 / ¥1800 / 180 天）+ `final_experiment_summary.json`；关键数字：民生保障 1.000 vs 0.948、民生断货 425 vs 681、Memory 开毛利 +¥752 | `core/simulator.py` `_step*.py` `eval/final/**` |
 | T-EXP-04 | 事件感知 A/B 脚本 | 同一外部世界下 Aware vs Blind 公平对照 | `run_event_awareness_ab.py`（脚本完整、可运行） | `run_event_awareness_ab.py` |
+| T-EXP-02 | 排查 `spoilage_ab` 开/关完全一致 | 给出结论二选一（生效但无差异 / 未生效需修复） | 结论 = **(a) 开关生效但该数据集下从未触发**：从冻结流水逐行核算，9,000 条决策「短保可售容量 − 理想补货量」最小 0.0 / 中位 3.3 / 最大 23.2 件，`spoilage_capped` 命中 **0 次** → 上限 `min()` 从未取到右侧值；两臂仅 `strategy` 标签与记录列 `free_sellable_capacity` 不同。页面「实验验证」④ 已把该核算结果直接展示给评委；TRD §6.3 A 段记录完整推导 | `core/final_view.py` `core/policy.py` |
+| T-EXP-03 | 解释 `no_revenue` 毛利反超 Full R³ | 给出机制解释并写入 TRD §6.3 | 结论 = **预算被用于补齐缺口，不是收益目标有害**：逐日求差 revenue +852.0 / purchase_cost +619.9 / sold_qty +86 / stockout_qty −86 / gross_margin +232.1；单位经济性几乎不变（毛利/件 2.1933 vs 2.1939），代价在民生侧（−Responsibility 民生保障 95.0%、民生断货 612）。页面「实验验证」② 现算差额并展示 | `core/final_view.py` `docs/TRD.md` |
 
 ### 3.4 页面与 UI v2（UI）
 
@@ -158,7 +160,11 @@
 | T-QA-02 | UI 规范一致性校验（禁 emoji / 禁写死颜色 / 禁旧 class） | 违规即测试失败；待迁移页有显式白名单且与 ARD 任务联动 | 新增 `tests/test_ui_consistency.py` 8 项：UI 文件无彩色 Emoji（放行 ✓✗★↑↓→ ）、已迁移模块无 hex、`app.py` 无旧体系 class、颜色只住 `themes.py`、`PENDING_MIGRATION` 必须仍在 ARD 里有任务、图表随主题（断言深色下 `paper_bgcolor=#1a1d23`） | `tests/test_ui_consistency.py` |
 | T-QA-06 | 清理 app.py 中已无引用的渲染函数 | 逐个确认无引用后删除；不误删被测试/业务引用的函数 | 删除 7 个死函数（`_cover_badge`/`_reorder_basis`/`_reorder_reason`/`_trim_flag`/`render_decision_trace`/`render_experiences_html`/`render_analysis_html`，共 166 行）与随之失效的 `analysis`/`decision_trace` 导入；`render_plan_html`（被 `do_agent` 与测试使用）与 `render_memory_html`（被账本页使用）保留；`test_memory_persistence` 改用 `learn_view.render_learn_page()`；`pytest` 177 passed | `app.py` `tests/test_memory_persistence.py` |
 | T-QA-05 | 忽略并清理 pytest 临时目录 | 忽略规则覆盖 `.pytest_tmp/`；工作区无残留 | 原 `.gitignore:23-24` 新增规则；`Remove-Item` 删除 115 个残留条目，`Test-Path` 返回 False，`git status` 不再出现该项。**该规则后续随 T-ENV-03 迁移到 `.git/info/exclude`（`.gitignore` 已删除）** | `.gitignore` → `.git/info/exclude` |
+| T-QA-01 | 处理 9 个未使用常量 | 逐个决定接线/删除/废弃，并在 TRD §9 与 README 同步 | 8 个删除（`LIVELIHOOD_FLOOR_RATIO`、`EVOLVE_*_STEP`×3、`MEMORY_SAFETY_*_STEP`×2、`COLOR_LIVELIHOOD`/`COLOR_PROFIT`），1 个接线（`RESTORE_POTENTIAL` 成为 forecast/policy 各入口默认值，值不变故行为零变化）；顺带把 `MEMORY_BIAS_GAIN` 从 `policy.py` 收回 `config.py`；`pytest tests/test_policy.py tests/test_forecast.py tests/test_evolution.py tests/test_in_transit_eligibility.py` → 29 passed | `core/config.py` `core/policy.py` `core/forecast.py` `core/simulator.py` `docs/TRD.md` |
+| T-QA-04 | app.py 层测试缺依赖时 skip | 无 gradio/plotly 环境下 skip 并给出原因；有环境时仍真跑 | `conftest.py` 新增 `require_app()`（`importorskip` + 显式 `exc_type=ImportError`）；4 处调用点改造；**实测**：用 meta_path 插件屏蔽 gradio/plotly 后 `22 passed, 4 skipped`（无告警），正常环境仍全跑 | `conftest.py` `tests/test_display_layer.py` `tests/test_feedback_view.py` `tests/test_memory_persistence.py` `tests/test_ui_consistency.py` |
 | T-DOC-03 | 接手文档体系初始化 | 任何人可无门槛接手：规范 + 流程 + 需求 + 设计 + 进度 | 新增 `CLAUDE.md` / `AGENT.md` / `AGENTS.md`（入口指针）/ `docs/PRD.md` / `docs/TRD.md` / `docs/ARD.md`（本文件）；`README.md` 追加「十二、项目文档索引」 | 上述文件 + `README.md` |
+| T-DOC-01 | README 与实现对齐 | 界面导览/常量/参数语义/预算口径/命令与实现一致 | ①导览改为左侧边栏 8 栏目；②防震荡描述改为真实公式（残差均值 × 0.5、夹紧 ±0.06）；③目录树补全 core 19 个模块 + tools/ + tests/ + eval/；④补三档预算（600/360/1800）、`--basetemp`、Python 解释器说明；⑤**删除无法复现的「客流损失 7.9pp」声称**（CSV 未采集缺货量，见 `core/analysis.py`）并改为可验证的冻结数据（−¥62 毛利 / 民生缺货率 −0.93pp / 保障率 +5.2pp）；⑥去 emoji、修正版本号与任务数 | `README.md` `core/analysis.py`（新增离线 CLI） |
+| T-DOC-02 | 归档根目录 9 个 `_step*.py` | 移入 `tools/`，引用同步；主线脚本只剩 4 个 | `git mv` 到 `tools/experiments/` 并给每个脚本补 `sys.path` 引导；新增该目录 README（标注哪两个会写 `eval/final`，不可随便重跑）；**实测** `python tools/experiments/_step92_verify.py` 从头跑通，18/18 指标与冻结值逐位一致 | `tools/experiments/**` |
 
 ### 3.6 工程与版本控制（ENV）
 
@@ -167,6 +173,7 @@
 | T-ENV-01 | 补齐运行依赖并验证网页 | 网页可启动、7 页可切换、测试无环境性失败 | pip 装 gradio 6.29.1 / plotly 7.1.0；`python app.py` → HTTP 200 · 396KB · 7 Tab 截图核对；`pytest` → **142 passed**（92s，原 2 failed/2 skipped 全消）；预览图 `_backup/preview/01..07*.png` | `requirements.txt`（未改动）、`_backup/preview/**` |
 | T-ENV-02 | 冻结未提交改动（UI v2 三页迁移 + 文档体系） | 工作区干净；改动全部入库并推送到本地 origin | 4 个逻辑提交：`b0463a5` `feat(ui)` / `a957506` `docs` / `4d3318a` `chore(vcs)` / 本记录提交 `docs(ard)`；再经 `--no-ff` 合并到 `main` | `app.py` `core/*_view.py` `tests/*` `docs/**` `CLAUDE.md` `AGENT.md` `README.md` |
 | T-ENV-03 | 建立本地 GitHub 式版本控制与备份区（无 GitHub） | ① 无 GitHub 也能 push / pull / tag / branch / 合并；② 删除 `.gitignore` 后仍不误提交密钥与运行产物；③ 能回退到任意历史版本 | ① `_backup/diannao.git`（bare，HEAD=main）登记为 `origin`，`git remote -v` 可见；② `.git/info/exclude` 忽略规则（7 条探针全命中）+ `vcs.ps1 save` 提交守卫（演练：产物自动撤出、密钥撤出并中止，均实测）；③ 标签 `v0.1.0`（初始基线 `ca17f07`）/`v0.2.0`/`v0.2.1`；④ 回退演练：`rollback v0.1.0` 成功建 `restore/v0.1.0-*` 并切回；⑤ 灾难恢复演练：`clone` 到临时目录成功且标签齐全；⑥ guard 幂等实测；⑦ 演练暴露的 3 个真问题已修（密钥未撤出、guard 编码往返损坏中文、git 提示被当成红色错误）—— 完整记录见 [VERSIONING.md §13](VERSIONING.md) | `tools/vcs.ps1` `docs/VERSIONING.md` `_backup/**` `.git/info/exclude` `README.md` `CLAUDE.md` `AGENT.md` |
+| T-ENV-04 | 每日自动备份（Windows 计划任务） | 每天至少一个备份提交；失败不影响开发；可一键卸载 | 新增 `tools/daily-backup.ps1`（调 `vcs.ps1 save`、可选 `-WithData`、写 `_backup/backup.log`、自动清理 >14 份快照）与 `tools/install-daily-backup.ps1`（注册/卸载/`-RunNow`）；**实测已注册**：`diannao-daily-backup`、State=Ready、NextRun=当天 21:00，手动触发 `LastTaskResult=0` | `tools/daily-backup.ps1` `tools/install-daily-backup.ps1` `docs/VERSIONING.md` |
 
 ---
 
@@ -174,7 +181,7 @@
 
 | ID | 任务 | 认领人 | 开始 | 现状 | 下一步 |
 |---|---|---|---|---|---|
-| — | 当前没有进行中的任务 | — | — | 待办 11 项见 §6；已无阻塞，P0 仅剩 T-DOC-01 | 认领后把该行替换为本任务的信息，并同步 §1 计数 |
+| — | 当前没有进行中的任务 | — | — | **任务池已清空（34/34 完成）**；后续可从 §6 末的持续改进清单取活，认领时在此登记并同步 §1 计数 | — |
 
 ---
 
@@ -193,61 +200,63 @@
 
 ## 6. 下一步任务池
 
-### P0 — 不解决就交付不了
+**当前任务池为空：34 个任务点全部完成（2026-10-03）。**
 
-| ID | 任务 | 建议写作用域 | 依赖 | 验收标准 |
-|---|---|---|---|---|
-| T-DOC-01 | README 与实现对齐 | `README.md` | — | ①"界面导览"改为 7 页；②删除已失效的常量引用（见 TRD §9 末尾）；③补三档预算口径；④补 `--basetemp` 与 Python 解释器说明 |
+下面是**持续改进清单** —— 它们不是未完成的交付项，而是后续接手人可以继续投入的方向（按性价比排序）：
 
-**T-DOC-01 的具体差异清单**（已核对）：
-
-- `README.md` 第二节表格只有 5 个标签页，实际为 7（缺"为什么这样进""实验验证"）。
-- `README.md` 第三节引用 `EVOLVE_UP_STEP / EVOLVE_DOWN_STEP / EVOLVE_UP_MAX_MULT` 描述"防震荡设计"，但当前实现是**残差均值 × 0.5、夹紧 ±0.06**（`policy.memory_safety_calibration`），这些常量未被引用。
-- `README.md` 第五节目录结构缺 `core/` 下 10 个模块（simulator / r3_optimizer / decision_trace / event_evidence / metrics / risk / llm / ui_theme / *_view 等）。
-- `README.md` 未提 `--basetemp .pytest_tmp`、未提三档预算（600 / 360 / 1800）。
-
-### P1 — 明显影响观感或可信度
-
-| ID | 任务 | 建议写作用域 | 依赖 | 验收标准 |
-|---|---|---|---|---|
-| T-EXP-02 | 排查 `spoilage_ab` 开/关结果完全一致 | `core/simulator.py` `core/policy.py`(`spoilage_control`) `_step63_ablation.py` | — | 给出结论二选一：(a) 开关确实生效但该数据集下无差异 → 补证据并改文案；(b) 开关未生效 → 修复并重跑该消融（**写入新目录，不覆盖 eval/final**） |
-| T-QA-01 | 处理 9 个未使用常量 | `core/config.py` 及引用文档 | T-DOC-01 | 逐个决定"接线 / 删除 / 标注为废弃"，并在 TRD §9 与 README 同步 |
-
-### P2 — 优化与长期健康
-
-| ID | 任务 | 建议写作用域 | 验收标准 |
+| # | 方向 | 为什么值得做 | 起点 |
 |---|---|---|---|
-| T-EXP-03 | 解释 `ablation_3obj.no_revenue` 毛利反超 Full R³（152,939 vs 152,707） | 实验分析（只读 `eval/final`） | 给出机制解释（或明确标注为包装取整/指标口径导致）并写入 TRD §6.3 |
-| T-DOC-02 | 归档根目录 9 个 `_step*.py` 一次性脚本 | 移动文件 + 更新引用 | 移入 `tools/` 或 `eval/_scripts/`，`README`/TRD 引用同步；主线脚本只剩 4 个 run/eval/demo/seed |
-| T-QA-04 | `app.py` 层测试去 gradio 依赖（或显式 skip） | `tests/test_display_layer.py` `tests/test_feedback_view.py` `tests/test_memory_persistence.py` | 无 gradio 环境下不再"失败"，而是 skip 并给出原因；有环境时仍真跑 |
-| T-ENV-04 | 自动备份习惯（可选）：Windows 计划任务每日 `vcs.ps1 save -WithData` | `tools/` 新增计划任务安装脚本 | 每天至少一个备份提交；失败时不影响开发；文档写清如何卸载 |
+| I-1 | 接入真实门店数据 | 现在用的是仿真 CSV，缺货/报损量没被采集 → 「客流带动实证」（`core/analysis.py`）算不出差异，README 曾据此写过无法复现的 7.9pp 声称（T-DOC-01 已删） | 先补 `sales.qty_stockout / qty_spoilage` 的真实来源，再跑 `python -m core.analysis` |
+| I-2 | 配了 LLM Key 后的说明层验收 | 未配 Key 自动降级为规则模板（已实现且测试）；配 Key 后的输出质量没有人工验收记录 | 复制 `.env.example` → `.env` 填 `DEEPSEEK_API_KEY`，跑 `demo_flow.py` 与页面「用大白话解释」 |
+| I-3 | 窄屏 / 手机端核对 | 侧边栏 ≤900px 折叠为横排（DESIGN §6）只是按规范实现，没在真机核对 | DevTools 375px 宽逐页截图，必要时调 `.xm-*` 布局 |
+| I-4 | 主题对比度校验 | 6 套主题都是手工配色，没做 WCAG 对比度检查 | 在 `tests/test_themes.py` 加「前景/背景对比度 ≥ 4.5」断言，按需微调 `core/themes.py` |
+| I-5 | `app.py` 继续瘦身 | 已从 1213 行降到 995 行，但 Tab1 仍有内联 HTML（风险面板 / Agent 区块） | 把这两块搬进 `core/home_view.py`，app.py 只留布局与绑定 |
+| I-6 | 把 `.workbuddy/memory/*.md` 有效内容并入 TRD/ARD | 见 §3.4 末尾提示；现在信息在两处，接手人可能只看一处 | 逐条比对后归档，失效的删除 |
+| I-7 | 每日备份做异地副本 | 备份区与工作仓库同盘同目录（风险 R12） | 计划任务里追加一步 robocopy 到网盘/移动盘 |
 
 ---
-
 ## 7. 风险与问题台账
 
 | # | 风险/问题 | 等级 | 当前状态 | 对应任务 |
 |---|---|---|---|---|
 | R1 | ~~缺 gradio/plotly → 无法现场演示网页~~ | 高 | ✅ 已解除：装 gradio 6.29.1 / plotly 7.1.0，网页 HTTP 200、7 页截图核对、测试 142 passed | T-ENV-01 |
 | R2 | ~~三页迁移未提交，随时可能丢~~ | 中 | ✅ 已解除：全部改动已提交并推送到本地 origin（v0.2.0） | T-ENV-02 |
-| R3 | README 与实现漂移，误导接手人 | 中 | 已知，已列差异清单 | T-DOC-01 |
-| R4 | `spoilage_ab` 无差异 → 该实验无法自证 | 中 | 未排查 | T-EXP-02 |
-| R5 | `no_revenue` 毛利反超 → 可能被评委追问 | 中 | 无解释 | T-EXP-03 |
+| R3 | ~~README 与实现漂移~~ | 中 | ✅ 已解除：界面导览、常量、参数语义、三档预算、命令与解释器说明全部对齐；**并删除了无法复现的 7.9pp 声称**（T-DOC-01） | T-DOC-01 |
+| R4 | ~~`spoilage_ab` 无差异~~ | 中 | ✅ 已查清：采购上限从未生效（9,000 条决策余量恒 ≥ 0、capped 命中 0 次），开关逻辑正确、非接线 bug；页面已展示核算过程（T-EXP-02，TRD §6.3 A） | T-EXP-02 |
+| R5 | ~~`no_revenue` 毛利反超~~ | 中 | ✅ 已解释：去掉收益项后预算被用于补齐缺口（多进 ¥620 / 多卖 86 件），收入盖过成本，代价在民生侧；页面现算差额（T-EXP-03，TRD §6.3 B） | T-EXP-03 |
 | R6 | ~~页面视觉两套体系并存~~ | 低 | ✅ 已解除：全站统一 v2，`PENDING` 白名单清零、全部 `*_view.py` 进 `MIGRATED` | T-UI-01..04 |
-| R7 | 9 个常量已定义未使用，文档却引用 | 低 | 已知 | T-QA-01 / T-DOC-01 |
+| R7 | ~~9 个常量已定义未使用~~ | 低 | ✅ 已解除：8 删 1 接线，`MEMORY_BIAS_GAIN` 收回 config；TRD §9 与 README 同步（T-QA-01） | T-QA-01 |
 | R8 | `.pytest_tmp/` 未被忽略，115 个残留条目有误提交风险 | 低 | ✅ 已解除（T-QA-05） | T-QA-05 |
 | R9 | 仿真数据局限（无断货/报损记录、50 SKU） | 说明性 | 已在 PRD §8 如实披露 | 对外表述口径：不得夸大 |
 | R10 | SQLite schema 变更靠手工 `_migrate()` | 低 | 受控 | 新增字段时补测试 |
 | R11 | 删除 `.gitignore` 后，**新克隆环境**不继承忽略规则，可能误提交密钥/产物 | 低 | 已缓解：`vcs.ps1 guard` 一键恢复规则 + `save` 提交守卫（密钥中止、产物撤出） | T-ENV-03 |
-| R12 | 本地备份区与工作仓库同盘同目录，磁盘损坏会一起丢 | 低 | 已知：如需异地，把 `_backup/diannao.git` 另拷一份到别的盘/网盘即可 | T-ENV-04 |
+| R12 | 本地备份区与工作仓库同盘同目录，磁盘损坏会一起丢 | 低 | 已缓解一半：每日自动备份（21:00）已在跑，但仍是同盘；异地副本见 §6 改进项 I-7 | T-ENV-04 |
 | R13 | `vcs.ps1 rollback` 在工作区不干净时会失败（Git 保护） | 低 | 期望行为，已在 [VERSIONING.md](VERSIONING.md) FAQ 与 [../AGENT.md](../AGENT.md) 踩坑 15 说明 | T-ENV-03 |
 | R14 | 装 gradio 6 时它拉入 `huggingface-hub 2.1.1`，与本机 `tokenizers 0.23.1`（要求 hub<2.0）冲突 | 低（对本项目无影响） | 已知：本项目不依赖 tokenizers；但 `E:\Python` 是共享环境，**该环境里其他依赖 tokenizers 的项目可能受影响** —— 如需修复可在那些项目自己的虚拟环境里约束版本 | T-ENV-01 |
 | R15 | `跟随系统` 主题下**图表按浅色渲染**（plotly 图是服务端生成的，服务端不知道浏览器偏好） | 低 | 已记录为已知限制（DESIGN §8 / TRD §7.4）；如需精确跟随，可改为生成时同时输出两套图或用 JS 重绘 | T-UI-01 |
+| R16 | 冻结记录里的 `metrics_version` 哈希与当前 `core/metrics.py` 不一致（`c28cf12a…` vs `e5e64a08…`） | 低 | 已知并已量化：仓库只有一次导入提交，差异应发生在冻结之后、入库之前；**重跑验收 18/18 指标与冻结值逐位一致**（`tools/experiments/_step92_verify.py`），故证据仍有效。今后改 `core/metrics.py` 口径必须新建目录重新冻结（铁律 4） | T-DOC-02 |
 
 ---
 
 ## 8. 交接记录
 
+### 交接：收尾 7 项（文档对齐 / 常量裁决 / 两个实验异常项 / 脚本归档 / 测试降级依赖 / 自动备份）
+- 日期 / 交接人：2026-10-03 / 初始化 Agent
+- 状态：已完成（任务池 34/34 清零）
+- 我改了什么：
+  - `README.md`：界面导览/防震荡机制/目录树/三档预算/命令与解释器说明全部对齐；**删掉「客流损失 7.9pp」这一在当前数据集上无法复现的声称**，换成冻结数据可验证的口径
+  - `core/config.py`：删 8 个未使用常量、`RESTORE_POTENTIAL` 接线为 forecast/policy 各入口默认值、`MEMORY_BIAS_GAIN` 从 policy 收回 config、颜色常量移除并说明颜色归 `themes.py`
+  - `core/final_view.py`：新增 `spoilage_headroom()` 与 `tradeoff_mechanism()`，把两个异常项的核算过程直接展示在「实验验证」页（数字全部从 `eval/final` 现算）
+  - `core/analysis.py`：新增 `python -m core.analysis` 离线入口，并如实输出「本数据集无民生缺货日 → 无法量化客流带动」
+  - `tools/experiments/`：9 个 `_step*.py` 归档 + sys.path 引导 + 目录 README（标明哪两个会写 `eval/final`）
+  - `tools/daily-backup.ps1` + `tools/install-daily-backup.ps1`：每日自动备份（含日志、快照清理、一键卸载）
+  - `conftest.py` 新增 `require_app()`：UI 层测试缺 gradio/plotly 时 skip 而非失败
+- 证据：`pytest` 177 passed；`tools/experiments/_step92_verify.py` → `ALL_EXACT_MATCH: True`（18/18 指标与冻结值逐位一致）；屏蔽 gradio/plotly 后 `22 passed, 4 skipped`；`Get-ScheduledTask diannao-daily-backup` → Ready / NextRun 当天 21:00 / LastTaskResult 0；`python -m core.analysis` 输出如实结论
+- 没做完的部分：无未完成任务。持续改进项见 §6（接入真实数据、LLM Key 验收、窄屏核对、主题对比度、app.py 继续瘦身、异地备份）
+- 下一步具体动作：若继续投入，建议 I-1（真实数据里的缺货/报损采集）—— 它能一次性解锁「客流带动实证」与更真实的损耗控制验证
+- 需要谁配合：无
+
+---
 ### 交接：T-DOC-03 接手文档体系初始化
 - 日期 / 交接人：2026-10-03 / 初始化 Agent
 - 状态：已完成
@@ -330,6 +339,7 @@
 | 2026-10-03 | 初始化 Agent | **版本控制演练 + 加固**（T-ENV-03）：跑 7 项演练（产物/密钥守卫、安全回退、灾难恢复克隆、忽略探针、guard 幂等、发布流程），暴露并修掉 3 个真问题 → 提交 `1de5f08`（守卫撤出密钥/产物、ASCII 标记 + UTF-8(BOM) 写 exclude、停止跟踪误入库的 `data/*.db.bak`）与 `69f9867` `fix(vcs)`（`-q` + 错误偏好收敛，消除红色假报错）、`42afc03` `docs(vcs)`（验证记录与边界说明）；证据与修法见 [VERSIONING.md §13](VERSIONING.md)；新增风险 R13；发布点 = `main` 合并提交 `763a676` + tag `v0.2.1`。随后 `6ff13e2`（rollback 提示修复）+ `8e3c536`（版本表）发布 `v0.2.2`（合并提交 `51ee83c`）。**最终状态校验**：工作区干净；`origin` 同步 `main`/`develop`；4 个 tag（v0.1.0/v0.2.0/v0.2.1/v0.2.2）；`.gitignore` 已删除、`.git/info/exclude` 生效（6/6 忽略探针命中）；跟踪文件 108 个、其中**无任何产物或密钥**；数据源 `data/*.csv` 已入库；备份区 `_backup/` 3.14MB（本地 origin 已同步：`git ls-remote --heads --tags origin` 可见 main/develop/v0.1.0/v0.2.0/v0.2.1） |
 | 2026-10-03 | 初始化 Agent | **T-ENV-01 解除（依赖 + 网页验证 + 预览截图）**：`pip install -r requirements.txt` → gradio 6.29.1 / plotly 7.1.0；测试从 138 passed / 2 failed / 2 skipped 变为 **142 passed 全绿（92s）**；`python app.py` 起在 http://127.0.0.1:7861（HTTP 200、页面 396KB），用 `agent-browser` 逐页截图 7 个标签页存于 `_backup/preview/`（首页/为什么这样进/今天生意怎么样/它学会了什么/店里的老账本/实验验证/项目说明）；同步 CLAUDE §2/§6、AGENT §8.1/§8.2/§11（新增截图工作流）、TRD §10 与 §12 D1、PRD FR-07、VERSIONING §10、ARD 计数（19 完成 / 0 阻塞 / 11 待办）与 Top3；新增风险 R14（共享环境的 huggingface-hub 版本冲突） |
 | 2026-10-03 | 初始化 Agent | **修掉 `vcs.ps1 save` 的致命缺陷**（预览时发现）：给 `git add` 误加 `-q`（`git add` 不支持该选项，退出码 129）会导致 `save` 永远"没有需要提交的改动"；改为捕获输出 + `Write-Host`，并用 `save` 自身提交修复完成端到端验证（`3de3c8e`）；记录于 [VERSIONING.md §13](VERSIONING.md) |
+| 2026-10-03 | 初始化 Agent | **收尾 7 项（T-DOC-01 / T-QA-01 / T-EXP-02 / T-EXP-03 / T-DOC-02 / T-QA-04 / T-ENV-04）→ 任务池清零**：README 全面对齐（含删除无法复现的 7.9pp 声称）；9 个未使用常量 8 删 1 接线；两个实验异常项查清并写进 TRD §6.3 + 页面现算展示；`_step*.py` 归档 `tools/experiments/` 并实测复现 18/18 指标；UI 层测试缺依赖时 skip；每日自动备份计划任务已注册实测。测试仍 **177 passed** |
 | 2026-10-03 | 初始化 Agent | **全站 v2 迁移收尾（T-UI-02/03/04）+ 死代码清理（T-QA-06）**：为什么这样进 / 实验验证 / 项目说明三页迁完 → `test_ui_consistency.py` 的 `PENDING` 白名单清零、三页进 `MIGRATED`；`final_view` 顺带修掉引用已删除 `.dn-card`/`table.dn` 的遗留破损；新增共享组件 `.xm-kv*`/`.xm-bar*`/`.xm-chips`（`.st-kv*` 并入）；删除 7 个无引用渲染函数（166 行）与失效导入，`test_memory_persistence` 改用 `learn_view`；新增测试「每个 `*_view.py` 必须已分类」；测试仍 177 passed；D3/D4 关闭 |
 | 2026-10-03 | 初始化 Agent | **T-UI-01 首页 v2 迁移 + T-QA-02 UI 一致性校验**：删除 app.py 旧内联 CSS（≈3.5KB）与两个死函数；事件图标 → `.xm-badge` 语气徽标；`_hero`/`_trim_flag`/经验卡/KPI/分区标题全部 token 化；**页面可见 emoji 归零**；新增 `themes.plotly_layout/palette` 并让演进曲线、离线评测图、180 天仿真图随主题（深色实测纸底 `#1a1d23`、字色 `#f0f2f5`），换主题时 `apply_theme` 一并重画曲线；新增 `tests/test_ui_consistency.py`（8 项，含 PENDING 白名单与 ARD 联动）；测试 169 → **177 passed**；风险 R6 降级、新增 R15（system 主题图表按浅色） |
 | 2026-10-03 | 初始化 Agent | **T-UI-08 左侧边栏 + T-UI-09 设置栏目与主题系统**：导航从顶部 Tab 改为左侧边栏；新增 `core/themes.py`（6 套主题，其中野兽风浅/深、森友会、纹样·宣纸 4 套移植自 `E:\vibe coding\CodeForge`）、`core/settings_store.py`、`core/settings_view.py`；新增 FR-15、DESIGN §8、TRD §7.1/§7.2 + ADR-009/ADR-010；测试 142 → **169 passed**；截图核对侧边栏 + 4 套主题；风险 R6 更新 |

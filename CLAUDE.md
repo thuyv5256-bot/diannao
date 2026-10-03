@@ -16,7 +16,7 @@
 | 入口 | 网页 `app.py`（**左侧边栏 8 个栏目**：7 个业务页 + 设置）／演示 `demo_flow.py`／离线评测 `eval.py`／长期实验 `run_digital_store.py` |
 | 数据 | 仿真数据 `data/shopmind_*.csv`（50 SKU × 180 天，2026-03-01 ~ 2026-08-27），**不是真实门店采集数据** |
 | 存储 | SQLite 长期记忆库 `data/store_memory.db`（由 `.git/info/exclude` 忽略，首次运行自动重建） |
-| 当前状态 | 核心闭环已完成、FINAL 实验已冻结；UI v2 迁移进行中。**进度以 [docs/ARD.md](docs/ARD.md) 为唯一事实来源** |
+| 当前状态 | 核心闭环已完成、FINAL 实验已冻结、**UI v2 全站迁移完成**、文档与本地版控齐备；任务池 34/34 完成。**进度以 [docs/ARD.md](docs/ARD.md) 为唯一事实来源** |
 
 ---
 
@@ -114,12 +114,13 @@ app.py                 Gradio 装配层：左侧边栏（Row+Column+Radio）+ 8 
   ├─ core/decision_trace.py 六工具决策过程追踪（Inventory/Event/Memory/Forecast/Supplier/R³）
   ├─ core/decision_basis.py 单商品"为什么这样进"的依据字段
   ├─ core/metrics.py        指标定义唯一来源（断货率/便民指数/周转/损耗…）
-  ├─ core/analysis.py       客流带动实证（民生缺货 → 非民生销量下滑）
+  ├─ core/analysis.py       客流带动实证（民生缺货 → 非民生销量下滑；离线跑 `python -m core.analysis`）
   ├─ core/simulator.py      180 天长期仿真（5 策略、FEFO、保质期、报损、断供环境强制）
   ├─ core/eval_core.py      离线评测引擎（60 天窗口 × 5 种决策方式）
   └─ core/llm.py            可选 LLM 说明层（OpenAI 兼容，可失败可降级）
 
 tests/                 25 个测试文件 / 177 个用例（见 §4；含 themes / settings_store / settings_view / ui_consistency）
+tools/                 vcs.ps1（本地版本控制）/ daily-backup.ps1 + install-daily-backup.ps1（每日自动备份）/ experiments/（一次性实验脚本留档）
 data/                  CSV 数据源 + 生成的 store_memory.db
 eval/                  实验产物；eval/final/** = 已冻结的 FINAL 证据（只读）
 docs/                  PRD / TRD / ARD
@@ -135,11 +136,11 @@ docs/                  PRD / TRD / ARD
 2. **断货日必须还原潜在需求**：`潜在需求 = 实际销量 + 未满足缺货量`（`forecast._potential`）。直接用记录销量训练会陷入"越缺货越不敢进货"。
 3. **事件因子只乘一次**：事件影响只在预测侧 `forecast._risk_adjust` 生效；覆盖天数里**不再**叠加风险缓冲（否则同一事件算两遍）。
 4. **目标覆盖天数** = 供应商交期 + 补货缓冲(`REVIEW_BUFFER_DAYS=1`) + 民生保障缓冲，且 ≤ 保质期。
-5. **选择安全库存的入口**：`safety = clamp(base_safety + memory_delta, 0.05, 0.60)`，`memory_delta` 来自 `policy.memory_safety_calibration`（单条 ±0.02，累计 ±0.06）。
+5. **选择安全库存的入口**：`safety = clamp(base_safety + memory_delta, 0.05, 0.60)`，`memory_delta` 来自 `policy.memory_safety_calibration`（= `clamp(同场景预测残差均值 × 0.5, ±0.06)`，取均值而非按条累加）。
 6. **供应商断供只影响该供应商的商品**，且**不从商品配置之外编造替代来源**；断供商品 `reorder=0`，仿真层再强制拦截订单。
 7. **整包取整**：`_ceil_to_pack`（向上取整到包规）；预算反算用 `_floor_to_pack`。
 8. **R³ 是两阶段字典序**：先最大化民生兜底（Responsibility），冻结后再最大化 收益 − λ·韧性缺口；民生兜底不会被利润挤掉。
-9. **自进化防震荡**：触发阈值 `0.10`、上调步长 `0.06`/下调 `0.04`、硬边界 `0.05~0.60` 与 `2~12 天`、同一天断货与损耗同现只按断货处理、幂等去重（`uid` 唯一索引）。
+9. **自进化防震荡**：触发阈值 `0.10`；校准量 = `clamp(同场景预测残差均值 × MEMORY_BIAS_GAIN(0.5), ±MEMORY_SAFETY_MAX_DELTA(0.06))`（取均值、不连乘、不按条数累加）；硬边界 `0.05~0.60` 与 `2~12 天`；同一天断货与损耗同现只按断货处理；幂等去重（`uid` 唯一索引）。**旧的固定步长常量（`EVOLVE_*_STEP`、`MEMORY_SAFETY_*_STEP`）已删除（T-QA-01）**。
 10. **反馈保存的四种分支**（`process_feedback` 返回值）：`changes` 真校准 / `skipped` 幂等去重 / `updated` 数据修正 / `removed` 异常消除撤销。**文案必须按 `result["changes"]` 是否为空分支**，不得伪造 Memory 命中。
 11. **`metrics.py` 是口径唯一来源**。任何"率"的计算必须调它，禁止在页面里现算。
 12. **`eval` 三档预算不要混**：网页 ¥600（`DEFAULT_BUDGET`）、离线评测 ¥360（`EVAL_BUDGET`，故意设紧）、长期仿真 ¥1800（`DEFAULT_SIM_BUDGET`）。写文档时必须注明用的是哪档。
@@ -181,7 +182,7 @@ docs/                  PRD / TRD / ARD
 | [docs/PRD.md](docs/PRD.md) | 需求、用户、成功指标、范围变化 |
 | [docs/TRD.md](docs/TRD.md) | 架构、模块职责、数据模型、算法口径、接口、依赖变化 |
 | [AGENT.md](AGENT.md) | 接手流程、协作方式、踩坑清单变化 |
-| [README.md](README.md) | 面向外部读者的介绍/快速开始（界面导览已同步为左侧边栏 8 栏目；剩余旧常量/参数语义见 ARD T-DOC-01） |
+| [README.md](README.md) | 面向外部读者的介绍/快速开始（界面导览、常量、参数语义、三档预算、解释器用法均已与实现对齐） |
 | [docs/VERSIONING.md](docs/VERSIONING.md) | 分支模型、发布、回退流程、忽略策略变化 |
 | [DESIGN.md](DESIGN.md) | 视觉 token 与组件规范变化 |
 

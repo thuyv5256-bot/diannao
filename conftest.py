@@ -13,6 +13,20 @@ if str(ROOT) not in sys.path:
 from core import memory  # noqa: E402
 
 
+def require_app():
+    """导入 app.py（Gradio 装配层）；缺 gradio / plotly 时让用例 **skip** 而不是失败（T-QA-04）。
+
+    app.py 是网页装配层，依赖 gradio 与 plotly。这两个包没装时，UI 层测试没有意义，
+    但它们**不应该**把测试套件染红 —— 其余 170+ 个用例在无 UI 依赖的环境里照样该全绿。
+    """
+    pytest.importorskip("gradio", exc_type=ImportError,
+                        reason="app.py 依赖 gradio（未安装则跳过 UI 层用例）")
+    pytest.importorskip("plotly", exc_type=ImportError,
+                        reason="app.py 依赖 plotly（未安装则跳过 UI 层用例）")
+    import app  # noqa: E402
+    return app
+
+
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     """指向临时 SQLite 的隔离记忆库，并灌入一组精简商品档案。"""

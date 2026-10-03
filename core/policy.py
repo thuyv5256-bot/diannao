@@ -29,8 +29,10 @@ from .config import (
     DEFAULT_BUDGET,
     LIVELIHOOD_BASE_DAYS_MIN,
     LIVELIHOOD_MIN_COVER_DAYS,
+    MEMORY_BIAS_GAIN,
     MEMORY_SAFETY_MAX_DELTA,
     R3_SOLVER_ENABLED,
+    RESTORE_POTENTIAL,
     REVIEW_BUFFER_DAYS,
     SAFETY_FACTOR_MAX,
     SAFETY_FACTOR_MIN,
@@ -46,8 +48,7 @@ MODE_LABELS = {
 # 短保商品阈值：保质期 ≤ 该天数才计入「预计损耗/过量库存风险」计算
 PERISHABLE_SHELF_LIFE_DAYS = 30.0
 
-# ── Memory 误差学习参数（有界、取均值，非连乘）──
-MEMORY_BIAS_GAIN = 0.5      # 预测残差 → 安全库存校准的增益
+# ── Memory 误差学习参数（有界、取均值，非连乘；增益在 config）──
 MEMORY_BIAS_WINDOW = 5      # 每个 SKU 只学最近 N 条同场景经验（防陈旧/放大）
 
 
@@ -219,7 +220,7 @@ def memory_safety_calibration(active, db_path=None, as_of=None) -> dict[str, dic
 
 
 def _prepare_items(plan_date, policies: dict, products: list[dict],
-                   restore_potential: bool = True, risks=None,
+                   restore_potential: bool = RESTORE_POTENTIAL, risks=None,
                    use_memory: bool = True,
                    in_transit_map: dict[str, list[tuple[str, float]]] | None = None,
                    on_hand_batches: dict[str, list[tuple[float, float]]] | None = None,
@@ -691,7 +692,7 @@ def evaluate_plan(items: list[dict], meta: dict) -> dict:
 
 
 def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANNAO,
-               persist: bool = True, restore_potential: bool = True, risks=None,
+               persist: bool = True, restore_potential: bool = RESTORE_POTENTIAL, risks=None,
                solver: bool | None = None, use_memory: bool = True,
                protect_livelihood: bool | None = None,
                in_transit_map: dict[str, list[tuple[str, float]]] | None = None,
@@ -752,7 +753,7 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
 
 
 def compare_plans(plan_date, budget: float = DEFAULT_BUDGET, persist: bool = False,
-                  restore_potential: bool = True, risks=None) -> dict:
+                  restore_potential: bool = RESTORE_POTENTIAL, risks=None) -> dict:
     """
     同一天、同一预算下，对比"小满"与"传统纯利润算法"的两份方案。
     这是现场演示与答辩最有说服力的一张对比表。

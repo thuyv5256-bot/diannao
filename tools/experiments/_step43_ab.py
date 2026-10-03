@@ -1,4 +1,10 @@
 # -*- coding: utf-8 -*-
+import pathlib
+import sys
+
+# 归档后位置：tools/experiments/ —— 把仓库根加回 sys.path，脚本仍按仓库根为工作目录运行
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+
 # 第4.3步 A/B 实验：R³ 完整版(损耗控制开) vs R³-SpoilageControl(关)
 import json
 import sys

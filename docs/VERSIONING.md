@@ -133,6 +133,8 @@ restore/*                                     ← 回退验证分支，从旧版
 | `v0.3.1` | 版本表同步 | 文档 |
 | `v0.4.0` | **首页 v2 迁移（去 emoji）+ 图表随主题 + UI 一致性校验** | app.py 旧内联 CSS 与死函数清理、`themes.plotly_layout/palette`、`tests/test_ui_consistency.py`、测试 177 passed（详见 [ARD](ARD.md) T-UI-01 / T-QA-02） |
 | `v0.5.0` | **全站 v2 迁移收尾 + 死代码清理** | 为什么这样进 / 实验验证 / 项目说明 三页迁移完成、`PENDING` 白名单清零、7 个无引用渲染函数删除（-166 行）、共享组件 `.xm-kv*`/`.xm-bar*`（详见 [ARD](ARD.md) T-UI-02..04 / T-QA-06） |
+| `v0.5.1` | 项目说明页三卡布局修正 | 布局微调（实测三卡同行） |
+| `v0.6.0` | **收尾 7 项 → 任务池清零** | README 对齐、常量裁决、两个实验异常项查清、`_step*.py` 归档 `tools/experiments/`、UI 层测试缺依赖时 skip、每日自动备份计划任务（详见 [ARD](ARD.md) T-DOC-01/T-QA-01/T-EXP-02/T-EXP-03/T-DOC-02/T-QA-04/T-ENV-04） |
 
 查看：`tools/vcs.ps1 versions`；某版本改了什么：`git show v0.2.0 --stat`。
 
@@ -272,6 +274,36 @@ powershell -File tools/vcs.ps1 save "…" -WithData  # 提交的同时快照
 
 ---
 
+### 9.1 每日自动备份（可选，已在本机注册）
+
+「以后有回退余地」的前提是**改动经常落库**。手动 `save` 靠自觉，所以提供一个可选的 Windows 计划任务，
+每天固定时间自动提交一次（默认 21:00，只在本机登录时运行，用户态、无需管理员）。
+
+```powershell
+# 安装（默认每天 21:00；-WithData 同时快照 data/*.db；-Time 改时间）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-daily-backup.ps1 -Time 21:00
+
+# 立刻跑一次验证（会打印 LastTaskResult，0 = 成功）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-daily-backup.ps1 -RunNow
+
+# 卸载（不留残留）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-daily-backup.ps1 -Uninstall
+
+# 也可以不进计划任务，手工跑一次备份
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/daily-backup.ps1 -WithData
+```
+
+| 项 | 说明 |
+|---|---|
+| 计划任务名 | `diannao-daily-backup`（`Get-ScheduledTask` 可查） |
+| 做什么 | `tools/daily-backup.ps1` → `tools/vcs.ps1 save`（= git add/commit/push 到本地 origin） |
+| 日志 | `_backup/backup.log`（每次开始/结束/结果/清理都记一行） |
+| 数据快照 | 默认**不**做；加 `-WithData` 才快照，且自动只保留最近 14 份 |
+| 失败影响 | 只影响备份，不影响开发；退出码非 0 会显示在计划任务的 LastTaskResult |
+| 无改动时 | 输出「没有需要提交的改动」并以 0 退出（不会造空提交） |
+
+> ⚠️ 提醒：自动备份会把**当时工作区的改动**一起提交（这正是备份的意义）。
+> 若希望提交信息更规范，仍建议在关键节点手动 `vcs.ps1 save "type(scope): 说明"`。
 ## 10. 本地 CI
 
 ```powershell
@@ -370,3 +402,4 @@ A：仅当被改写的提交是**本地误操作/演练产生且尚未交付**�
 | 2026-10-03 | v1.3 | 补版本表 v0.2.3/v0.2.4/v0.3.0；新增忽略规则 `data/ui_settings.json`（界面偏好属本机设置）；发布 `v0.3.0`（左侧边栏 + 设置/主题）与 `v0.3.1`（本文档同步） |
 | 2026-10-03 | v1.4 | 版本表补 `v0.3.1`；发布 `v0.4.0`（首页 v2 迁移 + 图表随主题 + UI 一致性校验） |
 | 2026-10-03 | v1.5 | 发布 `v0.5.0`（三页 v2 迁移收尾 + 死代码清理；UI 一致性白名单清零） |
+| 2026-10-03 | v1.6 | 新增 §9.1「每日自动备份」；版本表补 `v0.5.1`/`v0.6.0`（收尾 7 项、任务池清零） |

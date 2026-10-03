@@ -5,6 +5,7 @@
 列名必须与 core 层字段口径一致。
 """
 import pandas as pd
+from conftest import require_app
 
 from core import feedback_view
 
@@ -98,7 +99,7 @@ def test_columns_match_core_fields():
 
 def test_submit_reads_exact_columns(monkeypatch):
     """submit_feedback 必须按 view 的列名取值，且 sku 取自商品编号列。"""
-    import app
+    app = require_app()   # 缺 gradio/plotly 时 skip，而不是失败
     seen = {}
 
     def _fake_plan(*a, **k):

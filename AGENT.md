@@ -220,6 +220,10 @@ agent-browser click '@e3'; agent-browser wait 3000; agent-browser screenshot -f 
 16. **Gradio 6 的 `gr.Tabs` 会自动折叠导航**：横向放不下时它只保留前几个标签、其余塞进「More tabs」下拉（实测把 Tab 容器压到 232px，8 个标签只剩 2 个可见）。所以左侧边栏**没有**去改造 Tabs 的横排导航，而是隐藏它的 `.tab-wrapper`，用 `gr.Radio#xm-nav` 做导航并驱动 `gr.Tabs(selected=…)`；改导航相关代码前先读 [docs/TRD.md](docs/TRD.md) §7.2 与 `core/ui_theme.py` 的 `#xm-nav` 规则。
 17. **主题改动只能在 `core/themes.py`**：页面里写死颜色在默认主题下看不出来，一换主题就露馅；`pytest tests/test_themes.py` 与 `tests/test_ui_consistency.py` 会分别拦住「漏 token 的主题」和「写死颜色的已迁移模块」。
 18. **plotly 图表不认 CSS 变量、也不会自己跟主题变**：图的底色/字色是服务端生成时烘进去的。新增/修改图表一律 `fig.update_layout(**themes.plotly_layout(ACTIVE_THEME))`，色值用 `themes.palette(ACTIVE_THEME)`；换主题时 `apply_theme` 负责重画演进曲线（按需生成的评测/仿真图在生成时取当前主题）。
+19. **移动脚本会断开 `from core import …`**：`python tools/experiments/xxx.py` 时 `sys.path[0]` 是脚本所在目录，不是仓库根。归档脚本必须自带 `sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))`，并且**必须在仓库根目录运行**（它们用相对路径读 `data/` 与 `eval/`）。
+20. **`pytest --basetemp .pytest_tmp` 会整目录清空**：往里放的临时文件（验证用插件、脚本）下一轮就没了 —— 临时文件请放别的目录。
+21. **UI 层测试缺依赖要 skip，不要失败**：`app.py` 依赖 gradio/plotly，测试里统一用 `from conftest import require_app`（内部 `pytest.importorskip`，并显式 `exc_type=ImportError` 以避开 pytest 9 的弃用告警）。验证方法：用 meta_path 插件屏蔽这两个包后跑，应为 `22 passed, 4 skipped`。
+22. **每日自动备份会把当时工作区的改动一起提交**（这正是备份的意义）。想提交信息更规范，就在关键节点手动 `vcs.ps1 save`；备份过程与结果在 `_backup/backup.log`，计划任务名叫 `diannao-daily-backup`。
 
 ---
 
@@ -247,8 +251,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/vcs.ps1 rollback v0.2.
 ## 11. 当前（2026-10-03）接手速览
 
 - **可跑**：全部命令行脚本（依赖 pandas/numpy/scipy 已具备）。
-- **网页可跑**：`python app.py` → http://127.0.0.1:7861（gradio 6.29.1 / plotly 7.1.0 已装，7 个标签页均已人工截图核对）。
+- **网页可跑**：`python app.py` → http://127.0.0.1:7861（gradio 6.29.1 / plotly 7.1.0 已装；左侧边栏 8 个栏目 + 6 套主题均已人工截图核对）。
 - **测试**：177 passed 全绿（约 62s）。
 - **UI 状态**：8 个栏目 + 6 套主题均已完成 v2 迁移；`tests/test_ui_consistency.py` 的 `MIGRATED` 覆盖全部 `*_view.py`、`PENDING` 为空 —— 新加页面必须进 `MIGRATED`（否则该测试会报未分类）。
-- **有未提交改动**：`app.py`、`core/learn_view.py`、`core/ledger_view.py`、`tests/test_learn_view.py`、`tests/test_ledger_view.py`（修改）；`core/feedback_view.py`、`tests/test_feedback_view.py`（新增）。**接手前先搞清楚这批改动是否要一起提交。**
-- **下一步优先级**：见 [docs/ARD.md](docs/ARD.md) §「下一步任务池」（P0：环境补齐 + 冻结当前改动；P1：剩余页面 UI v2 迁移 + README 对齐；P2：实验异常项排查）。
+- **工作区状态**：干净（`main == develop`，最新标签 `v0.6.0`）；每日 21:00 自动备份计划任务 `diannao-daily-backup` 已注册（`tools/install-daily-backup.ps1 -Uninstall` 可卸载）。
+- **下一步优先级**：任务池已清空（34/34）；后续从 [docs/ARD.md](docs/ARD.md) §6 的**持续改进清单**取活，最值得先做的是 I-1（真实数据里的缺货/报损采集，能一次性解锁客流带动实证）。

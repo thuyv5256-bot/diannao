@@ -214,3 +214,37 @@ def sku_health_report() -> list[dict]:
         })
     out.sort(key=lambda x: (-(x["stockout_qty"] + x["spoilage_qty"])))
     return out
+
+
+if __name__ == "__main__":
+    """离线运行客流带动实证与商品健康度：python -m core.analysis
+
+    如实输出：本数据集只记录实际销量、未采集历史缺货 / 报损量，
+    因此若识别不出"民生缺货日"，这里会明确说明算不出差异，而不是编一个数字。
+    """
+    import sys
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    ev = traffic_pull_evidence()
+    if ev.get("error"):
+        print(ev["error"])
+    else:
+        print("=== 客流带动实证（民生缺货 → 非民生销量偏离）===")
+        print("  统计天数 %s：缺货日 %s / 正常日 %s"
+              % (ev["total_days"], ev["high_loss_days"], ev["low_loss_days"]))
+        print("  非民生销量偏离：缺货日 %+.2f%%  正常日 %+.2f%%  差距 %+.2f pp"
+              % (ev["high_group_deviation"] * 100, ev["low_group_deviation"] * 100,
+                 ev["gap"] * 100))
+        print("  相关系数 %.3f" % ev["correlation"])
+        if not ev["high_loss_days"]:
+            print("  结论：本数据集没有可识别的民生缺货日（CSV 未记录缺货 / 报损量），"
+                  "无法量化客流带动 —— 如实说明，不做声称。")
+        for row in ev.get("category_table", []):
+            print("    %-8s 差距 %+.2f pp" % (row["category"], row["gap"] * 100))
+    rows = sku_health_report()
+    print()
+    print("=== 商品健康度（按缺货 + 损耗件数排序，前 10）===")
+    for r in rows[:10]:
+        print("  %-12s 缺货 %6.1f 件 / %2d 天   损耗 %5.1f 件 / %2d 天   可支撑 %5.1f 天"
+              % (r["name"], r["stockout_qty"], r["stockout_days"],
+                 r["spoilage_qty"], r["spoilage_days"], r["cover_days"]))
+

@@ -37,7 +37,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from . import dataset, event_evidence, events, evolution, memory, metrics, policy, risk
-from .config import BASE_DIR, CURRENCY
+from .config import BASE_DIR, CURRENCY, RESTORE_POTENTIAL
 
 # ── 长期仿真预算（单日进货预算上限，两策略相同）──────────────
 # 数据里 180 天日均需求成本约 ¥1835、峰值约 ¥2303（高温日）。
@@ -311,7 +311,7 @@ def _simulate_strategy(spec: dict, gt: dict, budget: float, seed: int,
             _near_exp = {sku: sum(q for r, q in on_hand_batches[sku] if r <= 2) for sku in on_hand_batches}
             plan = policy.build_plan(
                 day, budget, spec["mode"], persist=False,
-                restore_potential=True, risks=risks,
+                restore_potential=RESTORE_POTENTIAL, risks=risks,
                 use_memory=spec["use_memory"],
                 protect_livelihood=spec["protect_livelihood"],
                 in_transit_map=in_transit_map, on_hand_batches=on_hand_batches, spoilage_control=spec.get("spoilage_control", True),

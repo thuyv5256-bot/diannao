@@ -61,6 +61,58 @@ def memory_stats():
     return {'hits': len(hits), 'changed': changed, 'case': case}
 
 
+def _sum_daily(path, cols):
+    """把逐日流水的若干列求和（缺失列按 0），用于从冻结证据里现算差额。"""
+    rows = _read_daily(path)
+    if not rows:
+        return {}
+    out = {c: 0.0 for c in cols}
+    for r in rows:
+        for c in cols:
+            try:
+                out[c] += float(r.get(c) or 0.0)
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
+def tradeoff_mechanism():
+    """T-EXP-03：−Revenue 的累计毛利为何略高 —— 从冻结流水现算「多进货 / 多卖货」的差额。
+
+    只读 eval/final/ablation_3obj 的两组逐日流水，不重跑实验、不写死数字。
+    """
+    cols = ('revenue', 'purchase_cost', 'sold_qty', 'stockout_qty', 'gross_margin')
+    full = _sum_daily('ablation_3obj/daily_full.csv', cols)
+    norev = _sum_daily('ablation_3obj/daily_no_revenue.csv', cols)
+    if not full or not norev:
+        return {}
+    return {k: norev[k] - full[k] for k in cols}
+
+
+def spoilage_headroom():
+    """T-EXP-02：损耗控制开关为何在该数据集下无差异 —— 算「短保可售容量 − 理想补货量」的余量。
+
+    只读 FINAL 的 spoilage A/B（control_on）逐日流水。余量恒 ≥ 0 且采购上限从未命中，
+    就说明上限从未生效 —— 这正是 ON / OFF 各项完全一致的机制（如实说明，不美化）。
+    """
+    rows = _read_daily('spoilage_ab/daily_control_on.csv')
+    if not rows:
+        return {}
+    slack, capped = [], 0
+    for r in rows:
+        try:
+            slack.append(float(r['free_sellable_capacity']) - float(r['raw_reorder_uncapped']))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if str(r.get('spoilage_capped')) in ('1', 'True', 'true'):
+            capped += 1
+    if not slack:
+        return {}
+    slack.sort()
+    return {'n': len(slack), 'min': slack[0], 'median': slack[len(slack) // 2],
+            'max': slack[-1], 'capped': capped}
+
+
 def _card(value, label, sub=None):
     sub_html = '<div class="xm-kv-sub">%s</div>' % sub if sub else ''
     return ('<div class="xm-kv"><div class="xm-kv-v">%s</div>'
@@ -146,12 +198,22 @@ def render_html():
     b_liv = _bars("移除某模块后 · 民生商品缺货率", [(n, s.get('livelihood_stockout_rate', 0)) for n, s in abl_rows])
     abl_table = "".join("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (n, _money(s.get('cumulative_gross_margin')), _pct(s.get('stockout_rate')), _pct(s.get('livelihood_stockout_rate'))) for n, s in abl_rows)
     h2 = "例如：移除 Resilience 后总体缺货率上升、移除 Responsibility 后民生缺货率上升；某指标变差即说明该目标在起作用。"
+    mech = tradeoff_mechanism()
+    mech_html = ""
+    if mech:
+        mech_html = ("<div class='xm-callout xm-callout-info' style='margin-top:10px'>"
+                     "为什么 −Revenue 的累计毛利反而高 ¥%.0f：它多花 ¥%.0f 采购、多卖 %.0f 件（缺货少 %.0f 件），"
+                     "多卖出的收入（+¥%.0f）盖过了多花的成本 —— 去掉收益目标后，预算被用来补齐目标库存缺口。"
+                     "所以不是「收益目标有害」，而是该环境下它只影响「同等预算下的边际选择」；"
+                     "被显著影响的其实是民生侧（见下表 −Responsibility 一行）。</div>"
+                     % (mech['gross_margin'], mech['purchase_cost'], mech['sold_qty'],
+                        abs(mech['stockout_qty']), mech['revenue']))
     sec2 = _section(
         '② R³ 三目标如何改变经营取舍',
         "<p class='xm-note' style='margin:0 0 8px'>关掉 R³ 某一个目标后的真实变化（不做综合评分、不排名）。</p>"
         + b_so + b_liv
         + "<table class='xm-table' style='margin-top:12px'><tr><th>方案</th><th>累计毛利</th><th>总体缺货率</th><th>民生缺货率</th></tr>"
-        + abl_table + "</table>" + _howto(h2))
+        + abl_table + "</table>" + _howto(h2) + mech_html)
     mem = res.get('memory_ab', {})
     m_on = mem.get('memory_on', {})
     m_off = mem.get('memory_off', {})
@@ -178,11 +240,20 @@ def render_html():
     _sp_keys = ['spoilage_qty', 'spoilage_cost', 'spoilage_rate', 'stockout_rate', 'cumulative_gross_margin']
     _same = all(abs(float(sp_on.get(k, 0) or 0) - float(sp_off.get(k, 0) or 0)) < 1e-9 for k in _sp_keys)
     h4 = ("当前 180 天基准环境下，未观察到损耗控制开关带来的可测增量（ON 与 OFF 各项一致）。" if _same else "ON 与 OFF 存在差异，见下表：")
+    headroom = spoilage_headroom()   # 注意：不要叫 head，head 是页面头部 HTML
+    head_html = ""
+    if headroom:
+        head_html = ("<div class='xm-callout xm-callout-info' style='margin-top:10px'>"
+                     "为什么两项完全一致：本次基准的 %d 条决策里，「短保可售容量 − 理想补货量」最小余量 %.1f 件、"
+                     "中位 %.1f 件、最大 %.1f 件，采购上限命中 %d 次 —— 上限**从未生效**，"
+                     "开关开或关都不会改变任何一天的补货量。</div>"
+                     % (headroom['n'], headroom['min'], headroom['median'], headroom['max'],
+                        headroom['capped']))
     sec4 = _section(
         '④ 损耗控制 A/B',
         "<table class='xm-table'><tr><th>指标</th><th>ON</th><th>OFF</th><th>变化</th></tr>" + srows + "</table>"
         "<div class='xm-cap' style='margin-top:8px'>若 ON 与 OFF 各项一致，说明损耗控制在该数据下未触发（如实显示，不做美化）。</div>"
-        + _howto(h4))
+        + _howto(h4) + head_html)
     intro = ('<div class="xm-card" style="margin-top:14px">'
              '<div class="xm-cap">实验问题</div>'
              '<div class="xm-h3" style="margin-top:4px">小满与传统补货方法有什么区别？R³ 与经营经验是否产生了真实影响？</div>'
