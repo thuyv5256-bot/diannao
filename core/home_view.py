@@ -73,7 +73,7 @@ def _row(it):
             '<td class="xm-num xm-dim">%.0f <span class="xm-cap">%s</span></td>'
             '<td class="xm-num xm-dim">%.1f <span class="xm-cap">%s</span></td>'
             '<td class="xm-num xm-dim">%.1f <span class="xm-cap">天</span></td>'
-            '<td>%s</td><td>%s</td></tr>'
+            '<td class="xm-num">%s</td><td class="xm-nowrap">%s</td></tr>'
             % (it['name'], tags, float(it['on_hand'] or 0), unit, float(it['daily_demand'] or 0), unit,
                float(it.get('final_cover_days', 0) or 0), qty_html, why))
 
@@ -93,7 +93,7 @@ def _rowtags(it):
 
 
 _THEAD = ('<tr><th>商品</th><th class="xm-num">建议进货</th><th class="xm-num">当前库存</th>'
-          '<th class="xm-num">预计需求</th><th class="xm-num">进货后约够</th><th>说明</th></tr>')
+          '<th class="xm-num">预计需求</th><th class="xm-num">够几天</th><th>说明</th></tr>')
 
 
 def render_home_html(plan: dict, part=None) -> str:
