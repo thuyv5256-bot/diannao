@@ -321,11 +321,26 @@ raw_reorder = ceil_to_pack(need, pack_size)
 - 页面级 CSS：各 `*_view.py` 自带命名空间（`.lx-*` 学习页 / `.lb-*` 账本页 / `.fb-*` 反馈页 / `.st-*` 设置页），全部以 `--xm-*` 变量取值。
 - **主题系统（v2.1）**：见 DESIGN.md §8 与 ADR-009；6 套主题（小满默认 / 野兽风浅色 / 野兽风深色 / 森友会 / 纹样·宣纸 / 跟随系统），其中 4 套移植自 CodeForge。换主题 = 重新渲染一个隐藏的 `<style id="xm-theme-vars">`（`gr.HTML` + `elem_classes=["xm-hidden"]`），无需刷新；选择落在 `data/ui_settings.json`，启动时由 `ACTIVE_THEME` 读回并拼进静态 CSS（首屏不闪）。
 - **左侧边栏（v2.1）**：见 ADR-010。`#main-nav > .tab-wrapper` 被 CSS 隐藏（避开 Gradio 的「More tabs」折叠），导航由 `gr.Radio#xm-nav` 承担；主题通过 `--xm-sidebar-*` 六个 token 驱动侧边栏配色。
-- **迁移状态**：✅ 反馈页 / 学习页 / 账本页 / 设置页 / 应用外壳（侧边栏+主题）；🚧 首页 `home_view`（结构已新、文本仍含 emoji）；⬜ 为什么这样进 / 实验验证 / 项目说明 / app.py 内联区块（仍 `dn-*`/`ab-*` + 内联 style + emoji，已用 token 兜底关键色）。详见 [ARD](ARD.md) T-UI-01..04。
+- **迁移状态**：✅ 应用外壳（侧边栏+主题）/ 首页（含风险面板、Agent 区块、180 天仿真工具）/ 反馈页 / 学习页 / 账本页 / 设置页 —— app.py 已无 emoji、无写死颜色、无旧 `dn-*`/`.badge b-*`/`.kpi` 类；⬜ 为什么这样进 / 实验验证 / 项目说明 三页仍未迁移（`why_view`/`final_view`/`about_view` 仍自带内联色），见 [ARD](ARD.md) T-UI-02..04。
+- **回归护栏**：`tests/test_ui_consistency.py` 强制「UI 文件无彩色 Emoji」「已迁移模块无写死颜色」「app.py 无旧体系 class」，并保留 `PENDING_MIGRATION` 白名单（迁移完一页就挪一个名字进去）。
 
 ### 7.3 LLM 说明层（`core/llm.py`，可选）
 
 `is_enabled()` 由 `LLM_API_KEY` 决定；调用 OpenAI 兼容 `/chat/completions`（默认 DeepSeek `deepseek-chat`，`LLM_TIMEOUT=8s`），**只用标准库 `urllib`**。三个入口：`plan_narrative / explain_plan / answer_question`。未配置或调用失败 → 规则模板，功能不降级。
+
+---
+
+### 7.4 图表主题（plotly）
+
+plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，改 CSS 变量不会影响已生成的图，因此：
+
+| 场景 | 做法 |
+|---|---|
+| 新建/修改任何图表 | `fig.update_layout(**themes.plotly_layout(ACTIVE_THEME))`；需要具体色值时用 `themes.palette(ACTIVE_THEME)`（plotly 不认 `var(--xm-*)`） |
+| 换主题时已在页面上的图 | `apply_theme()` 会一并重画「安全库存系数演进」曲线（`evolution_chart`） |
+| 按需生成的图（离线评测 / 180 天仿真） | 生成时就取当前主题，无需额外处理 |
+| 深色主题 | `plotly_layout` 返回 `template=plotly_dark` + `paper/plot_bgcolor=--xm-canvas` + `font.color=--xm-ink` |
+| `system`（跟随系统） | 服务端无法得知浏览器偏好，按浅色渲染 —— **已知限制**，见 [ARD](ARD.md) R15 |
 
 ---
 
@@ -351,6 +366,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | `themes.list_themes / normalize / swatches` | `()` / `(id)` / `(id)` | 设置页卡片、非法值收敛、预览色 |
 | `settings_store.load / set_theme / current_theme` | `(path=None)` | 界面偏好读写（容错、原子写） |
 | `settings_view.render_theme_cards / render_env_panel` | `(current=None)` | 设置页两块渲染（数据全部真实） |
+| `themes.plotly_layout / palette` | `(theme_id=None)` | 图表主题布局 / 具体色值（plotly 专用，不认 CSS 变量） |
 
 ---
 
@@ -388,13 +404,13 @@ raw_reorder = ceil_to_pack(need, pack_size)
 
 | 层次 | 覆盖 | 命令 |
 |---|---|---|
-| 单元测试 | 24 个文件 / 169 用例：政策分配边界、进化防震荡、预测夹紧、R³ 优先级、批次库存、在途资格、事件证据/工具、记忆持久化、各页面渲染、主题完整性/设置持久化 | `pytest -q --basetemp .pytest_tmp` |
+| 单元测试 | 25 个文件 / 177 用例：政策分配边界、进化防震荡、预测夹紧、R³ 优先级、批次库存、在途资格、事件证据/工具、记忆持久化、各页面渲染、主题完整性/设置持久化、**UI 规范一致性（禁 emoji / 禁写死颜色）** | `pytest -q --basetemp .pytest_tmp` |
 | 昂贵测试 | `test_simulator.py` / `test_event_ab.py` / `test_baseline_fairness.py`（分钟级） | 同上，注意耗时 |
 | 端到端 | `demo_flow.py`（五幕闭环） | `python demo_flow.py` |
 | 实验复现 | `eval.py` / `run_digital_store.py` / `run_event_awareness_ab.py` | 见 §1.1 |
 | 页面自检 | 渲染非空 + 空状态 + 无 emoji/硬编码色 | [../AGENT.md](../AGENT.md) §8.2 |
 
-**2026-10-03 实测基线**：主题与侧边栏落地后 **`169 passed`（约 154s，全绿）**；依赖补齐时（无主题功能）为 `142 passed`（92s）。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
+**2026-10-03 实测基线**：首页 v2 迁移 + UI 一致性校验落地后 **`177 passed`（约 62s，全绿）**；主题与侧边栏落地时为 169 passed；依赖补齐时为 142 passed。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
 
 ---
 
@@ -405,7 +421,7 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | 单次决策（50 SKU） | 秒级（预测 + MILP；MILP 超时上限 30s，异常即回退） |
 | 180 天完整仿真 | 5~8 分钟（完整小满约 100s/策略，传统算法约 20s/策略） |
 | 离线评测（60 天 × 5 模式） | 约 1~2 分钟 |
-| 测试全量 | 约 154s（169 用例，含昂贵仿真测试） |
+| 测试全量 | 约 62s（177 用例；含昂贵仿真测试时波动较大） |
 | 数据规模 | 9000 行销量 / 50 SKU / 180 天；DB 约 1.3MB |
 | 展示产物 | `eval_results.html` 约 4.8MB（内嵌图，已 gitignore） |
 
@@ -417,8 +433,8 @@ raw_reorder = ceil_to_pack(need, pack_size)
 |---|---|---|---|
 | D1 | ~~环境缺 `gradio / plotly`~~ | ✅ 已解除：装上 gradio 6.29.1 / plotly 7.1.0 后网页可启动（7 页截图核对）、测试 142 passed 全绿 | ✅ ARD T-ENV-01 |
 | D2 | `README.md` 与实现漂移（旧常量、旧参数语义） | 误导接手人 | 部分已修（界面导览改为左侧边栏 8 栏目）；剩余项见 ARD T-DOC-01 |
-| D3 | `app.py` 63KB 单体，含内联 HTML/CSS/emoji | 修改易冲突、违反 DESIGN.md v2 | ARD T-UI-01..04 + T-QA-02 |
-| D4 | 页面视觉体系两套并存（v2 与 `dn-*`/`ab-*`） | 观感不一致（已用 token 兜底关键色，换主题不再突兀） | ARD T-UI-01..04 收敛 |
+| D3 | `app.py` 仍是大单体（约 60KB），但**内联样式已全部 token 化、emoji 已清零、旧 `dn-*` 体系已删除** | 余下为体积与结构问题 | ARD T-UI-02..04（三页视图）+ T-QA-06（清死代码） |
+| D4 | 页面视觉体系两套并存：**app.py 侧已统一 v2**；`why_view`(`.yw-*`/`.ev-*`)、`final_view`(内联色)、`about_view`(`.ab-*`) 三页仍未迁移 | 换主题时这三页配色不跟随 | ARD T-UI-02..04 |
 | D5 | `spoilage_ab` 开/关结果完全相同 | 该消融无法证明损耗控制价值 | ARD T-EXP-02（P1，需排查开关是否真正生效） |
 | D6 | `ablation_3obj.no_revenue` 毛利反而更高 | 结论反直觉，易被评委追问 | ARD T-EXP-03（P2，需给出解释或标注局限） |
 | D7 | 9 个常量定义未使用，README 却引用 | 文档与代码互不信任 | ARD T-QA-01（P2） |
@@ -479,3 +495,4 @@ raw_reorder = ceil_to_pack(need, pack_size)
 | 2026-10-03 | v1.0 | 首版：反向固化架构、数据模型、算法口径、参数表、实验证据、技术债与 ADR | 接手初始化 |
 | 2026-10-03 | v1.1 | 新增 ADR-008（本地裸仓库镜像 GitHub、删除 .gitignore）；§1.1 增加版本/备份入口；D10 标记解除 | 接手初始化 |
 | 2026-10-03 | v1.2 | 顶部 Tab 改为左侧边栏 + 新增「设置」栏目与主题系统：新增 §7.1/§7.2 内容、模块表（themes/settings_store/settings_view）、接口清单、ADR-009（主题系统）与 ADR-010（导航实现）；测试基线 142 → 169 | 接手初始化 |
+| 2026-10-03 | v1.3 | 首页（T-UI-01）v2 迁移完成：去 emoji、旧 `dn-*`/`.badge b-*`/`.kpi` 体系删除、`app.py` 内联色全部 token 化；新增 §7.4 图表主题（plotly 随主题）与 `themes.plotly_layout/palette`；新增 UI 规范一致性测试（T-QA-02）；D3/D4 降级；测试基线 169 → 177 | 接手初始化 |

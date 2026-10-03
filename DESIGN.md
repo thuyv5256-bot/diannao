@@ -98,7 +98,8 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
 ## 5. 图标
 
 - **monochrome line icon / 统一符号体系**，同一视觉族、单色、随文字颜色继承（默认 muted、激活 ink）。
-- **不使用彩色 Emoji、不使用 AI sparkle / robot / brain 图标**。
+- **不使用彩色 Emoji、不使用 AI sparkle / robot / brain 图标**。页面内事件/状态一律用 `.xm-badge`（语气色 + 中文名）或 `.xm-callout` 表达；分区标题用 `.xm-sec-title`（大节）与 `.xm-h3`（卡内小标题），不再用 `###`+emoji 的 Markdown 标题。
+- 放行的单色符号仅限：`✓ ✗ ★ ↑ ↓ → › ·`（状态、增减、指引），其余 emoji 由 `tests/test_ui_consistency.py` 直接拦下。
 - 受 Gradio `gr.Tab` 无 `icon` 参数限制，导航图标采用**同族几何符号**（非 Emoji、无外链、无新依赖）；页面内小图标优先 inline SVG。
 
 ## 6. 响应式
@@ -139,4 +140,5 @@ ADR-005 同构 —— **CSS 变量作用域覆盖**：默认主题零改动，�
 3. 主题还要覆盖一组 Gradio 原生变量（`--body-background-fill` 等），否则 Dataframe/Dropdown/Accordion 会留在 Gradio 默认配色。
 4. 换主题**不刷新页面**：设置页选中后重新渲染一个隐藏的 `<style>` 组件即可；选择持久化在 `data/ui_settings.json`。
 5. 主题不得改变信息层级、间距与内容 —— 只影响观感，绝不影响任何计算结果。
+6. **图表也要跟主题**：plotly 的底色/字色是**服务端渲染时烘进图里的**，改 CSS 变量不会影响已生成的图。所有图表统一 `fig.update_layout(**themes.plotly_layout(ACTIVE_THEME))`（色值用 `themes.palette(ACTIVE_THEME)`，plotly 不认 CSS 变量）；换主题时由 `apply_theme` 一并重画当前演进曲线，按需生成的评测/仿真图在生成时取当前主题。
 
