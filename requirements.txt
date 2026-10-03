@@ -1,0 +1,6 @@
+# 店脑 · 运行依赖
+# 全部有预编译 wheel，无本地编译需求，普通笔记本即可跑
+gradio>=6.0,<7.0
+pandas>=2.0
+plotly>=6.0,<8.0
+scipy>=1.12     # R³-Stock 多目标整数优化：HiGHS MILP 求解器（scipy 自带，无需外部二进制）

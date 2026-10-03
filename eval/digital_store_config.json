@@ -1,0 +1,38 @@
+{
+  "date_range": [
+    "2026-03-01",
+    "2026-08-27"
+  ],
+  "n_days": 180,
+  "budget": 1800.0,
+  "seed": 42,
+  "initial_inventory_rule": "base_daily_demand × 3.0 天（向上取整）",
+  "strategies": [
+    {
+      "key": "diannao",
+      "label": "店脑 R³（完整）",
+      "mode": "diannao",
+      "use_memory": true,
+      "use_events": true,
+      "protect_livelihood": true,
+      "desc": "R³多目标 + 经营记忆 + 事件感知 + 民生兜底"
+    },
+    {
+      "key": "baseline",
+      "label": "传统算法（纯利润）",
+      "mode": "baseline",
+      "use_memory": false,
+      "use_events": true,
+      "protect_livelihood": false,
+      "desc": "纯利润贪心，无惠民约束、无经营记忆"
+    }
+  ],
+  "risk_scenarios": [
+    "正常经营",
+    "高温",
+    "暴雨",
+    "供应商D断供",
+    "综合风险"
+  ],
+  "note": "需求序列 = data/shopmind_180days_50sku.csv 的 sales 列（固定，非随机）；决策层只读当天以前的记录，真实需求仅在结算时使用。"
+}

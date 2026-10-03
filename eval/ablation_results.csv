@@ -1,0 +1,6 @@
+strategy,label,cumulative_gross_margin,stockout_rate,stockout_qty,livelihood_secured_rate,livelihood_stockout_qty,livelihood_stockout_rate,spoilage_rate,avg_inventory_capital,inventory_turnover
+diannao,店脑 R³（完整）,152935.74,0.028567,2049.0,1.0,417.0,0.015225,9.2e-05,3354.69,93.2565
+diannao_no_memory,店脑 − Memory,151747.58,0.034925,2505.0,1.0,484.0,0.017671,0.000112,3232.83,96.0431
+diannao_no_event,店脑 − Event,153740.29,0.025291,1814.0,1.0,412.0,0.015042,4.9e-05,3326.77,94.4813
+diannao_no_responsibility,店脑 − R³责任目标,153817.64,0.021276,1526.0,0.947955,616.0,0.02249,9.1e-05,3381.11,91.8581
+baseline,传统算法（纯利润）,152786.28,0.026365,1891.0,0.945911,714.0,0.026068,0.000111,3241.18,95.0966

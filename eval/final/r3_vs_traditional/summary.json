@@ -1,0 +1,86 @@
+{
+  "name": "r3_vs_traditional",
+  "frozen": "FINAL / FROZEN",
+  "status": "FINAL",
+  "generated_at": "2026-10-02 12:35:18",
+  "seed": 42,
+  "budget": 1800.0,
+  "metric_module": "core.metrics",
+  "metrics_version": "c28cf12ae51c69e0",
+  "data_version": {
+    "products_csv": "9ebd2e9b6f073c68",
+    "sales_csv": "2f74f6aa98a09a0b"
+  },
+  "initial_condition": "initial_inventory = ceil(base_daily_demand * 3)",
+  "config": {
+    "class": "C-rerun-fresh",
+    "strategies": [
+      {
+        "key": "diannao",
+        "mode": "diannao",
+        "use_memory": true,
+        "use_events": true,
+        "protect_livelihood": true
+      },
+      {
+        "key": "baseline",
+        "mode": "baseline",
+        "use_memory": false,
+        "use_events": true,
+        "protect_livelihood": false
+      }
+    ]
+  },
+  "summaries": {
+    "diannao": {
+      "strategy": "diannao",
+      "label": "店脑 R³（完整）",
+      "desc": "R³多目标 + 经营记忆 + 事件感知 + 民生兜底",
+      "cumulative_gross_margin": 152707.2,
+      "revenue": 465135.5,
+      "purchase_cost": 311475.6,
+      "cogs": 312371.1,
+      "stockout_rate": 0.029306,
+      "stockout_qty": 2102.0,
+      "stockout_sku_count": 43,
+      "stockout_occurrences": 789,
+      "livelihood_secured_rate": 1.0,
+      "livelihood_stockout_qty": 425.0,
+      "livelihood_stockout_rate": 0.015517,
+      "livelihood_fill_rate": 0.984483,
+      "spoilage_rate": 0.000373,
+      "spoilage_qty": 26.0,
+      "spoilage_units": 26.0,
+      "spoilage_cost": 57.2,
+      "avg_inventory_capital": 1576.68,
+      "inventory_turnover": 198.1197,
+      "n_days": 180,
+      "memory_experiences": 739
+    },
+    "baseline": {
+      "strategy": "baseline",
+      "label": "传统算法（纯利润）",
+      "desc": "纯利润贪心，无惠民约束、无经营记忆",
+      "cumulative_gross_margin": 152769.6,
+      "revenue": 461348.5,
+      "purchase_cost": 307338.2,
+      "cogs": 308523.9,
+      "stockout_rate": 0.02688,
+      "stockout_qty": 1928.0,
+      "stockout_sku_count": 43,
+      "stockout_occurrences": 803,
+      "livelihood_secured_rate": 0.947958,
+      "livelihood_stockout_qty": 681.0,
+      "livelihood_stockout_rate": 0.024863,
+      "livelihood_fill_rate": 0.975137,
+      "spoilage_rate": 0.000358,
+      "spoilage_qty": 25.0,
+      "spoilage_units": 25.0,
+      "spoilage_cost": 55.0,
+      "avg_inventory_capital": 1504.23,
+      "inventory_turnover": 205.1046,
+      "n_days": 180,
+      "memory_experiences": 0
+    }
+  }
+}

@@ -1,0 +1,3 @@
+strategy,label,cumulative_gross_margin,revenue,purchase_cost,cogs,stockout_rate,stockout_qty,stockout_sku_count,stockout_occurrences,livelihood_secured_rate,livelihood_stockout_qty,livelihood_stockout_rate,spoilage_rate,spoilage_qty,spoilage_cost,avg_inventory_capital,inventory_turnover
+diannao,店脑 R³（完整）,152935.74,465796.0,311954.5,312846.2,0.028567,2049.0,42,768,1.0,417.0,0.015225,9.2e-05,6.4,14.06,3354.69,93.2565
+baseline,传统算法（纯利润）,152786.28,461028.5,306999.9,308225.2,0.026365,1891.0,42,798,0.945911,714.0,0.026068,0.000111,7.7,17.02,3241.18,95.0966

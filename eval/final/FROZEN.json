@@ -1,0 +1,14 @@
+{
+  "status": "FINAL / FROZEN",
+  "generated_at": "2026-10-02 12:12:25",
+  "seed": 42,
+  "budget": 1800.0,
+  "metric_module": "core.metrics",
+  "experiments": [
+    "r3_vs_traditional",
+    "memory_ab",
+    "spoilage_ab",
+    "ablation_3obj"
+  ],
+  "r3_vs_traditional_rerun_at": "2026-10-02 12:35:18"
+}
