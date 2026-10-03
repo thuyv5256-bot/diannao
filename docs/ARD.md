@@ -155,7 +155,7 @@
 
 | ID | 任务 | 验收标准 | 证据 | 影响文件 |
 |---|---|---|---|---|
-| T-ENV-02 | 冻结未提交改动（UI v2 三页迁移 + 文档体系） | 工作区干净；改动全部入库并推送到本地 origin | 4 个逻辑提交（`feat(ui)` / `docs` / `chore(vcs)` / `docs`）+ `--no-ff` 合并到 `main`；提交哈希见 §9 | `app.py` `core/*_view.py` `tests/*` `docs/**` `CLAUDE.md` `AGENT.md` `README.md` |
+| T-ENV-02 | 冻结未提交改动（UI v2 三页迁移 + 文档体系） | 工作区干净；改动全部入库并推送到本地 origin | 4 个逻辑提交：`b0463a5` `feat(ui)` / `a957506` `docs` / `4d3318a` `chore(vcs)` / 本记录提交 `docs(ard)`；再经 `--no-ff` 合并到 `main` | `app.py` `core/*_view.py` `tests/*` `docs/**` `CLAUDE.md` `AGENT.md` `README.md` |
 | T-ENV-03 | 建立本地 GitHub 式版本控制与备份区（无 GitHub） | ① 无 GitHub 也能 push / pull / tag / branch / 合并；② 删除 `.gitignore` 后仍不误提交密钥与运行产物；③ 能回退到任意历史版本 | ① `_backup/diannao.git`（bare，HEAD=main）登记为 `origin`，`git remote -v` 可见；② `.git/info/exclude` 忽略规则 + `vcs.ps1 save` 提交守卫（实测：`.env` 命中即中止、产物自动撤出）；③ 标签 `v0.1.0`（初始基线 `ca17f07`）/`v0.2.0`（本次交付）；④ 回退演练：`rollback v0.1.0` 成功创建 `restore/v0.1.0-*` 分支；⑤ 灾难恢复演练：`clone` 到临时目录成功 | `tools/vcs.ps1` `docs/VERSIONING.md` `_backup/**` `.git/info/exclude` `README.md` `CLAUDE.md` `AGENT.md` |
 
 ---
@@ -274,3 +274,4 @@
 | 2026-10-03 | 初始化 Agent | 创建 ARD：拆出 29 个任务点（15 完成 / 1 进行中 / 1 阻塞 / 12 待办）；建立状态口径、ID 规则、验收铁律、风险台账与交接记录模板 |
 | 2026-10-03 | 初始化 Agent | 顺手完成 T-QA-05（`.pytest_tmp/` 入 `.gitignore` + 清理 115 个残留）；同步 ARD 计数（16 完成 / 11 待办）与风险台账 R8 状态；README 追加「十二、项目文档索引」并新增 `AGENTS.md` 入口指针 |
 | 2026-10-03 | 初始化 Agent | 完成 T-ENV-02（改动全部入库并推送本地 origin）与 T-ENV-03（本地 GitHub 式版本控制：`_backup/diannao.git` 裸仓库作 origin、main/develop 分支、tag v0.1.0/v0.2.0、`tools/vcs.ps1`、[VERSIONING.md](VERSIONING.md)）；删除 `.gitignore`（规则迁至 `.git/info/exclude` + 提交守卫）；同步计数（18 完成 / 0 进行中 / 11 待办）、里程碑 M3、Top3、风险 R2/R11/R12 与交接记录 |
+| 2026-10-03 | 初始化 Agent | **v0.2.0 版本哈希**（develop 线）：`b0463a5` = feat(ui) UI v2 三页迁移；`a957506` = docs 接手文档体系；`4d3318a` = chore(vcs) 本地版控与备份区；`docs(ard)` = 本记录。发布点 = `main` 上的 `--no-ff` 合并提交 + annotated tag `v0.2.0`（`git log --merges -1` / `git show v0.2.0 --stat` 可复核） |
