@@ -582,19 +582,30 @@ def _allocate_plan(items: list[dict], budget: float, mode: str,
     is_diannao = mode == MODE_DIANNAO
     protect = is_diannao if protect_livelihood is None else bool(protect_livelihood)
     use_milp = is_diannao and (R3_SOLVER_ENABLED if solver is None else bool(solver))
+    # 降级原因：用于 meta.solver.degraded_reason，让「本次没走 MILP」这件事
+    # 在数据层可追溯（不改变任何 UI，也不改变补货数字）。
+    degraded_reason = None
     if use_milp:
         try:
             from . import r3_optimizer
             if r3_optimizer.available():
                 return r3_optimizer.solve(items, budget, protect_livelihood=protect)
-        except Exception:
-            pass  # 求解器异常 → 回退原贪心，绝不崩
+            degraded_reason = "solver_unavailable"
+        except Exception as exc:  # noqa: BLE001
+            # 求解器异常 → 回退原贪心，绝不崩；但**记录原因**，
+            # 避免「静默降级」变成无法追溯的黑盒。
+            degraded_reason = f"{type(exc).__name__}: {exc}"[:200]
+    elif is_diannao and not use_milp:
+        degraded_reason = "disabled_by_config"
+
     meta = _allocate(items, budget, protect_livelihood=protect)
     meta.setdefault("solver", {
         "used_milp": False,
         "name": "规则/贪心（fallback）",
         "status": "Fallback",
     })
+    if degraded_reason:
+        meta["solver"]["degraded_reason"] = degraded_reason
     return meta
 
 

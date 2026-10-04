@@ -1143,6 +1143,17 @@ def build_app():
 
 if __name__ == "__main__":
     import os
+    import sys
+
+    # 启动自检：求解器不可用时在**控制台**明确告警。
+    # 目的：不让「静默回退贪心」变成黑盒——评委/使用者至少能在终端看到实情。
+    # 刻意不写入任何 UI 组件，保持界面零改动。
+    try:
+        from core import r3_optimizer as _r3
+        if not _r3.available():
+            print("[小满][警告] " + _r3.unavailable_reason(), file=sys.stderr)
+    except Exception as _e:  # noqa: BLE001 —— 自检本身绝不能影响启动
+        print(f"[小满][警告] 求解器自检跳过：{type(_e).__name__}", file=sys.stderr)
 
     # 本地运行绑回环地址，只有自己电脑能访问；
     # 发布到云端时平台会注入 PORT，此时必须绑 0.0.0.0 才能被反向代理转发。
