@@ -5,7 +5,7 @@ import sys
 # 归档后位置：tools/experiments/ —— 把仓库根加回 sys.path，脚本仍按仓库根为工作目录运行
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
-# 第7.2步：R³(店脑) vs Traditional(Baseline) 180天正式公平对照
+# 第7.2步：R³(小满) vs Traditional(Baseline) 180天正式公平对照
 import sys
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')

@@ -8,7 +8,8 @@
   2. 数字说人话：不出现"安全库存系数"，只说"够卖几天"
   3. 决策可追问：点一下能看到"为什么建议进这么多"
 
-运行：python app.py   →  浏览器打开 http://127.0.0.1:7861
+运行：python app.py   →  浏览器打开 http://127.0.0.1:7870
+可用环境变量 HOST_PORT 覆盖端口。
 """
 
 import sys
@@ -21,15 +22,15 @@ import plotly.graph_objects as go
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from core import agent, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
+    from core import agent, ai_events, ai_insight, ai_view, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from core.config import (
-        APP_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
+        APP_NAME, APP_FULL_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 else:
-    from .core import agent, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
+    from .core import agent, ai_events, ai_insight, ai_view, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from .core.config import (
-        APP_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
+        APP_NAME, APP_FULL_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 
@@ -48,6 +49,7 @@ NAV_BRAND = APP_NAME + " · 智能补货"
 # 左侧边栏导航项：(显示名, gr.Tabs 里对应 Tab 的 id)
 NAV_CHOICES = [
     ("今天该进什么货", "home"),
+    ("AI 决策大脑", "ai"),
     ("为什么这样进", "why"),
     ("今天生意怎么样", "feedback"),
     ("它学会了什么", "learn"),
@@ -74,10 +76,10 @@ CSS = themes.theme_css(ACTIVE_THEME) + """
 .gradio-container main, .gradio-container .main { max-width: none !important; }
 footer { display: none !important; }
 .gradio-container footer { display: none !important; }
-""" + home_view.HOME_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + settings_view.SETTINGS_CSS + ui_theme.THEME_CSS
+""" + home_view.HOME_CSS + ai_view.AI_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + settings_view.SETTINGS_CSS + ui_theme.THEME_CSS
 
 # Gradio 6.0 起 css/theme 从 Blocks() 挪到了 launch()，这里做版本兼容
-_BLOCKS_KW = {"title": "小满 · 自进化智能补货 Agent"}
+_BLOCKS_KW = {"title": APP_FULL_NAME}
 _LAUNCH_KW = {}
 if GR_MAJOR < 6:
     _BLOCKS_KW.update(css=CSS, theme=gr.themes.Soft(primary_hue="blue"))
@@ -110,6 +112,91 @@ def _hero(sub: str) -> str:
 def render_plan_html(plan: dict) -> str:
     """「今天该进什么货」首页 — 委托 core.home_view（经营工作台，遵循 DESIGN.md）。"""
     return home_view.render_home_html(plan)
+
+
+# ══════════════════════════════════════════════════════════════
+# AI 决策中枢（第一环：事件语义理解 / 第二环：业务洞察）
+# ══════════════════════════════════════════════════════════════
+
+def _all_categories() -> list[str]:
+    """本店在售品类（供 AI 判断受影响品类时做白名单）。"""
+    return sorted({str(p.get("category") or "").strip()
+                   for p in memory.get_products() if p.get("category")})
+
+
+def _ai_degraded_reason(*results) -> str:
+    """从AI 两个环节的结果里判断是否发生降级，并给出人话原因。"""
+    ev, ins = results
+    if not llm.is_enabled():
+        return "未配置 DEEPSEEK_API_KEY"
+    if ev is not None and str(ev.get("source") or "") != "llm":
+        return "事件理解已降级为规则解析"
+    if ins is not None and str(ins.get("source") or "") != "llm":
+        return "业务洞察已降级为规则体检"
+    return ""
+
+
+def do_ai_parse(scene: str):
+    """AI 解析店主场景 → 产出结构化事件参数 → 用它重算一次方案。
+
+    依赖链是**严格串行**的，不能并行：
+      ai_events.parse（产出 active/factors/summary）
+        → policy.build_plan（必须吃 active + factors）
+          → ai_insight.analyze（extra 里要用 parse 的 summary）
+    任何「并行」都会改变依赖顺序或让 build_plan 拿不到事件参数，
+    因此这里只加**即时状态反馈与耗时披露**，不动执行顺序。
+    """
+    import time as _t
+    t0 = _t.time()
+    # 第一帧：立即给出「正在理解」的反馈，避免页面无响应十几秒
+    yield (ai_view.headline_numbers(None, None), ai_view.mode_bar(),
+           ai_view.render_thinking("AI 正在理解天气、供应与经营风险…"))
+    cats = _all_categories()
+    result = ai_events.parse(scene or "", cats)
+    t1 = _t.time()
+    # 用 AI 给出的风险键与品类因子重算方案（数值仍由规则链路算出）
+    plan = policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO,
+                             persist=False, risks=result["active"],
+                             ai_factors=result.get("factors") or None)
+    insight = ai_insight.analyze(plan, extra={"AI 事件理解": result.get("summary") or "无"})
+    page = ai_view.render_page(plan, result, insight)
+    reason = _ai_degraded_reason(result, insight)
+    status = ai_view.render_ai_status(
+        "AI 事件理解 + 业务洞察", _t.time() - t0,
+        degraded=bool(reason), reason=reason)
+    yield (ai_view.headline_numbers(plan, insight), ai_view.mode_bar(),
+           page + status)
+    _ = t1
+
+
+def do_ai_insight(scene: str):
+    """只做业务洞察（沿用当前勾选的风险事件，不改决策）。
+
+    这里 build_plan（纯规则）与 ai_events.parse（模型）**互不依赖**，
+    因此可以并行发起以省掉串行等待；两者都失败也不影响主流程。
+    并行只影响耗时，不改变任何计算结果。
+    """
+    import time as _t
+    from concurrent.futures import ThreadPoolExecutor
+    t0 = _t.time()
+    yield (None, ai_view.mode_bar(),
+           ai_view.render_thinking("AI 正在分析经营风险…"))
+    scene = (scene or "").strip()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        # build_plan 是纯规则（0.2s 级），ai_events.parse 是网络调用（1s 级）
+        f_plan = pool.submit(policy.build_plan, DEFAULT_PLAN_DATE, DEFAULT_BUDGET,
+                             policy.MODE_DIANNAO, persist=False)
+        f_ev = pool.submit(ai_events.parse, scene, _all_categories()) if scene else None
+        plan = f_plan.result()
+        insight = ai_insight.analyze(plan)
+        result = f_ev.result() if f_ev is not None else None
+    page = ai_view.render_page(plan, result, insight)
+    reason = _ai_degraded_reason(result, insight)
+    status = ai_view.render_ai_status(
+        "AI 业务洞察", _t.time() - t0,
+        degraded=bool(reason), reason=reason)
+    yield (ai_view.headline_numbers(plan, insight), ai_view.mode_bar(),
+           page + status)
 
 
 def render_why_html(sku: str) -> str:
@@ -899,6 +986,27 @@ def build_app():
                                 sim_plot1 = gr.Plot(scale=1)
                                 sim_plot2 = gr.Plot(scale=1)
 
+                    # ── Tab 2 ── AI 决策大脑（AI 决策中枢：事件语义理解 + 业务洞察）
+                    with gr.Tab("AI 决策大脑", id="ai"):
+                        ai_kpi = gr.HTML(ai_view.headline_numbers(_init_plan, None))
+                        with gr.Row(elem_classes=["xm-row"]):
+                            with gr.Column(scale=1, min_width=0):
+                                ai_scene_in = gr.Textbox(
+                                    label="用你自己的话说明明天的情况",
+                                    lines=3,
+                                    value="明天下大暴雨，晚上估计没什么人出门，顺路那家超市的货也送不来",
+                                    placeholder="例如：明天下大雨，晚上没人来；隔壁超市明天也送不到货")
+                                with gr.Row(elem_classes=["xm-row"]):
+                                    btn_ai_parse = gr.Button("AI 解析场景", variant="primary", scale=1)
+                                    btn_ai_insight = gr.Button("AI 体检本次决策", scale=1)
+                                gr.HTML(
+                                    "<div class='xm-hint'>AI 负责<b>读懂你的话、判断事件严重程度</b>，"
+                                    "规则负责<b>算出补货数量</b>。未配置 API Key 时自动降级为规则路径，"
+                                    "补货数字与 AI 在线时完全一致。</div>")
+                            with gr.Column(scale=1, min_width=0):
+                                ai_status = gr.HTML(ai_view.mode_bar())
+                        ai_out = gr.HTML(ai_view.render_page(_init_plan, None, None))
+
                     # ── Tab 2 ── 为什么这样进
                     with gr.Tab("为什么这样进", id="why"):
                         gr.HTML(why_view.render_head())
@@ -1004,6 +1112,9 @@ def build_app():
         btn_cmp.click(do_compare, plan_inputs, plan_out)
         btn_explain.click(do_explain, plan_inputs, explain_out)
         btn_agent.click(do_agent, agent_in, agent_out)
+        # AI 决策中枢：解析场景（会重算方案）/ 只做业务体检（不改决策）
+        btn_ai_parse.click(do_ai_parse, ai_scene_in, [ai_kpi, ai_status, ai_out])
+        btn_ai_insight.click(do_ai_insight, ai_scene_in, [ai_kpi, ai_status, ai_out])
         # 勾选/取消风险事件时，自动重算并同步顶部提醒
         for cb in risk_inputs:
             cb.change(do_plan, plan_inputs, [plan_top_out, rail_out, plan_out])
@@ -1039,7 +1150,7 @@ if __name__ == "__main__":
     if _port_env:
         _host, _port = "0.0.0.0", int(_port_env)
     else:
-        _host, _port = "127.0.0.1", int(os.environ.get("HOST_PORT", "7861"))
+        _host, _port = "127.0.0.1", int(os.environ.get("HOST_PORT", "7870"))
 
     app = build_app()
     app.launch(server_name=_host, server_port=_port,

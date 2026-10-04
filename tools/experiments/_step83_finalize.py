@@ -98,8 +98,8 @@ print('R3 vs Trad (B recomputed):', r3v)
 
 
 # 2) Memory A/B（C：重跑）
-mem = {'memory_on': run_one(specs['diannao'], 'memory_on', '店脑 R³（Memory 开）'),
-       'memory_off': run_one(specs['diannao_no_memory'], 'memory_off', '店脑 − Memory')}
+mem = {'memory_on': run_one(specs['diannao'], 'memory_on', '小满 R³（Memory 开）'),
+       'memory_off': run_one(specs['diannao_no_memory'], 'memory_off', '小满 − Memory')}
 save('memory_ab', {'variable': 'use_memory', 'class': 'C'}, mem)
 print('Memory A/B done')
 
@@ -158,7 +158,7 @@ for name in ('r3_vs_traditional', 'memory_ab', 'spoilage_ab', 'ablation_3obj'):
     with open(os.path.join(OUT, name, 'summary.json'), encoding='utf-8') as f:
         agg[name] = json.load(f)['summaries']
 
-final = {'title': '店脑 · 最终实验结果（FINAL / FROZEN）', 'generated_at': NOW,
+final = {'title': '小满 · 最终实验结果（FINAL / FROZEN）', 'generated_at': NOW,
          'seed': SEED, 'budget': BUDGET, 'metric_module': 'core.metrics',
          'experiments': list(agg.keys()), 'results': agg}
 with open(os.path.join(OUT, 'final_experiment_summary.json'), 'w', encoding='utf-8') as f:

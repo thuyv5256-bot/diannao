@@ -42,6 +42,8 @@ MIGRATED = {
     "core/why_view.py",
     "core/final_view.py",
     "core/about_view.py",
+    # T-AI-05：「AI 决策大脑」新建页，出生即按 v2 规范写（AI_CSS 全走 --xm-* token）
+    "core/ai_view.py",
 }
 # 迁移完成后再无豁免：新页面若还没迁移，必须显式登记在这里 + 在 ARD 建对应任务
 PENDING_MIGRATION: set = set()

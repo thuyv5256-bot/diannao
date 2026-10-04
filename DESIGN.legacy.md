@@ -355,7 +355,7 @@ Then immediately enter actionable information.
 
 The brand does not need to repeatedly say:
 
-“自进化智能补货 Agent”
+“面向社区小店的智能补货 Agent”
 
 That belongs in project introduction.
 

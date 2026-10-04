@@ -1,7 +1,7 @@
 # 小满 UI Design System v2
 
 > 视觉组件体系来自 **VoltAgent/awesome-design-md · design-md/notion/DESIGN.md**（Notion 产品级视觉语言）。
-> 信息架构与业务语义属于**小满 · 社区小店智能补货助手**；本文档不引入任何 Notion 品牌元素。
+> 信息架构与业务语义属于**小满·智能补货**；本文档不引入任何 Notion 品牌元素。
 > 旧视觉规范已备份为 `DESIGN.legacy.md`（不再作为主要依据）。
 
 ## 0. 适配原则

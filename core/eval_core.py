@@ -89,11 +89,21 @@ def _history_context(seed: int, days: int):
 
 
 def _simulate(mode: str, start: date, prod_map: dict, demand_map: dict,
-              days: int, seed: int) -> dict:
-    """把某决策方式放到时间窗口里重演一遍，返回汇总指标。"""
-    from seed_data import generate_history
-    generate_history()
-    on_hand = dict(memory.get_inventory())
+              days: int, seed: int, persist: bool = True) -> dict:
+    """把某决策方式放到时间窗口里重演一遍，返回汇总指标。
+
+    persist 控制落库行为：
+      · False —— 评测重演专用。全程不写正式 store_memory.db：
+        不调generate_history() 重建、不重置 inventory、不写 sales/经验。
+        前提是调用方已把 memory.DB_PATH 指向隔离副本。
+      · True（默认，保持旧行为）—— 只有调用方明确知道自己在隔离库时才安全。
+    """
+    if not persist:
+        on_hand = {sku: p.get("on_hand", 0.0) for sku, p in prod_map.items()}
+    else:
+        from seed_data import generate_history
+        generate_history()
+        on_hand = dict(memory.get_inventory())
 
     plan_mode = policy.MODE_BASELINE if mode == "baseline" else policy.MODE_DIANNAO
     restore = mode != "no_potential"
@@ -103,7 +113,8 @@ def _simulate(mode: str, start: date, prod_map: dict, demand_map: dict,
     cur = start
     for _ in range(days):
         day = cur.isoformat()
-        memory.set_inventory_bulk(list(on_hand.items()))
+        if persist:
+            memory.set_inventory_bulk(list(on_hand.items()))
         plan = policy.build_plan(day, EVAL_BUDGET, plan_mode, persist=False,
                                  restore_potential=restore)
         m["cost"] += plan["metrics"]["total_cost"]
@@ -137,12 +148,14 @@ def _simulate(mode: str, start: date, prod_map: dict, demand_map: dict,
             feedback.append({"sku": sku, "qty_sold": sold,
                              "qty_stockout": stockout, "qty_spoilage": spoil})
 
+        # 评测重演不得污染正式 Memory 库：显式 persist=False。
+        # （评测读历史答案做指标统计，不需要把重演过程沉淀成经营经验。）
         if do_evolve:
-            evolution.process_feedback(day, feedback)
+            evolution.process_feedback(day, feedback, persist=False)
         else:
             # 「去掉自进化」只是冻结策略参数，销量照常入记忆，
             # 否则预测会永远停在店主旧历史，把"自进化"和"记忆"两个变量混在一起。
-            evolution.apply_sales_only(day, feedback)
+            evolution.apply_sales_only(day, feedback, persist=False)
         cur += timedelta(days=1)
 
     m["livelihood_index"] = m["livelihood_index"] / days
@@ -163,15 +176,28 @@ def _pct(new, old):
 def run_eval(seeds=None, days: int = DAYS, db_path=None) -> dict:
     """运行评测，返回 {mode: [指标dict, ...]}。
 
-    db_path 给定时，整个评测在隔离库上进行（monkeypatch memory.DB_PATH），
-    跑完自动恢复，不污染在线记忆库 —— 供网页内嵌评测使用。
+    隔离保证（2026-10-04 起强制）：
+      本评测会**反复重建**记忆库（每个模式 × 每个种子都调 generate_history()
+      清空后重导 CSV），一旦跑在正式库上就会清掉店主真实录入的经营反馈
+      与「演示门店·模拟经营历史」的经验。因此这里**总是**在隔离副本上运行；
+      传 db_path 只是指定副本位置，不再影响是否隔离。
     """
+    import shutil
+    import tempfile
+    from pathlib import Path
     if seeds is None:
         seeds = SEEDS
     old_path = memory.DB_PATH
-    if db_path:
-        memory.DB_PATH = str(db_path)
+    tmp = Path(db_path) if db_path else (
+        Path(tempfile.gettempdir()) / "diannao_evalcore_sandbox.db")
     try:
+        if tmp.exists():
+            tmp.unlink()
+        else:
+            src = Path(memory.DB_PATH)
+            if src.exists():
+                shutil.copy2(src, tmp)
+        memory.DB_PATH = str(tmp)
         memory.init_db()
         if not memory.get_products():
             from seed_data import generate_history
@@ -181,10 +207,20 @@ def run_eval(seeds=None, days: int = DAYS, db_path=None) -> dict:
             start, prod_map, demand_map, owner = _history_context(seed, days)
             results["owner"].append(owner)
             for mode in ("baseline", "diannao", "no_evolve", "no_potential"):
-                results[mode].append(_simulate(mode, start, prod_map, demand_map, days, seed))
+                results[mode].append(
+                    _simulate(mode, start, prod_map, demand_map, days, seed,
+                              persist=True))   # True 只因已切到沙箱
         return results
     finally:
         memory.DB_PATH = old_path
+        if db_path is None:
+            for sfx in ("", "-wal", "-shm"):
+                p = Path(str(tmp) + sfx)
+                if p.exists():
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
 
 
 def _txt(key, v):

@@ -322,8 +322,14 @@ def experience_narrative(limit: int = 30) -> str:
     )
 
 
-def apply_sales_only(day: str, feedback: list[dict]) -> None:
-    """只把当天的经营记录写进记忆（用于回放历史数据，不做进化）。"""
+def apply_sales_only(day: str, feedback: list[dict], persist: bool = True) -> None:
+    """只把当天的经营记录写进记忆（用于回放历史数据，不做进化）。
+
+    persist=False 时完全跳过落库 —— 评测/演示重演必须显式传False，
+    否则会把重演出来的销量写进正式 sales 表，污染 Forecast 的输入。
+    """
+    if not persist:
+        return
     rows = [{
         "day": day, "sku": f["sku"],
         "qty_sold": float(f.get("qty_sold", 0) or 0),

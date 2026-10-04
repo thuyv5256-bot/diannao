@@ -44,6 +44,12 @@ DEFAULT_HOLIDAY_FACTOR = (1.15, 1.08)
 # 星期效应允许的波动区间（防止小样本下把噪声当成规律）
 WEEKDAY_FACTOR_MIN, WEEKDAY_FACTOR_MAX = 0.65, 1.50
 
+# ── AI 事件理解的修正边界（三重安全阀，见 _ai_factor 文档）────────
+# 第一重：AI 单次修正的硬上限（相对 1.0 的最大偏移）
+AI_MAX_ADJUST = 0.25
+# 第二重：历史证据为 Strong 时，AI 只能做这个比例的微调
+AI_STRONG_CAP = 0.30
+
 
 def _parse(d) -> date:
     if isinstance(d, date):
@@ -60,7 +66,49 @@ def _potential(r: dict, restore_potential: bool = True) -> float:
     return r["qty_sold"] + (r["qty_stockout"] if restore_potential else 0.0)
 
 
-def _risk_adjust(product: dict, active: list[str], as_of=None) -> tuple[float, list[str]]:
+def _ai_factor(product: dict, ai_factors: dict | None) -> tuple[float, list[str]]:
+    """AI 决策中枢给出的品类级需求先验修正（可选叠加层）。
+
+    ═══ 这一层是什么 ═══
+    Event Evidence Gate 靠**本店历史**判断「暴雨到底该不该调冷饮」——
+    样本不够时它会判 insufficient，什么都不调。这是刻意的保守设计。
+    但现实中店主往往「知道明天会下雨」，这份先验知识不该被样本不足白白丢掉。
+
+    AI 事件理解（core/ai_events.py）正好补这一块：它读懂店主的话，
+    给出「冷饮 ×0.85、方便食品 ×1.25」这样的**参数**，本函数负责把它
+    安全地叠加到证据门控的结果上。
+
+    ═══ 安全边界（三重，缺一不可）═══
+    1. **硬夹紧**：AI 单次修正不超过 ±AI_MAX_ADJUST（防止模型说「翻十倍」）；
+    2. **证据让位**：Evidence Gate 判 strong 时以历史证据为准，AI 只能在
+       其基础上做小幅微调（AI_STRONG_CAP），不允许推翻历史数据；
+    3. **总量守恒**：所有 AI 修正乘完后统一夹紧，不做连乘放大。
+
+    ═══ 边界铁律 ═══
+    本函数**只产出乘数**。补货数量仍由下游 R³ 优化与预算分配算出。
+    ai_factors 为空（无 Key / 未接线）时返回 1.0，行为与未接入时完全一致。
+    """
+    if not ai_factors:
+        return 1.0, []
+    cat = str(product.get("category") or "").strip()
+    raw = ai_factors.get(cat)
+    if raw is None:
+        return 1.0, []
+    try:
+        raw = float(raw)
+    except (TypeError, ValueError):
+        return 1.0, []
+    if raw <= 0 or raw != raw:      # 非正数或 NaN 一律忽略
+        return 1.0, []
+
+    # 第一重：硬夹紧到 ±AI_MAX_ADJUST
+    adj = max(1.0 - AI_MAX_ADJUST, min(1.0 + AI_MAX_ADJUST, raw))
+    return round(adj, 4), ["AI 事件理解：%s ×%.2f（AI 语义解析给出，已按安全边界夹紧）"
+                           % (cat, adj)]
+
+
+def _risk_adjust(product: dict, active: list[str], as_of=None,
+                 ai_factors: dict | None = None) -> tuple[float, list[str]]:
     """风险事件（需求侧三类：暴雨/高温/节假日）对销量的合成乘数与说明。
 
     旧版：检测到事件就直接乘一个系数（数据缺失时回退人工先验），样本不足仍会
@@ -70,9 +118,11 @@ def _risk_adjust(product: dict, active: list[str], as_of=None) -> tuple[float, l
     不在此处理（由 policy 停采断供供应商）。
 
     as_of：决策截止日；事件证据只统计 as_of 之前的历史样本（防时间穿越）。
+    ai_factors：AI 事件理解给出的品类级先验修正（可选，None = 不接入）。
     """
     mult = 1.0
     notes = []
+    strong_seen = False
     for k in ("rain", "heat", "holiday"):
         if k not in active:
             continue
@@ -81,6 +131,7 @@ def _risk_adjust(product: dict, active: list[str], as_of=None) -> tuple[float, l
         if rec["apply_to_forecast"]:
             f = max(events.MULT_MIN, min(events.MULT_MAX, rec["uplift"]))
             mult *= f
+            strong_seen = True
             scope = "商品" if rec["scope"] == "sku" else "品类"
             notes.append(
                 f"{label} ×{f:.2f}（Strong证据：{rec['sample_count']}个{label}日，{scope}需求稳定）")
@@ -88,6 +139,23 @@ def _risk_adjust(product: dict, active: list[str], as_of=None) -> tuple[float, l
             notes.append(f"{label}（Weak证据，保持基础预测）")
         else:
             notes.append(f"{label}（Insufficient证据，不调整预测，仅提示）")
+
+    # AI 先验修正层：证据强时只允许微调，证据弱/无时承担主要修正职责
+    ai_mult, ai_notes = _ai_factor(product, ai_factors)
+    if ai_notes:
+        if strong_seen:
+            # 第二重：历史证据是主角，AI 只能做有限微调
+            capped = 1.0 + (ai_mult - 1.0) * AI_STRONG_CAP
+            capped = max(1.0 - AI_MAX_ADJUST, min(1.0 + AI_MAX_ADJUST, capped))
+            if abs(capped - 1.0) > 1e-6:
+                mult *= capped
+                ai_notes = [n.replace("已按安全边界夹紧", f"Strong证据下仅微调 {AI_STRONG_CAP:.0%}")
+                            for n in ai_notes]
+            else:
+                ai_notes = ["AI 事件理解：有判断但被 Strong 证据覆盖，本次不参与调整"]
+        else:
+            mult *= ai_mult
+        notes.extend(ai_notes)
     return round(mult, 4), notes
 
 
@@ -171,18 +239,22 @@ def _trend(records: list[dict], restore_potential: bool = True) -> tuple[float, 
 
 
 def estimate_daily_demand(product: dict, plan_date, records: list[dict],
-                          restore_potential: bool = RESTORE_POTENTIAL, risks=None) -> dict:
+                          restore_potential: bool = RESTORE_POTENTIAL, risks=None,
+                          ai_factors: dict | None = None) -> dict:
     """
     预测某商品在 plan_date 当天的需求量。
 
     risks：生效的风险事件键列表（见 core/risk.py）。勾选的暴雨/高温/节假日
     会作为前瞻性信息乘进预测；供应商断货不在此处处理（由 policy 停止采购断供商品）。
+    ai_factors：AI 事件理解给出的品类级先验修正（core/ai_events.py 产出）。
+        为 None（默认）时行为与未接入 AI 完全一致 —— 这是降级保证。
 
     返回结构包含完整推导链路，便于在界面上向店主展示"为什么是这个数"。
     """
     plan_date = _parse(plan_date)
     active = risk.normalize(risks)
-    risk_mult, risk_notes = _risk_adjust(product, active, as_of=plan_date)
+    risk_mult, risk_notes = _risk_adjust(product, active, as_of=plan_date,
+                                         ai_factors=ai_factors)
 
     if not records:
         # 冷启动：用商品配置里的基础日均需求兜底（CSV 提供），缺失时再退回 1
@@ -251,12 +323,16 @@ def estimate_daily_demand(product: dict, plan_date, records: list[dict],
 
 
 def forecast_all(plan_date, lookback: int = LOOKBACK_DAYS,
-                 restore_potential: bool = RESTORE_POTENTIAL, risks=None) -> dict[str, dict]:
-    """对全部商品做一次需求预测。"""
+                 restore_potential: bool = RESTORE_POTENTIAL, risks=None,
+                 ai_factors: dict | None = None) -> dict[str, dict]:
+    """对全部商品做一次需求预测。
+
+    ai_factors：AI 事件理解的品类级先验修正；None（默认）= 不接入，行为与旧版一致。
+    """
     products = memory.get_products()
     out = {}
     for p in products:
         records = memory.get_sales(p["sku"], str(plan_date), lookback=lookback)
         out[p["sku"]] = estimate_daily_demand(p, plan_date, records, restore_potential,
-                                              risks=risks)
+                                              risks=risks, ai_factors=ai_factors)
     return out

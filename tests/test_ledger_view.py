@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # 「店里的老账本」展示层测试（只读真实数据，UI v2）。
-from core import ledger_view
+from core import ledger_view, memory
 
 
 def test_ledger_uses_compact_summary_not_kpi():
@@ -25,11 +25,33 @@ def test_ledger_sections_present_and_real_data():
     assert '供应商A' in h
 
 
-def test_ledger_experiences_empty_state_is_real():
-    # demo-store 当前 experiences = 0 → 真实空状态，不引用 FINAL 实验经验
+def test_ledger_experiences_come_from_memory_not_hardcoded():
+    """经验区必须严格等于 memory.get_experiences() 的真实内容。
+
+    不预设「数据库是空的」——演示环境已通过 seed_demo_history.py 播种过
+    模拟经营历史（经验由core/evolution.py 正常业务逻辑生成）。
+    本测试的真正目的：证明页面上的经验**来自数据库**而非写死在 HTML 里。
+    """
+    exps = memory.get_experiences(limit=50)
     h = ledger_view.render_ledger()
-    assert '还没有形成经营经验' in h
-    assert '739' not in h  # 严禁引用 FINAL 实验数据
+    if exps:
+        # 有经验 → 页面上每一条都必须在数据库里真实存在
+        assert '还没有形成经营经验' not in h
+        names = {p['sku']: p['name'] for p in memory.get_products()}
+        for e in exps:
+            nm = names.get(e['sku'], e['sku'])
+            assert nm in h, "经验 %s 未出现在页面上" % nm
+    else:
+        # 空库 → 必须是真实空状态
+        assert '还没有形成经营经验' in h
+    # 无论有无数据，都严禁引用 FINAL 实验结果
+    assert '739' not in h
+
+
+def test_ledger_demo_history_disclosure():
+    """演示数据必须明确标注来源，避免评委误认为真实商户采集。"""
+    h = ledger_view.render_head()
+    assert '演示门店' in h and '模拟经营历史' in h
 
 
 def test_ledger_secondary_fields_in_accordion():

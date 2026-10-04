@@ -9,9 +9,9 @@
 
 | 项 | 值 |
 |---|---|
-| 产品名 | **小满**（`core/config.py` 的 `APP_NAME`），面向社区小店的自进化智能补货 Agent |
-| 工程/仓库名 | **店脑**（目录 `diannao`；`eval/final`、`core/simulator.py` 里叫「店脑 R³」） |
-| 别名 | 「小满」= 面向店主的产品名，「店脑」= 工程/实验口径名。**两者指同一系统，不要再造第三个名字** |
+| 产品名 | **小满**（`core/config.py` 的 `APP_NAME`；全称 `APP_FULL_NAME` = 小满·智能补货），副标题「面向社区小店的智能补货 Agent」 |
+| 工程/仓库名 | 目录 `diannao`（**内部标识符，勿改**）；页面显示标签为「小满 R³」 |
+| 命名口径 | 品牌名「小满」，产品全称「小满·智能补货」。工程目录名 `diannao`、`MODE_DIANNAO`、`"diannao"` key、CSV 列名均为**内部标识符，用户不可见，一律不改** |
 | 形态 | 单进程 Python + Gradio 网页应用，`python app.py` 即用，无需专用硬件 |
 | 入口 | 网页 `app.py`（**左侧边栏 8 个栏目**：7 个业务页 + 设置）／演示 `demo_flow.py`／离线评测 `eval.py`／长期实验 `run_digital_store.py` |
 | 数据 | 仿真数据 `data/shopmind_*.csv`（50 SKU × 180 天，2026-03-01 ~ 2026-08-27），**不是真实门店采集数据** |

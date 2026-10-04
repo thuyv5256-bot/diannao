@@ -134,23 +134,65 @@ def _write_markdown(results, days, n_seeds):
 
 
 def main():
-    results = run_eval(SEEDS, DAYS)
-    _report(results, DAYS, len(SEEDS))
-    _ablation_notes(results)
-    _write_csv(results)
-    _write_markdown(results, DAYS, len(SEEDS))
+    _sb = _sandbox()
     try:
-        fig = build_figure(results, DAYS, len(SEEDS))
-        fig.write_html("eval_results.html")
-        print("  图表已写入 eval_results.html")
-    except Exception as e:
-        print(f"  （图表生成失败，跳过：{e}）")
+        results = run_eval(SEEDS, DAYS)
+        _report(results, DAYS, len(SEEDS))
+        _ablation_notes(results)
+        _write_csv(results)
+        _write_markdown(results, DAYS, len(SEEDS))
+        try:
+            fig = build_figure(results, DAYS, len(SEEDS))
+            fig.write_html("eval_results.html")
+            print("  图表已写入 eval_results.html")
+        except Exception as e:
+            print(f"  （图表生成失败，跳过：{e}）")
 
-    print("  结果已写入 eval_results.csv / eval_report.md / eval_results.html；"
-          "正在恢复门店初始记忆供网页演示 ...")
-    from seed_data import generate_history
-    generate_history()
-    print("  完成。启动网页：python app.py")
+        print("  结果已写入 eval_results.csv / eval_report.md / eval_results.html")
+        print("  （评测全程在沙箱副本上进行，正式记忆库未被改动，无需恢复）")
+    finally:
+        if _sb:
+            import shutil as _sh
+            from pathlib import Path as _P
+            from core import memory as _mem
+            from core import config as _cfg
+            _mem.DB_PATH = _cfg.DB_PATH          # 还原，绝不留在沙箱上
+            for sfx in ("", "-wal", "-shm"):
+                p = _P(_sb[0] + sfx)
+                if p.exists():
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
+            print("  （沙箱已清理，正式记忆库全程未被改动）")
+
+
+def _sandbox():
+    """把记忆库切到临时副本，让评测不碰正式 store_memory.db。
+
+    历史原因：早期版本靠「评测完调 generate_history() 重建」来还原被评测写脏的
+    正式库 —— 但那会连带清掉店主真实录入的经营反馈，以及「演示门店·模拟经营历史」
+    的 3 条经验。正确做法是从一开始就落在副本上，正式库全程零写入。
+    加 --real-db 可退回旧行为（仅供调试）。
+    """
+    import shutil
+    import tempfile
+    from pathlib import Path
+    if "--real-db" in sys.argv:
+        return None
+    from core import config as _cfg
+    from core import memory as _mem
+    tmp = Path(tempfile.gettempdir()) / "diannao_eval_sandbox.db"
+    for sfx in ("", "-wal", "-shm"):
+        p = Path(str(tmp) + sfx)
+        if p.exists():
+            p.unlink()
+    src = Path(_cfg.DB_PATH)
+    if src.exists():
+        shutil.copy2(src, tmp)
+    _mem.DB_PATH = str(tmp)
+    print("  （沙箱模式：评测在临时副本上进行，正式记忆库不受影响）")
+    return (str(tmp), str(src))
 
 
 if __name__ == "__main__":
