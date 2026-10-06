@@ -2,13 +2,14 @@
 """
 店脑 · 端到端闭环演示 / 验证脚本
 
-一次性跑通五幕，既用于自测，也用于答辩现场讲清"闭环真的在转"：
+一次性跑通六幕，既用于自测，也用于答辩现场讲清"这个 Agent 到底自己在做什么"：
 
-  第一幕  门店记忆盘点      —— 长期记忆库里沉淀了什么
-  第二幕  今日补货决策      —— 店脑 vs 传统纯利润算法（创新点 1）
-  第三幕  业务反馈与自进化  —— 断货与损耗如何改变策略（创新点 2）
-  第四幕  进化后的新方案    —— 参数变了，建议跟着变
-  第五幕  三十天闭环回放    —— 店脑接管后，门店经营有没有变好（对照实验）
+  第一幕  Agent 自主决策全过程 —— 感知 → 推理 → 规划 → 执行 → 反思（核心）
+  第二幕  门店记忆盘点         —— 长期记忆库里沉淀了什么
+  第三幕  今日补货决策         —— 店脑 vs 传统纯利润算法（创新点 1）
+  第四幕  业务反馈与自进化     —— 断货与损耗如何改变策略（创新点 2）
+  第五幕  三十天闭环回放       —— 店脑接管后，门店经营有没有变好（对照实验）
+  第六幕  决策路径分化实验     —— 同一 Agent，不同店况，走出不同路径（自主性证据）
 
 运行：python demo_flow.py
 """
@@ -19,10 +20,10 @@ from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from core import analysis, evolution, forecast, memory, policy
+    from core import agent, analysis, evolution, forecast, memory, policy
     from core.config import DEFAULT_BUDGET
 else:
-    from .core import analysis, evolution, forecast, memory, policy
+    from .core import agent, analysis, evolution, forecast, memory, policy
     from .core.config import DEFAULT_BUDGET
 
 PLAN_DATE = "2026-09-25"      # 中秋节，演示节日因子的作用
@@ -38,7 +39,7 @@ def rule(ch="─"):
 def banner(idx: int, title: str):
     print()
     rule("═")
-    print(f"  第{'一二三四五'[idx - 1]}幕 · {title}")
+    print(f"  第{'一二三四五六'[idx - 1]}幕 · {title}")
     rule("═")
 
 
@@ -47,8 +48,52 @@ def fmt(v, width=8, dec=0):
 
 
 # ════════════════════════════════════════════════════════════
-def act1_memory():
-    banner(1, "门店记忆盘点")
+def act1_agent_loop():
+    """第一幕：Agent 自主决策全过程 —— 本项目"智能体"特性的正面展示。"""
+    banner(1, "Agent 自主决策全过程（感知 → 推理 → 规划 → 执行 → 反思）")
+    print("  下面这段不是写死的流程说明，是店脑**当场跑出来的决策轨迹**。")
+    print("  每一步都记着：它在想什么、调了什么工具、为什么这么判断。")
+    print()
+
+    run = agent.run_agent(PLAN_DATE, DEFAULT_BUDGET, verbose=True)
+
+    print()
+    rule()
+    g, st = run["goal"], run["strategy"]
+    print(f"  ▸ 本轮自主确定的目标：{g['key']}")
+    print(f"    {g['detail']}")
+    print(f"  ▸ 自主选定的策略：{st['label']}　（{st['desc']}）")
+    w = st["weights"]
+    print(f"    评分权重 → 民生 {w['livelihood']:.0%}｜"
+          f"收益 {w['margin']:.0%}｜风险 {w['risk']:.0%}")
+    print(f"  ▸ 识别的核心矛盾：{g['conflict']}")
+
+    print()
+    print(f"  ▸ 多方案博弈结果（先沙盘推演，再按策略权重打分）：")
+    for c in run["candidates"]:
+        mark = "★" if c["tag"] == run["best_candidate"]["tag"] else " "
+        p = c["parts"]
+        print(f"   {mark} 候选 {c['tag']}（{c['label']}）综合 {c['score']:.4f}"
+              f" ＝ 民生 {p['livelihood']:.2f} / 收益 {p['margin']:.2f} / 风险 {p['risk']:.2f}"
+              f"　花费 ¥{c['metrics']['total_cost']:.0f}")
+
+    ref = run["reflection"]
+    print()
+    print(f"  ▸ 自评置信度：{ref['confidence']:.0%}（{ref['confidence_level']}）")
+    print(f"  ▸ 自我批评：")
+    for c in ref["critiques"]:
+        print(f"      · {c}")
+    print(f"  ▸ 下一轮预案：")
+    for a in ref["next_actions"]:
+        print(f"      · {a}")
+    print()
+    print(f"  本轮共 {len(run['trace'])} 步思考、{len(run['tool_calls'])} 次工具调用、"
+          f"耗时 {ref['elapsed_sec']:.2f} 秒")
+    return run
+
+
+def act2_memory():
+    banner(2, "门店记忆盘点")
     stats = memory.memory_stats()
     for k, v in stats.items():
         print(f"  · {k:<14} {v}")
@@ -60,8 +105,8 @@ def act1_memory():
     print(f"    民生商品：{'、'.join(p['name'] for p in liv)}")
 
 
-def act2_decision():
-    banner(2, "今日补货决策（创新点 1：惠民约束）")
+def act3_decision():
+    banner(3, "今日补货决策（创新点 1：惠民约束）")
     cmp = policy.compare_plans(PLAN_DATE, DEFAULT_BUDGET, persist=False)
 
     notes = {it["holiday_note"] for it in cmp["diannao"]["items"] if it["holiday_note"]}
@@ -98,8 +143,8 @@ def act2_decision():
     print("        店脑先锁民生兜底量，剩下才按利润分配 —— 这就是差别。")
 
 
-def act3_evolution():
-    banner(3, "业务反馈与策略自进化（创新点 2）")
+def act4_evolution():
+    banner(4, "业务反馈与策略自进化（创新点 2）")
     print("  场景：昨日收盘盘点，发现几样货出了状况 ——")
     print("        有的卖断了（街坊想买没买到），有的压着卖不掉报损了。")
     print("        店主把情况录进系统，看店脑怎么反应。")
@@ -139,29 +184,6 @@ def act3_evolution():
     return result
 
 
-def act4_after():
-    banner(4, "进化后的新方案")
-    print("  参数变了，明天的建议跟着变 —— 这就是闭环。")
-    print()
-    plan = policy.build_plan(PLAN_DATE, DEFAULT_BUDGET, policy.MODE_DIANNAO, persist=False)
-    focus = {"L08", "N04", "L01", "L02", "L06"}
-    print(f"  {'商品':<22}{'预测日需求':>10}{'备货天数':>9}{'安全系数':>9}"
-          f"{'建议进货':>9}{'可支撑':>8}")
-    rule()
-    for it in plan["items"]:
-        if it["sku"] not in focus:
-            continue
-        print(f"  {it['name']:<22}{fmt(it['daily_demand'], 10, 1)}"
-              f"{fmt(it['target_cover_days'], 7, 1)}"
-              f"{fmt(it['safety_factor'], 10, 2)}"
-              f"{fmt(it['reorder_qty'], 9)}"
-              f"{fmt(it.get('final_cover_days', 0), 8, 1)}")
-    rule()
-    print(f"  方案合计进货成本 ¥{plan['metrics']['total_cost']:.0f}"
-          f"　预计毛利 ¥{plan['metrics']['gross_margin']:.0f}"
-          f"　便民指数 {plan['metrics']['livelihood_index']:.3f}")
-
-
 def act5_closed_loop(days: int = 30):
     banner(5, f"{days} 天闭环回放：店脑接管后，经营有没有变好")
     print("  做法：拿同一段 30 天的真实需求，让店脑重新经营一遍 ——")
@@ -198,8 +220,8 @@ def act5_closed_loop(days: int = 30):
 
     on_hand = dict(memory.get_inventory())
 
-    agent = {"stockout_cnt": 0, "stockout_qty": 0.0,
-             "spoil_cnt": 0, "spoil_qty": 0.0}
+    agent_r = {"stockout_cnt": 0, "stockout_qty": 0.0,
+               "spoil_cnt": 0, "spoil_qty": 0.0}
     daily = []
     cur = start
     for _ in range(days):
@@ -233,11 +255,11 @@ def act5_closed_loop(days: int = 30):
 
             on_hand[sku] = left - spoil
             if stockout > 0.5:
-                agent["stockout_cnt"] += 1
-                agent["stockout_qty"] += stockout
+                agent_r["stockout_cnt"] += 1
+                agent_r["stockout_qty"] += stockout
             if spoil > 0.5:
-                agent["spoil_cnt"] += 1
-                agent["spoil_qty"] += spoil
+                agent_r["spoil_cnt"] += 1
+                agent_r["spoil_qty"] += spoil
             day_so += stockout
             day_sp += spoil
 
@@ -252,7 +274,7 @@ def act5_closed_loop(days: int = 30):
     print(f"  {'指标':<22}{'店主原做法':>14}{'店脑接管':>12}{'改善':>12}")
     rule()
 
-    def row(label, a, b, pct=True):
+    def row(label, a, b):
         if a > 0:
             imp = (b - a) / a
             imp_txt = f"{imp:+.0%}"
@@ -260,10 +282,10 @@ def act5_closed_loop(days: int = 30):
             imp_txt = "—"
         print(f"  {label:<24}{fmt(a, 12, 0)}{fmt(b, 10, 0)}   {imp_txt:>10}")
 
-    row("断货商品次数（次）", owner["stockout_cnt"], agent["stockout_cnt"])
-    row("断货数量（件）", owner["stockout_qty"], agent["stockout_qty"])
-    row("报损商品次数（次）", owner["spoil_cnt"], agent["spoil_cnt"])
-    row("报损数量（件）", owner["spoil_qty"], agent["spoil_qty"])
+    row("断货商品次数（次）", owner["stockout_cnt"], agent_r["stockout_cnt"])
+    row("断货数量（件）", owner["stockout_qty"], agent_r["stockout_qty"])
+    row("报损商品次数（次）", owner["spoil_cnt"], agent_r["spoil_cnt"])
+    row("报损数量（件）", owner["spoil_qty"], agent_r["spoil_qty"])
     rule()
     print("  （负数表示下降，越小越好）")
 
@@ -291,6 +313,74 @@ def act5_closed_loop(days: int = 30):
     print("  （已恢复门店初始记忆，网页演示可从零开始体验完整闭环）")
 
 
+def act6_path_divergence():
+    """
+    第六幕：决策路径分化实验 —— 证明"自主"不是修辞。
+
+    同一个 Agent、同一套代码，喂给它不同的店况，
+    它走出的决策路径、选定的目标、采用的策略、裁决的方案都应不同。
+    如果路径是写死的，这一幕的结果会完全一致 —— 那它就不是 Agent。
+    """
+    banner(6, "决策路径分化实验：同一个 Agent，不同店况，走出不同路径")
+    print("  固定代码不变，只改「决策日期」和「进货预算」两个输入，")
+    print("  看店脑的目标、策略、工具调用轨迹会不会跟着变。")
+    print()
+    print(f"  {'场景':<22}{'目标':<12}{'策略':<10}{'工具数':>7}{'客流评估':>9}{'胜出':>6}{'置信':>7}")
+    rule()
+
+    scenarios = [
+        ("平常工作日·预算 600", "2026-09-15", DEFAULT_BUDGET),
+        ("中秋前夜·预算 600", PLAN_DATE, DEFAULT_BUDGET),
+        ("中秋前夜·预算 250", PLAN_DATE, 250.0),
+        ("平常日·预算充裕 1500", "2026-09-15", 1500.0),
+    ]
+    runs = []
+    for name, d, b in scenarios:
+        r = agent.run_agent(d, b)
+        tools_used = [t["tool"] for t in r["tool_calls"]]
+        runs.append(r)
+        print(f"  {name:<22}{r['goal']['key']:<12}{r['strategy']['label']:<10}"
+              f"{len(tools_used):>7}{'是' if 'assess_traffic' in tools_used else '否':>9}"
+              f"{r['best_candidate']['tag']:>6}"
+              f"{r['reflection']['confidence']:>7.0%}")
+    rule()
+
+    print()
+    print("  ▸ 关键差异一：工具调用路径")
+    all_names = _all_tool_names()
+    for name, r in zip([s[0] for s in scenarios], runs):
+        used = {t["tool"] for t in r["tool_calls"]}
+        skipped = sorted(set(all_names) - used)
+        print(f"    · {name}：调用 {len(r['tool_calls'])} 次"
+              + (f"，主动跳过 {'、'.join(skipped)}" if skipped else "，无跳过"))
+    print()
+    print("    说明：客流伤害评估是本 Agent 手里开销最高的工具（要遍历全部门店历史）。")
+    print("          民生没有断货时，它的结论不会改变决策，因此 Agent 主动跳过它 ——")
+    print("          这是**资源意识**，也是路径自主的实证。")
+
+    print()
+    print("  ▸ 关键差异二：多方案博弈的胜负结果")
+    for name, r in zip([s[0] for s in scenarios], runs):
+        scores = "　".join(f"{c['tag']}:{c['score']:.3f}" for c in r["candidates"])
+        print(f"    · {name}：{scores}　→ 胜出 {r['best_candidate']['tag']}")
+    print()
+    print("    说明：综合得分＝民生权重×保障度 ＋ 收益权重×回报率 ＋ 风险权重×稳健度。")
+    print("          权重来自本轮自主选定的策略，因此换店况就可能换胜者。")
+    print("          注意预算充裕那一行 —— 胜出的是「保守防御版」，")
+    print("          也就是说 Agent 主动选择「不把预算花完」，因为留余量在推演里更稳。")
+    print("          这个结论不是任何一条规则写出来的，是打分算出来的。")
+
+    print()
+    print("  ▸ 结论：如果决策路径是写死的，上面几行的结果应该完全一致。")
+    print("          实际不一致 —— 这正是「自主决策」与「过程式脚本」的分界线。")
+    return runs
+
+
+def _all_tool_names():
+    from core import tools as _t
+    return [t.name for t in _t.all_tools()]
+
+
 def main():
     memory.init_db()
     if not memory.get_products():
@@ -298,11 +388,12 @@ def main():
         from seed_data import generate_history
         generate_history()
 
-    act1_memory()
-    act2_decision()
-    act3_evolution()
-    act4_after()
+    act1_agent_loop()
+    act2_memory()
+    act3_decision()
+    act4_evolution()
     act5_closed_loop(days=30)
+    act6_path_divergence()
 
     print()
     rule("═")

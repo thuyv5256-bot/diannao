@@ -76,8 +76,15 @@ def capital_efficiency(p: dict) -> float:
     return unit_margin(p) / p["cost_price"]
 
 
-def _prepare_items(plan_date, policies: dict, products: list[dict]) -> tuple[list[dict], dict]:
-    """算出每个商品的补货需求，并单独标出民生商品的"兜底量"。"""
+def _prepare_items(plan_date, policies: dict, products: list[dict],
+                   day_scale: float = 1.0) -> tuple[list[dict], dict]:
+    """
+    算出每个商品的补货需求，并单独标出民生商品的"兜底量"。
+
+    day_scale：备货天数的整体缩放系数，用于构造不同风格的候选方案。
+      1.0  → 常规备货节奏
+      0.7  → 快周转：少进勤补，牺牲一点便利性换取更低的压货/过期风险
+    """
     forecasts = forecast.forecast_all(plan_date)
     inventory = memory.get_inventory()
 
@@ -94,7 +101,12 @@ def _prepare_items(plan_date, policies: dict, products: list[dict]) -> tuple[lis
         # 期望备货水平 = 基准备货天数 ×(1 + 安全库存系数)
         cover_days = base_days * (1.0 + safety)
 
+        # 方案风格缩放（快周转方案会把备货天数整体压下来）
+        cover_days *= day_scale
+
         # ── 惠民约束：民生商品的期望备货水平有下限（不许被压得太低）──
+        # 注意：这个下限不受 day_scale 影响 —— 快周转也不能快周转到
+        # 让街坊买不到米面油盐，这是本项目的硬底线。
         floor_day_applied = False
         if p["is_livelihood"] and cover_days < LIVELIHOOD_MIN_COVER_DAYS:
             cover_days = LIVELIHOOD_MIN_COVER_DAYS
@@ -289,19 +301,22 @@ def evaluate_plan(items: list[dict], meta: dict) -> dict:
 
 
 def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANNAO,
-               persist: bool = True) -> dict:
+               persist: bool = True, day_scale: float = 1.0) -> dict:
     """
     生成补货方案。
 
     mode = "diannao"   → 带惠民约束（本项目方案）
     mode = "baseline"  → 传统纯利润算法（对照组，用于体现差异）
+    day_scale          → 备货天数缩放系数，用于构造不同风格的候选方案
+                         （见 _prepare_items 的说明）
     """
     products = memory.get_products()
     policies = memory.get_all_policy()
 
-    items, prep = _prepare_items(plan_date, policies, products)
+    items, prep = _prepare_items(plan_date, policies, products, day_scale=day_scale)
     meta = _allocate(items, budget, protect_livelihood=(mode == MODE_DIANNAO))
     meta.update({k: v for k, v in prep.items() if k not in meta})
+    meta["day_scale"] = day_scale
     metrics = evaluate_plan(items, meta)
 
     if persist:

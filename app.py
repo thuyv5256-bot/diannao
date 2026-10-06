@@ -20,12 +20,12 @@ import plotly.graph_objects as go
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from core import analysis, evolution, forecast, memory, policy
+    from core import agent, analysis, evolution, forecast, memory, policy, tools
     from core.config import (
         CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
     )
 else:
-    from .core import analysis, evolution, forecast, memory, policy
+    from .core import agent, analysis, evolution, forecast, memory, policy, tools
     from .core.config import (
         CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
     )
@@ -69,6 +69,77 @@ table.dn tr:hover td { background:#fafbfc; }
 .good { background:#f3fbf5; border-left:4px solid #2c7a4b; padding:12px 16px;
         border-radius:6px; font-size:15px; color:#1f4a30; line-height:1.7; }
 h3 { color:#1f4e79 !important; }
+
+/* ── Agent 自主决策页专用样式 ───────────────────────── */
+.ag-loop { display:flex; gap:0; margin:0 0 18px; flex-wrap:wrap; }
+.ag-node { flex:1; min-width:140px; background:#f8f9fb; border:1px solid #e3e6eb;
+           border-radius:10px; padding:12px 14px; margin-right:8px; position:relative; }
+.ag-node.active { background:#eef4fb; border-color:#1f4e79; border-width:2px; }
+.ag-node.done   { background:#f3fbf5; border-color:#2c7a4b; }
+.ag-node .ic { font-size:20px; }
+.ag-node .nm { font-weight:700; color:#1f4e79; font-size:14px; margin:4px 0 2px; }
+.ag-node .ds { font-size:12px; color:#6b7a8d; line-height:1.5; }
+.ag-node .cnt { position:absolute; top:8px; right:10px; font-size:11px;
+                color:#8b98a8; background:#fff; border-radius:8px; padding:1px 7px; }
+
+.ag-step { border-left:3px solid #dfe4ea; padding:0 0 14px 18px; margin-left:8px;
+           position:relative; }
+.ag-step:last-child { padding-bottom:2px; }
+.ag-step::before { content:''; position:absolute; left:-7px; top:5px; width:11px;
+                   height:11px; border-radius:50%; background:#fff;
+                   border:2px solid #b9c3cf; }
+.ag-step.key::before  { border-color:#c0392b; background:#c0392b; }
+.ag-step.ok::before   { border-color:#2c7a4b; background:#2c7a4b; }
+.ag-step.warn::before { border-color:#e67e22; background:#e67e22; }
+.ag-step .ph { font-size:11px; font-weight:700; letter-spacing:.5px;
+               color:#8b98a8; text-transform:uppercase; }
+.ag-step .tt { font-weight:600; color:#2c3e50; font-size:15px; margin:1px 0 3px; }
+.ag-step .dt { font-size:13px; color:#5a6b7d; line-height:1.65; }
+.ag-step .cc { font-size:13px; color:#1f4e79; margin-top:4px; line-height:1.65;
+               background:#f6f9fc; border-radius:5px; padding:5px 9px; }
+.ag-step .cc b { color:#c0392b; }
+
+.ag-tool { font-family:'SF Mono',Consolas,monospace; font-size:12px;
+           background:#f4f6f9; border:1px solid #e3e6eb; border-radius:6px;
+           padding:8px 11px; margin-bottom:7px; }
+.ag-tool .tn { color:#1f4e79; font-weight:700; }
+.ag-tool .tc { color:#8b98a8; font-size:11px; }
+.ag-tool .tw { color:#5a6b7d; font-style:italic; }
+.ag-tool.err { background:#fdecea; border-color:#f5c6c0; }
+
+.ag-cand { border:1px solid #e3e6eb; border-radius:10px; padding:13px 15px;
+           margin-bottom:10px; background:#fff; }
+.ag-cand.win { border:2px solid #2c7a4b; background:#f3fbf5; }
+.ag-cand .hd { display:flex; justify-content:space-between; align-items:baseline;
+               margin-bottom:7px; }
+.ag-cand .nm { font-weight:700; color:#1f4e79; font-size:15px; }
+.ag-cand .sc { font-family:'SF Mono',Consolas,monospace; font-size:19px;
+               font-weight:700; color:#2c7a4b; }
+.ag-cand .bd { font-size:13px; color:#5a6b7d; line-height:1.7; }
+.ag-bar { display:inline-block; height:7px; border-radius:4px; background:#e3e6eb;
+          margin-right:6px; vertical-align:middle; }
+.ag-bar span { display:block; height:100%; border-radius:4px; }
+.ag-flag { display:inline-block; padding:2px 9px; border-radius:10px; font-size:12px;
+           font-weight:600; background:#e8f5e9; color:#2c7a4b; margin-left:6px; }
+.ag-score-box { background:#f8f9fb; border:1px solid #e8ebef; border-radius:10px;
+                padding:14px 18px; margin-bottom:14px; }
+.ag-score-box .big { font-size:34px; font-weight:700; color:#1f4e79; line-height:1.1; }
+.ag-score-box .lb { font-size:13px; color:#6b7a8d; margin-top:2px; }
+.ag-crit { background:#fffaf3; border-left:4px solid #e67e22; padding:11px 15px;
+           border-radius:6px; font-size:14px; color:#6b4a1f; line-height:1.75;
+           margin-bottom:9px; }
+.ag-next { background:#f6f9fc; border-left:4px solid #1f4e79; padding:11px 15px;
+           border-radius:6px; font-size:14px; color:#2c3e50; line-height:1.75;
+           margin-bottom:9px; }
+.ag-goal { background:linear-gradient(135deg,#1f4e79,#2e7d5b); color:#fff;
+           border-radius:12px; padding:16px 20px; margin-bottom:16px; }
+.ag-goal .t { font-size:13px; opacity:.85; letter-spacing:.5px; }
+.ag-goal .g { font-size:22px; font-weight:700; margin:3px 0 6px; }
+.ag-goal .d { font-size:14px; opacity:.92; line-height:1.6; }
+.ag-chips { margin-top:9px; }
+.ag-chip { display:inline-block; background:rgba(255,255,255,.18);
+           border:1px solid rgba(255,255,255,.35); border-radius:12px;
+           padding:3px 11px; font-size:12px; margin-right:7px; }
 """
 
 # Gradio 6.0 起 css/theme 从 Blocks() 挪到了 launch()，这里做版本兼容
@@ -234,6 +305,281 @@ def render_compare_html(cmp: dict) -> str:
 
 
 # ════════════════════════════════════════════════════════════
+# Agent 自主决策轨迹渲染
+# ════════════════════════════════════════════════════════════
+_PHASE_ICON = {"感知": "👁", "推理": "🧩", "规划": "🗺", "执行": "⚙️", "反思": "🪞"}
+
+
+def _count_by_phase(trace: list[dict]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for t in trace:
+        out[t["phase"]] = out.get(t["phase"], 0) + 1
+    return out
+
+
+def render_agent_loop_html(run: dict) -> str:
+    """渲染决策循环总览：五个阶段各自走了多少步。"""
+    cnt = _count_by_phase(run["trace"])
+    nodes = []
+    for ph in agent.PHASES:
+        n = cnt.get(ph["key"], 0)
+        cls = "done" if n > 0 else ""
+        nodes.append(f"""
+        <div class="ag-node {cls}">
+          <div class="cnt">{n} 步</div>
+          <div class="ic">{ph['icon']}</div>
+          <div class="nm">{ph['key']}</div>
+          <div class="ds">{ph['desc']}</div>
+        </div>""")
+    return f'<div class="ag-loop">{"".join(nodes)}</div>'
+
+
+def render_agent_goal_html(run: dict) -> str:
+    """渲染 Agent 本轮自主确定的目标与所选策略。"""
+    g = run["goal"]
+    st = run["strategy"]
+    dg = run["reasoning"]["diagnosis"]
+    w = st["weights"]
+    return f"""
+    <div class="ag-goal">
+      <div class="t">本轮自主确定的首要目标（由当前店况推导得出）</div>
+      <div class="g">🎯 {g['key']}</div>
+      <div class="d">{g['detail']}</div>
+      <div class="ag-chips">
+        <span class="ag-chip">策略：{st['label']}</span>
+        <span class="ag-chip">民生断货 {dg['livelihood_stockout']} 项</span>
+        <span class="ag-chip">高毛利断货 {dg['profit_stockout']} 项</span>
+        <span class="ag-chip">积压损耗 {dg['spoilage']} 项</span>
+      </div>
+      <div class="d" style="margin-top:9px;font-size:13px;opacity:.85">
+        ⚖ 识别的核心矛盾：{g['conflict']}
+      </div>
+      <div class="ag-chips">
+        <span class="ag-chip">民生权重 {w['livelihood']:.0%}</span>
+        <span class="ag-chip">收益权重 {w['margin']:.0%}</span>
+        <span class="ag-chip">风险权重 {w['risk']:.0%}</span>
+      </div>
+    </div>"""
+
+
+def render_agent_trace_html(run: dict) -> str:
+    """渲染完整思考链 —— 每一步都带依据与结论。"""
+    steps = []
+    for t in run["trace"]:
+        icon = _PHASE_ICON.get(t["phase"], "·")
+        dt = (f'<div class="dt">{t["detail"]}</div>') if t["detail"] else ""
+        cc = (f'<div class="cc">→ {t["conclusion"]}</div>'
+              if t["conclusion"] else "")
+        steps.append(f"""
+        <div class="ag-step {t['level']}">
+          <div class="ph">{icon} {t['phase']} · 第 {t['step']} 步</div>
+          <div class="tt">{t['title']}</div>
+          {dt}{cc}
+        </div>""")
+    ref = run["reflection"]
+    conf = ref["confidence"]
+    conf_color = "#2c7a4b" if conf >= 0.8 else ("#e67e22" if conf >= 0.6 else "#c0392b")
+    return f"""
+    <div class="ag-score-box">
+      <div class="big" style="color:{conf_color}">{conf:.0%}</div>
+      <div class="lb">本轮决策置信度（{ref['confidence_level']}）·
+        参考依据：{'；'.join(ref['confidence_reasons'])}</div>
+      <div class="lb" style="margin-top:7px">
+        共 {len(run['trace'])} 步思考 ·
+        {len(run['tool_calls'])} 次工具调用 ·
+        耗时 {ref['elapsed_sec']:.2f} 秒
+      </div>
+    </div>
+    <div class="dn-card">
+      <h3 style="margin-top:0">🧠 完整思考链</h3>
+      <div style="margin-top:14px">{''.join(steps)}</div>
+    </div>"""
+
+
+def render_agent_tools_html(run: dict) -> str:
+    """渲染工具调用轨迹，并展示这个 Agent 手里有哪些工具。"""
+    rows = []
+    for i, t in enumerate(run["tool_calls"], 1):
+        cls = "" if t["ok"] else "err"
+        args = "，".join(f"{k}={v}" for k, v in t["args"].items() if v not in ("", None))
+        rows.append(f"""
+        <div class="ag-tool {cls}">
+          <span class="tn">{i:02d} · {t['tool']}</span>
+          <span class="tc">[{t['category']}] · {t['cost_ms']:.0f}ms</span><br>
+          <span class="tw">为什么调它：{t['why']}</span>
+          {f'<br><span class="tc">参数：{args}</span>' if args else ''}
+          {f'<br>→ {t["conclusion"]}' if t["conclusion"] else ''}
+        </div>""")
+
+    cat_rows = []
+    for c in tools.tool_catalog():
+        color = {"感知": "#1f4e79", "分析": "#6b4c9a",
+                 "决策": "#c0392b", "行动": "#e67e22"}.get(c["category"], "#5a6b7d")
+        cat_rows.append(f"""
+        <tr><td><span class="badge" style="background:#eef1f4;color:{color}">
+              {c['category']}</span></td>
+            <td style="font-family:Consolas,monospace;font-size:13px">{c['name']}</td>
+            <td style="font-size:13px;color:#5a6b7d">{c['desc']}</td>
+            <td style="font-size:12px;color:#8b98a8">{c['cost']}</td></tr>""")
+
+    cov = len({t["tool"] for t in run["tool_calls"]})
+    tot = len(tools.all_tools())
+    return f"""
+    <div class="dn-card">
+      <h3 style="margin-top:0">🔧 本轮工具调用轨迹（按真实调用顺序）</h3>
+      <div style="font-size:13px;color:#6b7a8d;margin-bottom:12px">
+        Agent 不是把流程写死在代码里 —— 它每调一个工具，都要先说明「为什么调」。
+        换成别的店况，这条轨迹会不一样。
+      </div>
+      {''.join(rows)}
+    </div>
+    <div class="dn-card">
+      <h3 style="margin-top:0">🧰 Agent 的工具箱</h3>
+      <div style="font-size:13px;color:#6b7a8d;margin-bottom:12px">
+        它自主挑选调用，不是被动执行流水线。本轮用了 {cov} 个（工具箱共 {tot} 个）。
+      </div>
+      <table class="dn">
+        <tr><th>类别</th><th>工具名</th><th>作用</th><th>开销</th></tr>
+        {''.join(cat_rows)}
+      </table>
+    </div>"""
+
+
+def render_agent_candidates_html(run: dict) -> str:
+    """渲染多方案博弈：三套候选各自打分，为什么这套胜出。"""
+    cards = []
+    best_tag = run["best_candidate"]["tag"]
+    for c in run["candidates"]:
+        win = c["tag"] == best_tag
+        p = c["parts"]
+        m = c["metrics"]
+        sim = c["sim"]
+
+        def bar(v, color):
+            pct = max(2, int(v * 100))
+            return (f'<span class="ag-bar" style="width:76px">'
+                    f'<span style="width:{pct}%;background:{color}"></span></span>')
+
+        cards.append(f"""
+        <div class="ag-cand {'win' if win else ''}">
+          <div class="hd">
+            <div class="nm">候选 {c['tag']} · {c['label']}
+              {f'<span class="ag-flag">✔ 采纳</span>' if win else ''}</div>
+            <div class="sc">{c['score']:.4f}</div>
+          </div>
+          <div class="bd">
+            {bar(p['livelihood'], '#2c7a4b')} 民生保障 {p['livelihood']:.2f}
+            　{bar(p['margin'], '#1f4e79')} 门店收益 {p['margin']:.2f}
+            　{bar(p['risk'], '#e67e22')} 风险控制 {p['risk']:.2f}
+          </div>
+          <div class="bd" style="margin-top:7px">
+            花费 <b>{CURRENCY}{m['total_cost']:.0f}</b>　
+            民生保障度 <b>{m['livelihood_index']:.0%}</b>　
+            预计毛利 <b>{CURRENCY}{m['gross_margin']:.0f}</b>　
+            沙盘缺口 <b>{sim['risk_total']}</b> 项（民生 {len(sim['risk_livelihood'])}）　
+            压货风险 <b>{len(sim['overstock'])}</b> 项
+          </div>
+        </div>""")
+
+    worst = min(run["candidates"], key=lambda x: x["score"])
+    best = run["best_candidate"]
+
+    # 检测"惠民约束未生效"的情况：预算充裕到不需要取舍时，
+    # 惠民版与纯利润版的结果会自然趋同 —— 这不是 bug，是逻辑正确。
+    by_tag = {c["tag"]: c for c in run["candidates"]}
+    a, b = by_tag.get("A"), by_tag.get("B")
+    tie_note = ""
+    if a and b and abs(a["score"] - b["score"]) < 1e-6:
+        tie_note = f"""
+        <div class="note" style="margin-top:10px">
+          <b>为什么候选 A 和候选 B 得分一样？</b>
+          因为这一轮<b>预算充裕</b>（{CURRENCY}{run['budget']:.0f}）到足以覆盖全部商品的需求上限，
+          不需要在任何东西之间做取舍 —— 惠民约束自然就不触发，
+          两套算法的结果也就趋同了。<br>
+          这恰恰反过来说明一件事：<b>惠民约束不是无条件的补贴，而是预算紧张时的分配原则。</b>
+          把预算调低，两条路就会立刻分叉。
+        </div>"""
+    else:
+        tie_note = f"""
+        <div class="good" style="margin-top:10px">
+          🏆 <b>裁决：</b>采纳候选 {best['tag']}（{best['label']}），综合得分
+          {best['score']:.4f}，领先末位候选 {worst['tag']}（{worst['label']}）
+          {best['score'] - worst['score']:.4f} 分。<br>
+          这个结论不是写死的 —— 换一个店况、换一套策略权重，胜出的可能就是另一套方案。
+        </div>"""
+
+    return f"""
+    <div class="dn-card">
+      <h3 style="margin-top:0">⚖️ 多方案博弈：不是算一套，是裁决几套</h3>
+      <div style="font-size:13px;color:#6b7a8d;margin-bottom:14px">
+        每套候选方案都先做 3 天沙盘推演，再按本轮策略的权重打分。
+        Agent 不预设答案 —— 让方案在推演中自己胜出。
+      </div>
+      {''.join(cards)}
+      {tie_note}
+    </div>"""
+
+
+def render_agent_reflect_html(run: dict) -> str:
+    """渲染自我反思：置信度、自我批评、下一轮预案。"""
+    ref = run["reflection"]
+    crit = "".join(f'<div class="ag-crit">💬 {c}</div>' for c in ref["critiques"])
+    nxt = "".join(f'<div class="ag-next">▸ {a}</div>' for a in ref["next_actions"])
+    return f"""
+    <div class="dn-card">
+      <h3 style="margin-top:0">🪞 自我反思</h3>
+      <div style="font-size:13px;color:#6b7a8d;margin-bottom:12px">
+        Agent 跑完一轮不直接结束 —— 它会回头审视自己这一轮哪里做得不够，
+        并给下一轮留预案。这是它和固定脚本最本质的区别。
+      </div>
+      <h4 style="color:#e67e22;margin:14px 0 8px">对自己这一轮的批评</h4>
+      {crit}
+      <h4 style="color:#1f4e79;margin:16px 0 8px">给下一轮的预案</h4>
+      {nxt}
+    </div>"""
+
+
+def render_agent_chart(run: dict):
+    """多方案打分对比柱状图。"""
+    names = [f"候选 {c['tag']}｜{c['label']}" for c in run["candidates"]]
+    liv = [c["parts"]["livelihood"] for c in run["candidates"]]
+    mar = [c["parts"]["margin"] for c in run["candidates"]]
+    rsk = [c["parts"]["risk"] for c in run["candidates"]]
+    tot = [c["score"] for c in run["candidates"]]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=names, y=liv, name="民生保障", marker_color="#2c7a4b"))
+    fig.add_trace(go.Bar(x=names, y=mar, name="门店收益", marker_color="#1f4e79"))
+    fig.add_trace(go.Bar(x=names, y=rsk, name="风险控制", marker_color="#e67e22"))
+    fig.add_trace(go.Scatter(
+        x=names, y=tot, name="综合得分", mode="lines+markers+text",
+        text=[f"{v:.3f}" for v in tot], textposition="top center",
+        line=dict(color="#c0392b", width=3), marker=dict(size=11),
+    ))
+    fig.update_layout(
+        height=400, template="plotly_white", barmode="group",
+        paper_bgcolor="#fff", plot_bgcolor="#fff",
+        title=dict(text="候选方案三维度得分与综合裁决", font=dict(size=17, color="#1f4e79")),
+        xaxis=dict(gridcolor="#eef1f4"),
+        yaxis=dict(title=dict(text="归一化得分（0~1）"), gridcolor="#eef1f4", range=[0, 1.15]),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=60, r=30, t=80, b=50),
+    )
+    return fig
+
+
+def render_agent_html(run: dict) -> str:
+    """Agent 页面的完整渲染（除图表外）。"""
+    return f"""
+    {_hero(f"Agent 自主决策 · {run['date']} · 预算 {CURRENCY}{run['budget']:.0f}　|　"
+           f"目标「{run['goal']['key']}」· 策略「{run['strategy']['label']}」")}
+    {render_agent_loop_html(run)}
+    {render_agent_goal_html(run)}
+    {render_agent_trace_html(run)}
+    """
+
+
+# ════════════════════════════════════════════════════════════
 # 交互逻辑
 # ════════════════════════════════════════════════════════════
 def do_plan(date_str: str, budget: float):
@@ -256,6 +602,22 @@ def do_compare(date_str: str, budget: float):
     budget = float(budget or DEFAULT_BUDGET)
     cmp = policy.compare_plans(d, budget, persist=False)
     return render_compare_html(cmp)
+
+
+def do_agent(date_str: str, budget: float):
+    """跑一轮完整的 Agent 自主决策循环，返回轨迹相关的四个输出。"""
+    try:
+        d = str(date_str).strip()
+        date.fromisoformat(d)
+    except Exception:
+        err = "<div class='note'>日期格式不对，请填写类似 2026-09-25 的格式。</div>"
+        return err, "", "", None
+    budget = float(budget or DEFAULT_BUDGET)
+    run = agent.run_agent(d, budget, persist=False)
+    return (render_agent_html(run),
+            render_agent_tools_html(run),
+            render_agent_candidates_html(run) + render_agent_reflect_html(run),
+            render_agent_chart(run))
 
 
 def load_feedback_template():
@@ -584,10 +946,13 @@ def render_about_html() -> str:
     <div class="dn-card">
       <h3 style="margin-top:0">三个创新点</h3>
       <p style="font-size:15px;color:#42546b;line-height:1.9">
-      <b>① 带惠民约束的决策逻辑。</b>
-      区别于只追求利润最大化的库存算法，本 Agent 增设民生商品约束模块：
-      对低毛利刚需日用品设置备货优先级，避免店主单纯逐利砍掉便民货品，
-      兼顾商户收益与社区公共便民价值。见「今日该进什么货 → 两种算法对比」。
+      <b>① 带惠民约束的自主决策 Agent。</b>
+      不是把「预测 + 分配」打包成函数就叫 Agent —— 那种代码调用顺序写死在源码里，
+      不管门店什么状况都走同一条路。店脑实现的是一条显式的
+      <b>感知 → 推理 → 规划 → 执行 → 反思</b> 决策循环：它自己盘点店况、
+      诊断问题、确定本轮目标、从 13 个工具里挑选用哪些（并主动跳过用不上的）、
+      生成多套候选方案做沙盘推演后裁决、最后反思自己哪里没做好。
+      <b>换一个店况，整条路径都会不一样</b> —— 见「🤖 Agent 自主决策」。
       </p>
       <p style="font-size:15px;color:#42546b;line-height:1.9">
       <b>② 可落地的长期记忆与策略自进化闭环。</b>
@@ -599,17 +964,27 @@ def render_about_html() -> str:
       <p style="font-size:15px;color:#42546b;line-height:1.9">
       <b>③ 面向弱势群体小商户的轻量化普惠方案。</b>
       无需专业硬件、无需数据分析基础，浏览器打开即用，
-      降低小微企业使用人工智能的门槛。
+      降低小微企业使用人工智能的门槛。Agent 的每一步思考都用店主听得懂的话写在界面上，
+      不出现"安全库存系数"这类术语 —— 可解释才能被信任。
       </p>
     </div>
     <div class="dn-card">
       <h3 style="margin-top:0">技术实现</h3>
       <table class="dn">
         <tr><th>模块</th><th>做法</th></tr>
+        <tr><td>Agent 决策循环</td>
+            <td><code>core/agent.py</code>：感知 → 推理 → 规划 → 执行 → 反思五阶段循环；
+                目标由店况推导而非写死；记录完整思考链与工具调用轨迹</td></tr>
+        <tr><td>Agent 工具层</td>
+            <td><code>core/tools.py</code>：13 个原子工具，分感知 / 分析 / 决策 / 行动四类；
+                Agent 自主决定调用哪些、跳过哪些（含资源意识）</td></tr>
+        <tr><td>多方案博弈</td>
+            <td>每轮生成 3 套候选方案，逐套做 3 天沙盘推演，按本轮策略权重打分后裁决；
+                权重随店况在 4 种策略间自主切换</td></tr>
         <tr><td>长期记忆库</td><td>SQLite 持久化商品档案 / 销量事件 / 策略参数 / 进化轨迹</td></tr>
         <tr><td>需求预测</td><td>指数衰减加权移动平均 × 星期效应 × 节日因子；
             关键细节：把断货日的销量还原为<b>潜在需求</b>再学习</td></tr>
-        <tr><td>惠民约束</td><td>三层分配：民生兜底锁定 → 剩余预算按资金效率竞争 → 极端不足时按客流价值保底</td></tr>
+        <tr><td>三层惠民约束</td><td>民生兜底锁定 → 剩余预算按资金效率竞争 → 极端不足时按客流价值保底</td></tr>
         <tr><td>策略自进化</td><td>断货↑安全库存 / 积压↓进货量；带硬边界、步长上限、阈值触发，防震荡</td></tr>
         <tr><td>交互界面</td><td>Gradio 网页端，普通浏览器即可使用</td></tr>
       </table>
@@ -633,7 +1008,35 @@ def build_app():
     with gr.Blocks(**_BLOCKS_KW) as demo:
 
         with gr.Tabs():
-            # ── Tab 1 ──
+            # ── Tab 1：Agent 自主决策（核心）──
+            with gr.Tab("🤖 Agent 自主决策"):
+                gr.Markdown(
+                    "这里展示的是店脑 **真正跑过的决策过程**，不是事后补的说明文字。"
+                    "它会自己盘点店况、诊断问题、确定目标、挑选用哪些分析工具、"
+                    "生成多套方案做沙盘推演后裁决，最后还会反思自己哪里没做好。"
+                    "**换一个经营状况，它的整条路径都会不一样。**"
+                )
+                with gr.Row():
+                    ag_date = gr.Textbox(value=DEFAULT_PLAN_DATE, label="决策日期",
+                                         scale=2, info="格式：2026-09-25")
+                    ag_budget = gr.Number(value=DEFAULT_BUDGET, label="进货预算（元）",
+                                          scale=2)
+                    btn_agent = gr.Button("🚀 让店脑自己想一想", variant="primary", scale=1)
+                with gr.Row():
+                    ag_preset = gr.Button("📅 中秋节前夜（民生断货）", size="sm")
+                    ag_preset2 = gr.Button("📆 平常工作日（店况平稳）", size="sm")
+                    ag_preset3 = gr.Button("💰 预算收紧到 250 元", size="sm")
+                    ag_preset4 = gr.Button("🏦 预算充裕 1500 元（会换方案）", size="sm")
+
+                # 打开即有内容：先跑一轮，不让店主面对空白页
+                _default_run = agent.run_agent(DEFAULT_PLAN_DATE, DEFAULT_BUDGET)
+                ag_loop = gr.HTML(render_agent_html(_default_run))
+                ag_tools = gr.HTML(render_agent_tools_html(_default_run))
+                ag_detail = gr.HTML(render_agent_candidates_html(_default_run)
+                                    + render_agent_reflect_html(_default_run))
+                ag_chart = gr.Plot(render_agent_chart(_default_run))
+
+            # ── Tab 2 ──
             with gr.Tab("📋 今天该进什么货"):
                 with gr.Row():
                     date_in = gr.Textbox(value=DEFAULT_PLAN_DATE, label="进货日期",
@@ -646,7 +1049,7 @@ def build_app():
                     policy.build_plan(DEFAULT_PLAN_DATE, DEFAULT_BUDGET,
                                       policy.MODE_DIANNAO, persist=False)))
 
-            # ── Tab 2 ──
+            # ── Tab 3 ──
             with gr.Tab("✍️ 今天生意怎么样"):
                 gr.Markdown(
                     "把今天实际卖了多少、有没有断货、有没有坏货填进来。"
@@ -667,7 +1070,7 @@ def build_app():
                 fb_out = gr.HTML()
                 evo_out = gr.HTML(render_evolution_html())
 
-            # ── Tab 3 ──
+            # ── Tab 4 ──
             with gr.Tab("🧠 它学会了什么"):
                 gr.Markdown("这里能看到店脑每一次自我调整的来龙去脉 —— "
                             "**为什么改、改了多少、改成什么样**。"
@@ -682,18 +1085,33 @@ def build_app():
                 evo_chart = gr.Plot(evolution_chart(default_sku))
                 evo_log = gr.HTML(render_evolution_html())
 
-            # ── Tab 4 ──
+            # ── Tab 5 ──
             with gr.Tab("📚 店里的老账本"):
                 mem_html = gr.HTML(render_memory_html())
                 btn_mem_refresh = gr.Button("↻ 刷新")
                 gr.Markdown("---")
                 gr.HTML(render_analysis_html())
 
-            # ── Tab 5 ──
+            # ── Tab 6 ──
             with gr.Tab("ℹ️ 项目说明"):
                 gr.HTML(render_about_html())
 
         # ── 事件绑定统一放在末尾，便于跨标签页联动 ──
+        ag_outputs = [ag_loop, ag_tools, ag_detail, ag_chart]
+        btn_agent.click(do_agent, [ag_date, ag_budget], ag_outputs)
+        ag_preset.click(lambda: ("2026-09-25", DEFAULT_BUDGET), None,
+                        [ag_date, ag_budget]).then(
+            do_agent, [ag_date, ag_budget], ag_outputs)
+        ag_preset2.click(lambda: ("2026-09-15", DEFAULT_BUDGET), None,
+                         [ag_date, ag_budget]).then(
+            do_agent, [ag_date, ag_budget], ag_outputs)
+        ag_preset3.click(lambda: ("2026-09-25", 250.0), None,
+                         [ag_date, ag_budget]).then(
+            do_agent, [ag_date, ag_budget], ag_outputs)
+        ag_preset4.click(lambda: ("2026-09-15", 1500.0), None,
+                         [ag_date, ag_budget]).then(
+            do_agent, [ag_date, ag_budget], ag_outputs)
+
         btn_plan.click(do_plan, [date_in, budget_in], plan_out)
         btn_cmp.click(do_compare, [date_in, budget_in], plan_out)
         btn_tpl.click(load_feedback_template, None, fb_df)
