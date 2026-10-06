@@ -11,6 +11,16 @@
 
 ---
 
+## 核心界面：Agent 的决策循环是看得见的
+
+![决策循环总览](shot_agent_loop.png)
+
+每一步思考都带阶段标签、依据与结论，店主能一路追问"为什么是这个数"。
+
+![完整思考链](shot_agent_trace.png)
+
+---
+
 ## 一、快速开始
 
 **在线体验（免安装）：** https://diannao-replenish.app.workbuddy.host/
