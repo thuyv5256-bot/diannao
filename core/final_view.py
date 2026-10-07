@@ -175,7 +175,7 @@ def render_html():
     budget = d.get('budget')
     budget_txt = ("¥%.0f" % float(budget)) if budget is not None else "—"
     head = ('<div class="xm-page"><div class="xm-h1">小满</div>'
-            '<div class="xm-sm" style="margin-top:6px">面向社区小店的自进化智能补货 Agent</div>'
+            '<div class="xm-sm" style="margin-top:6px">面向社区小店的智能补货 Agent</div>'
             '<div class="xm-cap" style="margin-top:6px">180 天社区小店数字经营仿真实验　'
             '固定随机种子 %s　每日预算 %s　统一指标口径</div></div>' % (seed, budget_txt))
     cred = ('<div class="xm-chips">%s</div>' % "".join(

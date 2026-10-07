@@ -6,11 +6,11 @@
   "n_days": 180,
   "budget": 1800.0,
   "seed": 42,
-  "initial_inventory_rule": "base_daily_demand × 3.0 天（向上取整）",
+  "initial_inventory_rule": "base_daily_demand × 3.0 天（向上取整），统一作为仿真起始日批次（无真实采购历史年龄）",
   "strategies": [
     {
       "key": "diannao",
-      "label": "店脑 R³（完整）",
+      "label": "小满 R³（完整）",
       "mode": "diannao",
       "use_memory": true,
       "use_events": true,

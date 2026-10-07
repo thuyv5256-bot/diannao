@@ -49,6 +49,17 @@ def available() -> bool:
     return _HAS_SCIPY
 
 
+def unavailable_reason() -> str:
+    """不可用原因（供启动自检与测试断言使用，避免静默降级成黑盒）。"""
+    if _HAS_SCIPY:
+        return ""
+    return (
+        "scipy.optimize.milp 不可用：已回退规则/贪心，"
+        "补货数字仍然可算，但不再是 MILP 整数最优解。"
+        "安装冻结依赖可修复：pip install -r requirements-lock.txt"
+    )
+
+
 def _pack(it: dict) -> int:
     return max(1, int(it.get("pack_size") or 1))
 

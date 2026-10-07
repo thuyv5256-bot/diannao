@@ -55,9 +55,50 @@ def money(v):
 
 
 def main():
+    # 沙箱隔离：180 天长期实验会逐日调用 process_feedback / apply_sales_only，
+    # 虽然 simulator 内部已切到临时库，但 eval_core 的重演路径仍可能触及正式库。
+    # 这里再包一层保险：全程只在正式库的临时副本上运行，结束后删除。
+    import shutil
+    import tempfile
+    from pathlib import Path
+    _sandbox_on = "--real-db" not in sys.argv
+    _tmp = None
+    if _sandbox_on:
+        from core import config as _cfg
+        from core import memory as _mem
+        _tmp = Path(tempfile.gettempdir()) / "diannao_digital_store_sandbox.db"
+        for _sfx in ("", "-wal", "-shm"):
+            _p = Path(str(_tmp) + _sfx)
+            if _p.exists():
+                _p.unlink()
+        _src = Path(_cfg.DB_PATH)
+        if _src.exists():
+            shutil.copy2(_src, _tmp)
+        _mem.DB_PATH = str(_tmp)
+        print("  （沙箱模式：180 天实验在临时副本上进行，正式记忆库不受影响）")
+
+    try:
+        return _run(args_budget=sys.argv[1] if len(sys.argv) > 1 else None,
+                    args_seed=sys.argv[2] if len(sys.argv) > 2 else None)
+    finally:
+        if _sandbox_on and _tmp is not None:
+            from core import config as _cfg
+            from core import memory as _mem
+            _mem.DB_PATH = _cfg.DB_PATH              # 还原
+            for _sfx in ("", "-wal", "-shm"):
+                _p = Path(str(_tmp) + _sfx)
+                if _p.exists():
+                    try:
+                        _p.unlink()
+                    except Exception:
+                        pass
+            print("  （沙箱已清理，正式记忆库全程未被改动）")
+
+
+def _run(args_budget=None, args_seed=None):
     _setup_console()
-    budget = float(sys.argv[1]) if len(sys.argv) > 1 else simulator.DEFAULT_SIM_BUDGET
-    seed = int(sys.argv[2]) if len(sys.argv) > 2 else simulator.DEFAULT_SEED
+    budget = float(args_budget) if args_budget else simulator.DEFAULT_SIM_BUDGET
+    seed = int(args_seed) if args_seed else simulator.DEFAULT_SEED
 
     rule("═")
     print(f"  小满 · Digital Store 180 天长期实验")

@@ -11,14 +11,14 @@ ABOUT_CSS = ""
 
 def render_about():
     hero = ('<div class="xm-page">'
-            '<div class="xm-h1">小满 · 社区小店智能补货助手</div>'
-            '<div class="xm-sm" style="margin-top:6px">面向社区小店的自进化智能补货 Agent</div>'
+            '<div class="xm-h1">小满 · 智能补货</div>'
+            '<div class="xm-sm" style="margin-top:6px">面向社区小店的智能补货 Agent</div>'
             '</div>')
     problem = ('<div class="xm-sec"><div class="xm-sec-title">小满解决什么问题</div>'
                '<div class="xm-callout">社区夫妻小店缺少专业数据分析能力，补货依赖经验，'
                '容易出现积压损耗或刚需商品断货。</div></div>')
     caps = [
-        ("会算", "根据真实销量、库存和经营事件，给出今天的补货建议。"),
+        ("会算", "根据真实销量、库存和经营事件，给出这个决策日的补货建议。"),
         ("会记", "从每天的真实经营反馈中，积累这家店自己的经验。"),
         ("会权衡", "不只考虑利润，也考虑库存风险和民生商品保障。"),
     ]
@@ -37,4 +37,33 @@ def render_about():
     body = ''.join('<tr><td><b>%s</b></td><td>%s</td></tr>' % (m, d) for m, d in rows)
     tech = ('<div class="xm-sec"><div class="xm-sec-title">技术实现</div>'
             '<table class="xm-table"><tr><th>模块</th><th>做法</th></tr>%s</table></div>' % body)
-    return hero + problem + how + tech
+
+    # ── 数据与设计边界（诚实披露，避免越界宣称）──
+    limits = [
+        ("演示用的是仿真数据",
+         "180 天社区小店数字经营仿真数据，不是现实商户的POS 采集数据。"
+         "原始 CSV 记录逐日销量与天气事件，<b>不包含真实断货 / 报损标签</b>。"),
+        ("缺货如何产生",
+         "统一模拟器在相同潜在需求下，由各算法自己的库存状态反推："
+         "卖出 = min(潜在需求, 可售库存)，未满足 = 潜在需求 − 卖出。"
+         "库存与损耗由批次 FEFO 与保质期逐日推演，不是采集值。"),
+        ("结论的适用范围",
+         "未满足需求降低 61.27%、民生 unmet 降低 73.02%、经营毛利提高 4.90%，"
+         "是在<b>完全相同的模拟条件</b>下与传统补货方法的对照结果，"
+         "属模拟实验，<b>不是</b>已在真实门店的实地验证。"),
+        ("AI 影响幅度是安全边界",
+         "实测高温场景需求乘数 1.40、春节 1.80，均为当前上限。"
+         "大模型负责判断风险方向与强弱，超过可信范围的影响由系统截断，"
+         "最终补货数量仍只由预测与 R³ 决定 —— 宁可保守，也不允许模型放大需求。"),
+        ("部署形态",
+         "面向单个社区小店的本地 / 轻量 Web 原型：数据存在本机，"
+         "没有多租户隔离与生产级高可用设计。"),
+    ]
+    limits_html = (
+        '<div class="xm-sec"><div class="xm-sec-title">数据与设计边界</div>'
+        '<div class="xm-note" style="margin-bottom:10px">'
+        '以下是这个系统<b>做不到</b>的事，先说清楚比事后解释更可靠。</div>'
+        '<table class="xm-table"><tr><th>边界</th><th>说明</th></tr>%s</table></div>'
+        % ''.join('<tr><td><b>%s</b></td><td>%s</td></tr>' % (k, v)
+                  for k, v in limits))
+    return hero + problem + how + tech + limits_html

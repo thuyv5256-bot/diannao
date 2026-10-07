@@ -40,6 +40,20 @@ def render_head() -> str:
             '<div class="xm-h1">它学会了什么</div>'
             '<div class="xm-sm" style="margin-top:6px">'
             '小满会从每天真实经营结果里，慢慢记住这家店的规律。</div>'
+            '%s'
+            '</div>' % render_demo_notice())
+
+
+def render_demo_notice() -> str:
+    """演示数据标识：明确告知这些经验来自模拟经营历史，非现实商户采集。
+
+    数据来源是 seed_demo_history.py 写入的「演示门店 · 模拟经营历史」，
+    经验本身由 core/evolution.py 的正常业务逻辑生成 —— 这里只做来源标注。
+    """
+    return ('<div class="xm-callout" style="margin-top:10px">'
+            '<b>演示门店 · 模拟经营历史</b>　'
+            '本页经验来自项目自带的仿真数据集，用于演示小满的学习闭环，'
+            '并非现实门店采集的数据。'
             '</div>')
 
 

@@ -406,6 +406,11 @@ def _simulate_strategy(spec: dict, gt: dict, budget: float, seed: int,
             })
 
             # ⑥ 经营反馈写回：销量/断货/报损入 sales（供次日预测），记忆学习按策略开关
+            #    安全前提：本函数运行在 _fresh_db() 创建的**隔离临时库**上
+            #    （见本函数开头的 memory.DB_PATH 切换与 finally 里的unlink），
+            #    因此这里的写入只影响本次重演，不会污染正式 store_memory.db。
+            #    切勿为了「统一风格」改成 persist=False —— 那会让次日预测拿不到销量，
+            #    仿真结果彻底失真。
             evolution.apply_sales_only(day, feedback)
             if spec["use_memory"]:
                 plan_context = {it["sku"]: {"forecast_qty": it["daily_demand"],

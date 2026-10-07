@@ -48,6 +48,11 @@ def render_head() -> str:
             '<div class="xm-h1">店里的老账本</div>'
             '<div class="xm-sm" style="margin-top:6px">'
             '小满长期记住的商品、经营事件和店铺规律都在这里。</div>'
+            '<div class="xm-callout" style="margin-top:10px">'
+            '<b>演示门店 · 模拟经营历史</b>　'
+            '本账本记录来自项目自带的 180 天仿真经营数据集，'
+            '用于演示小满的长期记忆能力，并非现实门店采集的数据。'
+            '</div>'
             '</div>')
 
 

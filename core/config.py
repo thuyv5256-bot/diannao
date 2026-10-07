@@ -34,7 +34,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "store_memory.db"
 
 APP_NAME = "小满"
-APP_SUBTITLE = "面向社区小店的自进化智能补货 Agent"
+APP_FULL_NAME = "小满·智能补货"
+APP_SUBTITLE = "面向社区小店的智能补货 Agent"
 APP_SLOGAN = "货架不空，库存不满，让每一次进货都恰到好处。"
 
 # ── 经营默认参数 ──────────────────────────────────────────

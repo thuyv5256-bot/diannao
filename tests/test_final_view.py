@@ -22,7 +22,7 @@ def test_render_has_four_sections_and_brand():
         pytest.skip("eval/final 不存在")
     html = final_view.render_html()
     assert '小满' in html
-    assert '面向社区小店的自进化智能补货 Agent' in html
+    assert '面向社区小店的智能补货 Agent' in html
     for s in ('① 小满 vs Traditional', '② R³ 三目标如何改变经营取舍', '③ 经营经验真的会影响后续决策吗？', '④ 损耗控制 A/B'):
         assert s in html
     assert '结果可复现' in html

@@ -1,14 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-小满 · 可选的 LLM 说明层
+小满 · 大模型接入层（含可选的人话解释层）
 
-设计定位（答辩点）：核心补货决策是确定性规则（可解释、零成本、不宕机），
-LLM 只做"把方案翻译成人话"与"问答"的外层 —— 可失败、可降级，
-失败时回退到规则模板文案，绝不影响补货建议本身。
+═══ 分层定位（重要，答辩讲这个）═══
 
-默认对接 OpenAI 兼容的 /chat/completions 接口，因此
-OpenAI / DeepSeek / 通义 DashScope(兼容模式) / 本地 vLLM 都能直接用，
-只需改环境变量（见 .env.example）。未配置密钥时自动走规则模板，无需改动即可运行。
+    第一层  决策数值：预测 → R³ 优化 → 补货数量
+            由确定性规则算出（policy.py / forecast.py / r3_optimizer.py），
+            **可复现、可审计、零成本、不宕机**。
+
+    第二层  AI 决策中枢：事件语义理解 + 业务洞察
+            由大模型参与 —— 它读懂店主的自然语言描述、做事件分级、
+            给出风险识别与经营建议，产出**结构化参数**。
+            见 ai_events.py / ai_insight.py。
+
+    第三层  人话解释：把方案翻译成店主听得懂的话（本文件的 explain_plan 等）
+
+═══ 为什么数值不放给大模型 ═══
+补货是要真金白银花钱的决策，必须可复现、可审计、可追责。
+让模型算数量，同一份输入两次可能给两个答案，出了问题无法定位。
+所以：**模型负责"理解与判断"，规则负责"算数与执行"**。
+模型不可用时（无 Key / 断网 / 超时），全部降级到规则路径，功能不降级。
 
 依赖说明：只用标准库 urllib，不引入 requests / openai 等额外依赖。
 """
@@ -33,6 +44,13 @@ def is_enabled() -> bool:
 
 def _chat(messages: list[dict], temperature: float = 0.3, max_tokens: int = 500) -> str:
     """调用 OpenAI 兼容的 chat/completions 接口（标准库实现，零额外依赖）。"""
+    return _post(messages, temperature=temperature, max_tokens=max_tokens,
+                 json_mode=False)
+
+
+def _post(messages: list[dict], temperature: float = 0.3, max_tokens: int = 500,
+          json_mode: bool = False) -> str:
+    """底层请求：可选 JSON 响应模式（OpenAI 兼容接口的 response_format）。"""
     url = LLM_BASE_URL.rstrip("/") + "/chat/completions"
     payload = {
         "model": LLM_MODEL,
@@ -41,12 +59,71 @@ def _chat(messages: list[dict], temperature: float = 0.3, max_tokens: int = 500)
         "max_tokens": max_tokens,
         "stream": False,
     }
+    if json_mode:
+        # 老服务端不认这个字段会报 400，因此失败时由 _chat_json 兜底重试
+        payload["response_format"] = {"type": "json_object"}
     req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("Authorization", f"Bearer {LLM_API_KEY}")
     with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
         body = json.loads(resp.read().decode("utf-8"))
     return body["choices"][0]["message"]["content"].strip()
+
+
+def _extract_json(text: str):
+    """从模型输出里抠出 JSON 对象。
+
+    模型即使被要求「只输出 JSON」，也常带 ```json 围栏或前后寒暄，
+    这里做纯文本级容错，不引入任何依赖。
+    """
+    if not text:
+        return None
+    s = text.strip()
+    # 去掉 ```json ... ``` 围栏
+    if s.startswith("```"):
+        s = s.split("\n", 1)[-1] if "\n" in s else s
+        if s.endswith("```"):
+            s = s[: -3]
+        s = s.strip()
+        if s.startswith("json"):
+            s = s[4:].strip()
+    # 直接解析
+    try:
+        return json.loads(s)
+    except Exception:
+        pass
+    # 退而求其次：截取最外层大括号
+    start, end = s.find("{"), s.rfind("}")
+    if start != -1 and end > start:
+        try:
+            return json.loads(s[start:end + 1])
+        except Exception:
+            return None
+    return None
+
+
+def chat_json(system: str, user: str, max_tokens: int = 800,
+              temperature: float = 0.2) -> dict | None:
+    """要求模型返回 JSON 对象；任何环节失败都返回 None（调用方负责降级）。
+
+    这是 AI 决策中枢（ai_events / ai_insight）的公共底座：
+    模型只负责产出**结构化参数**，不负责算数，也不直接决定补货数量。
+    """
+    if not is_enabled():
+        return None
+    msgs = [{"role": "system", "content": system},
+            {"role": "user", "content": user}]
+    # 第一次带 json_object；服务端不支持该字段时去掉重试一次
+    for use_json_mode in (True, False):
+        try:
+            raw = _post(msgs, temperature=temperature,
+                        max_tokens=max_tokens, json_mode=use_json_mode)
+        except Exception:
+            continue
+        data = _extract_json(raw)
+        if isinstance(data, dict):
+            return data
+    return None
 
 
 def _summarize(plan: dict) -> str:

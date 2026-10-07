@@ -114,7 +114,8 @@ def act3_evolution():
                 "sku": p["sku"], "qty_sold": r["qty_sold"],
                 "qty_stockout": r["qty_stockout"], "qty_spoilage": r["qty_spoilage"],
             })
-    result = evolution.process_feedback(LAST_HISTORY_DAY, feedback)
+    # 演示脚本不得污染正式 Memory 库：显式 persist=False
+    result = evolution.process_feedback(LAST_HISTORY_DAY, feedback, persist=False)
     changes = result["changes"]
 
     if not changes:
@@ -242,7 +243,8 @@ def act5_closed_loop(days: int = 30):
             feedback.append({"sku": sku, "qty_sold": sold,
                              "qty_stockout": stockout, "qty_spoilage": spoil})
 
-        evolution.process_feedback(day, feedback)
+        # 演示脚本不得污染正式 Memory 库：显式 persist=False
+        evolution.process_feedback(day, feedback, persist=False)
         daily.append({"day": day, "so": day_so, "sp": day_sp})
         cur += timedelta(days=1)
 
@@ -291,17 +293,54 @@ def act5_closed_loop(days: int = 30):
 
 
 def main():
-    memory.init_db()
-    if not memory.get_products():
-        print("首次运行，正在生成门店历史数据 ...")
-        from seed_data import generate_history
-        generate_history()
+    # ── 沙箱隔离 ──────────────────────────────────────────────
+    # 本脚本会反复调用 generate_history()（清空后重建整个记忆库）来演示
+    # 「从零开始 → 逐步进化」的闭环。如果让它跑在正式 store_memory.db 上，
+    # 会把店主真实录入的经营反馈、以及「演示门店·模拟经营历史」的经验一并清掉。
+    # 因此默认复制一份数据库到临时目录，全流程只读写副本，结束后删除。
+    # 需要在正式库上演示时显式加 --real-db。
+    import shutil
+    import tempfile
+    sandbox = "--real-db" not in sys.argv
+    if sandbox:
+        from core import config as _cfg
+        _tmp = Path(tempfile.gettempdir()) / "diannao_demo_flow_sandbox.db"
+        for _sfx in ("", "-wal", "-shm"):
+            _p = Path(str(_tmp) + _sfx)
+            if _p.exists():
+                _p.unlink()
+        _src = Path(_cfg.DB_PATH)
+        if _src.exists():
+            shutil.copy2(_src, _tmp)
+        memory.DB_PATH = str(_tmp)
+        print("  （沙箱模式：本次演示在临时副本上进行，正式记忆库不受影响）")
 
-    act1_memory()
-    act2_decision()
-    act3_evolution()
-    act4_after()
-    act5_closed_loop(days=30)
+    try:
+        memory.init_db()
+        if not memory.get_products():
+            print("首次运行，正在生成门店历史数据 ...")
+            from seed_data import generate_history
+            generate_history()
+
+        act1_memory()
+        act2_decision()
+        act3_evolution()
+        act4_after()
+        act5_closed_loop(days=30)
+    finally:
+        if sandbox:
+            try:
+                memory.DB_PATH = str(_cfg.DB_PATH)   # 还原，绝不留在临时库上
+            except Exception:
+                pass
+            for _sfx in ("", "-wal", "-shm"):
+                _p = Path(str(_tmp) + _sfx)
+                if _p.exists():
+                    try:
+                        _p.unlink()
+                    except Exception:
+                        pass
+            print("  （沙箱已清理，正式记忆库全程未被改动）")
 
     print()
     rule("═")

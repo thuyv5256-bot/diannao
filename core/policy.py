@@ -40,6 +40,8 @@ from .config import (
 
 MODE_DIANNAO = "diannao"
 MODE_BASELINE = "baseline"
+#注意：MODE_DIANNAO 的值 "diannao" 是内部标识符（数据库/CSV/函数名都依赖它），
+# 不可改动；这里改的只是用户能看到的显示标签。
 MODE_LABELS = {
     MODE_DIANNAO: "小满（惠民约束版）",
     MODE_BASELINE: "传统算法（纯利润优先）",
@@ -224,7 +226,9 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
                    use_memory: bool = True,
                    in_transit_map: dict[str, list[tuple[str, float]]] | None = None,
                    on_hand_batches: dict[str, list[tuple[float, float]]] | None = None,
-                   spoilage_control: bool = True) -> tuple[list[dict], dict]:
+                   spoilage_control: bool = True,
+                   ai_factors: dict | None = None,
+                   day_scale: float = 1.0) -> tuple[list[dict], dict]:
     """算出每个商品的补货需求，并单独标出民生商品的"兜底量"。
 
     use_memory=False 时跳过经营记忆校准——传统纯利润算法对照组不使用小满的
@@ -234,10 +238,23 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
     「建议进货 = 目标库存 − 当前库存 − 有效在途库存」与民生兜底量计算，
     其中「有效在途」= 在对应评估窗口内能真正到货的部分（见 _eligible_in_transit），
     晚到的在途不会被提前算作可用库存；缺省 None = 无在途（原单日决策行为）。
+
+    ai_factors：AI 事件理解（core/ai_events.py）给出的品类级需求先验修正，
+    透传给 forecast 层。None（默认）= 不接入，数值行为与旧版逐位一致。
+
+    day_scale：备货节奏缩放（Agent 构造快周转候选方案用）。1.0 = 原行为；
+    <1 表示少备勤补，>1 表示多备少跑。**民生兜底下限不随之缩放**。
     """
+    day_scale = float(day_scale or 1.0)
+    if day_scale <= 0:
+        day_scale = 1.0
     active = risk.normalize(risks)
-    forecasts = forecast.forecast_all(plan_date, restore_potential=restore_potential,
-                                      risks=active)
+    # 只在真的有 AI 因子时才透传该参数 —— 不接入时forecast_all 的调用形态与旧版逐字相同，
+    # 既保证数值零变化，也避免打破外部按旧签名封装的调用方（如测试里的 stub）。
+    _fcast = {"restore_potential": restore_potential, "risks": active}
+    if ai_factors:
+        _fcast["ai_factors"] = ai_factors
+    forecasts = forecast.forecast_all(plan_date, **_fcast)
     inventory = memory.get_inventory()
     in_transit_map = in_transit_map or {}
     on_hand_batches = on_hand_batches or {}
@@ -279,7 +296,12 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
         #    供应商断供走下方的断供停止采购逻辑，节假日已在预测侧处理。
         risk_buffer = 0.0
         risk_buffer_notes = []
-        target_cover_days = base_cover + livelihood_buffer
+        # ③.5 备货节奏缩放（day_scale）：<1 表示「少备一点、多进几次」的快周转风格，
+        #     >1 表示「多备一点、少跑几趟」。**只作用于非民生部分的备货节奏**，
+        #     民生兜底窗口（floor_days）不受影响 —— 见下方第 1 层惠民约束。
+        #     这是 Agent 构造「快周转避险候选方案」的手段，缺省 1.0 = 原行为逐位不变。
+        scaled_cover = base_cover * day_scale
+        target_cover_days = scaled_cover + livelihood_buffer
         # ④ 保质期上限：覆盖天数不能超过保质期允许的合理范围
         target_cover_days = min(target_cover_days, max(p["shelf_life_days"], 1.5))
 
@@ -341,7 +363,9 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
         supply_cover_days = on_hand / daily if daily > 0 else 99.0
 
         # ── 惠民约束第 1 层：算出"兜底量"（只在预算紧张时启用）──
-        floor_days = min(target_cover_days, LIVELIHOOD_MIN_COVER_DAYS)
+        # 注意：兜底天数由**未缩放**的基础覆盖与民生下限决定，快周转方案（day_scale<1）
+        # 也不许把民生商品的兜底压到买不到米面油盐 —— 这是本项目的硬底线。
+        floor_days = min(base_cover + livelihood_buffer, LIVELIHOOD_MIN_COVER_DAYS)
         if p["is_livelihood"]:
             floor_stock = daily * floor_days
             # 兜底窗口更短（≤ 目标覆盖窗口），单独按兜底窗口筛有效在途
@@ -467,6 +491,8 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
             for it in outage_items
         ],
     }
+    # 备货节奏缩放写进 meta，供页面与 Agent 决策台如实展示（1.0 = 未缩放）
+    meta["day_scale"] = day_scale
     return items, meta
 
 
@@ -563,7 +589,7 @@ def _allocate_plan(items: list[dict], budget: float, mode: str,
 
     无论走哪条路，都保证改写出与 _allocate 完全一致的 item 字段
     （reorder_qty / cost / trimmed / trim_note / floor_secured），并在 meta 里带上
-    solver 信息，供「店脑 Agent 决策过程」第 6 步与页面真实展示。
+    solver 信息，供「小满 Agent 决策过程」第 6 步与页面真实展示。
 
     protect_livelihood=None 时沿用 mode 语义（diannao=True / baseline=False）；
     显式传入可覆盖 —— 供长期仿真的消融实验「小满 − R³责任目标」使用
@@ -572,19 +598,30 @@ def _allocate_plan(items: list[dict], budget: float, mode: str,
     is_diannao = mode == MODE_DIANNAO
     protect = is_diannao if protect_livelihood is None else bool(protect_livelihood)
     use_milp = is_diannao and (R3_SOLVER_ENABLED if solver is None else bool(solver))
+    # 降级原因：用于 meta.solver.degraded_reason，让「本次没走 MILP」这件事
+    # 在数据层可追溯（不改变任何 UI，也不改变补货数字）。
+    degraded_reason = None
     if use_milp:
         try:
             from . import r3_optimizer
             if r3_optimizer.available():
                 return r3_optimizer.solve(items, budget, protect_livelihood=protect)
-        except Exception:
-            pass  # 求解器异常 → 回退原贪心，绝不崩
+            degraded_reason = "solver_unavailable"
+        except Exception as exc:  # noqa: BLE001
+            # 求解器异常 → 回退原贪心，绝不崩；但**记录原因**，
+            # 避免「静默降级」变成无法追溯的黑盒。
+            degraded_reason = f"{type(exc).__name__}: {exc}"[:200]
+    elif is_diannao and not use_milp:
+        degraded_reason = "disabled_by_config"
+
     meta = _allocate(items, budget, protect_livelihood=protect)
     meta.setdefault("solver", {
         "used_milp": False,
         "name": "规则/贪心（fallback）",
         "status": "Fallback",
     })
+    if degraded_reason:
+        meta["solver"]["degraded_reason"] = degraded_reason
     return meta
 
 
@@ -697,7 +734,9 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
                protect_livelihood: bool | None = None,
                in_transit_map: dict[str, list[tuple[str, float]]] | None = None,
                on_hand_batches: dict[str, list[tuple[float, float]]] | None = None,
-               spoilage_control: bool = True) -> dict:
+               spoilage_control: bool = True,
+               ai_factors: dict | None = None,
+               day_scale: float = 1.0) -> dict:
     """
     生成补货方案。
 
@@ -710,6 +749,11 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
     protect_livelihood  → None 时沿用 mode 语义；显式传入可覆盖民生兜底开关（消融实验用）。
     in_transit_map      → 各商品在途订单 [(到货日, 数量), ...]（长期仿真用）；
                           缺省 None = 无在途（原单日行为）。
+    ai_factors          → AI 事件理解给出的品类级需求先验修正（core/ai_events.py）。
+                          **只影响需求预测侧，不决定补货数量**；None = 不接入，
+                          此时输出与未接入 AI 逐位一致（降级保证，见 ARD T-AI-04）。
+    day_scale           → 备货节奏缩放（Agent 构造快周转候选方案用）。1.0 = 原行为，
+                          <1 = 少备勤补（快周转），>1 = 多备少跑。**不影响民生兜底下限**。
     """
     products = memory.get_products()
     policies = memory.get_all_policy()
@@ -717,7 +761,9 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
 
     items, prep = _prepare_items(plan_date, policies, products, restore_potential,
                                  risks=active, use_memory=use_memory,
-                                 in_transit_map=in_transit_map, on_hand_batches=on_hand_batches, spoilage_control=spoilage_control)
+                                 in_transit_map=in_transit_map, on_hand_batches=on_hand_batches,
+                                 spoilage_control=spoilage_control, ai_factors=ai_factors,
+                                 day_scale=day_scale)
     meta = _allocate_plan(items, budget, mode, solver=solver,
                           protect_livelihood=protect_livelihood)
     meta.update({k: v for k, v in prep.items() if k not in meta})
@@ -749,6 +795,8 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
         "metrics": metrics,
         "risks": active,
         "risk_summary": risk.summary(active),
+        # AI 决策中枢：本轮实际生效的品类级修正（None = 未接入，供页面区分展示）
+        "ai_factors": dict(ai_factors) if ai_factors else None,
     }
 
 

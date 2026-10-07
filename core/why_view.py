@@ -109,8 +109,8 @@ def _evidence(it):
     if it.get('holiday_note'):
         env.append('节假日：%s' % it['holiday_note'])
     if abs(rf - 1.0) > 1e-9:
-        env.append('今日情况：%s' % (it.get('risk_note') or '存在天气/事件影响'))
-    env.append('供应商：%s%s' % (it.get('supplier', ''), '（今日断供）' if it.get('supplier_down') else '（正常）'))
+        env.append('决策日情况：%s' % (it.get('risk_note') or '存在天气/事件影响'))
+    env.append('供应商：%s%s' % (it.get('supplier', ''), '（决策日断供）' if it.get('supplier_down') else '（正常）'))
     has_ev = bool(abs(rf - 1.0) > 1e-9 or it.get('holiday_note') or it.get('supplier_down'))
     env.append('对建议的影响：%s' % ('有影响，已计入下面的预计需求与备货' if has_ev else '无特殊影响，按正常情况'))
     s1 = _step(1, '看环境', env)
