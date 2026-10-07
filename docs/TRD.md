@@ -72,8 +72,11 @@
 | `core/forecast.py` (10KB) | 需求预测全链路（含推导字段供页面展示） | policy |
 | `core/events.py` (12KB) / `event_evidence.py` (12KB) | 事件日历、影响倍数、证据门控 | forecast / policy / agent / decision_trace |
 | `core/r3_optimizer.py` (11KB) | MILP 建模与求解（scipy/HiGHS） | policy |
-| `core/app.py` (63KB) | Gradio 装配 + 若干内联渲染函数 | 网页入口 |
-| `core/*_view.py` | 纯渲染函数（返回 HTML 字符串，无副作用） | app |
+| `core/tools.py` (24KB) | **Agent 工具层**：13 个工具按「感知/分析/决策/行动」四分类登记（名称+成本+说明），`call_tool()` 统一执行信封（捕获异常、计时、`ok` 标志）；`cost ∈ {低,中,高}` 是 Agent 做「值不值得算」判断的真实依据 | agent_loop / app |
+| `core/agent_loop.py` (46KB) | **Agent 自主决策引擎**：五阶段循环（感知→推理→规划→执行→反思）、四套策略权重、A/B/C 三候选沙盘打分、置信度真实推导、自我批评与下一步；唯一对外入口 `run_agent()`。**不依赖 LLM、无随机** | app（Agent 决策台）/ demo_flow / tests |
+| `core/decision_trace.py` (12KB) | 旧的**固定六步管线**（仍可独立调用，未被新 Agent 取代性删除）；用于对照「流程可视化 vs 自主决策」 | decision_basis |
+| `core/app.py` (64KB) | Gradio 装配 + 若干内联渲染函数 | 网页入口 |
+| `core/*_view.py` | 纯渲染函数（返回 HTML 字符串，无副作用），含 `agent_view.py`（Agent 决策台） | app |
 | `core/themes.py` (18KB) | 6 套主题的 `--xm-*` + Gradio 变量、CSS 生成、品牌注入（移植自 CodeForge） | app / ui_theme / settings_view |
 | `core/settings_store.py` | 界面偏好持久化（`data/ui_settings.json`，容错优先、原子写） | app / settings_view |
 | `core/settings_view.py` | 「设置」页渲染（主题卡片 + 运行环境，数据全部真实） | app |
@@ -325,21 +328,48 @@ raw_reorder = ceil_to_pack(need, pack_size)
 
 ## 7. 展示层
 
-### 7.1 信息架构（左侧边栏 8 个栏目，DESIGN.md §7）
+### 7.1 信息架构（左侧边栏 10 个栏目，DESIGN.md §7）
 
 | # | 栏目（Tab id） | 面向 | 渲染来源 |
 |---|---|---|---|
 | 1 | 今天该进什么货（`home`） | 店主 | `home_view.render_home_html(plan, part)`：`top`=页头+KPI 条（整宽）、`rail`=右栏「今天提醒」、`result`=主区（重点关注 + 完整清单折叠）；app.py 负责 2/3+1/3 分栏与风险/Agent 控件 |
-| 2 | 为什么这样进（`why`） | 店主 | `why_view.render_head()` + `render_why_page(it)`：KPI 条 + 2/3 六步依据链 + 1/3 结论与口径 ← `decision_basis` |
-| 3 | 今天生意怎么样（`feedback`） | 店主 | `feedback_view.*`（head/date_hint/table_hint/render_result/render_invalid/render_empty） |
-| 4 | 它学会了什么（`learn`） | 店主/评委 | `learn_view.*` + `app.evolution_chart` |
-| 5 | 店里的老账本（`ledger`） | 评委 | `ledger_view.render_ledger()` 等 |
-| 6 | 实验验证（`experiment`） | 评委 | `final_view.render_html()` ← `eval/final/*.json`：①③ 结论展开、②④ 明细用 `.xm-fold` 收起 |
-| 7 | 项目说明（`about`） | 评委 | `about_view.render_about()` + 内嵌离线评测按钮 |
-| 8 | **设置（`settings`）** | 所有人 | `settings_view.PAGE_HEAD/SECTION_HEAD/render_status/render_env_panel`；主题选择器 = `gr.Radio#st-theme-radio`（选项来自 `theme_choices()`，卡片外观来自 `theme_card_css()`） |
+| 2 | AI 决策大脑（`ai`） | 店主/评委 | `ai_view.*`：`headline_numbers` / `mode_bar` / `render_page`；承载 §3.7 的两环 AI（事件语义 + 业务洞察） |
+| 3 | **Agent 决策台（`agent`）** | 店主/评委 | `agent_view.render_page(result)` ← `agent_loop.run_agent()`：五阶段循环条 + 目标卡/诊断 + 思考轨迹 + 工具调用（含跳过理由）+ A/B/C 候选打分 + 反思（置信度/自我批评/下一步）。外壳的 5 个预设场景按钮把真实 `(决策日, 预算)` 写回输入框并重跑（见 §7.1.1） |
+| 4 | 为什么这样进（`why`） | 店主 | `why_view.render_head()` + `render_why_page(it)`：KPI 条 + 2/3 六步依据链 + 1/3 结论与口径 ← `decision_basis` |
+| 5 | 今天生意怎么样（`feedback`） | 店主 | `feedback_view.*`（head/date_hint/table_hint/render_result/render_invalid/render_empty） |
+| 6 | 它学会了什么（`learn`） | 店主/评委 | `learn_view.*` + `app.evolution_chart` |
+| 7 | 店里的老账本（`ledger`） | 评委 | `ledger_view.render_ledger()` 等 |
+| 8 | 实验验证（`experiment`） | 评委 | `final_view.render_html()` ← `eval/final/*.json`：①③ 结论展开、②④ 明细用 `.xm-fold` 收起 |
+| 9 | 项目说明（`about`） | 评委 | `about_view.render_about()` + 内嵌离线评测按钮 |
+| 10 | **设置（`settings`）** | 所有人 | `settings_view.PAGE_HEAD/SECTION_HEAD/render_status/render_env_panel`；主题选择器 = `gr.Radio#st-theme-radio`（选项来自 `theme_choices()`，卡片外观来自 `theme_card_css()`） |
 
-**外壳结构**：`gr.Row#xm-shell` = `gr.Column#xm-side`（品牌 `side_brand` + 竖排导航 `gr.Radio#xm-nav`）+ `gr.Column#xm-main`（`gr.Tabs#main-nav` 的 8 个面板）。
+**外壳结构**：`gr.Row#xm-shell` = `gr.Column#xm-side`（品牌 `side_brand` + 竖排导航 `gr.Radio#xm-nav`）+ `gr.Column#xm-main`（`gr.Tabs#main-nav` 的 10 个面板）。
 **跨页联动**：`nav_radio.change → gr.Tabs(selected=…)`；`btn_goto_exp / btn_goto_feedback / btn_goto_learn` 同时回写 `main_tabs` 与 `nav_radio`（保持导航高亮同步）；`tab_mem.select` 自动刷新。
+
+### 7.1.1 「Agent 决策台」的数据流与预设场景
+
+```
+render_agent_html(plan_date, budget)          # app.py，persist=False（只读预览，不写库）
+   └─ agent_loop.run_agent(date, budget)      # 五阶段循环（纯规则，无 LLM）
+         ├─ perceive()  → tools: read_inventory / scan_anomalies / check_calendar
+         │                       / audit_policy / read_sales_history / read_suppliers
+         ├─ reason()    → 诊断严重度（民生双阈值 + 压货压力 + 预算比）→ 定目标（四选一）
+         ├─ plan()      → 拆任务、**自主决定是否跳过最贵的 assess_traffic**、选策略（四选一）
+         ├─ act()       → forecast_demand → rank_by_efficiency → [assess_traffic*]
+         │                → build_replenishment ×3（A/B/C）→ simulate_plan ×3 → 按策略加权打分
+         └─ reflect()   → 置信度（证据.4+可靠性.2+预算.4）/ 自我批评 / 下一轮改进项
+```
+
+五个预设按钮对应的**真实场景**（日期与预算均取自 180 天数据，可复现）：
+
+| 按钮 | 决策日 | 预算 | 触发的目标 / 策略 |
+|---|---|---|---|
+| 平常日 · 预算充裕 | 2026-08-11 | 1500 | 平稳补货、守住基本盘 / 稳健均衡 |
+| 平常日 · 预算紧张 | 2026-08-11 | 250 | 把有限的钱花在刀刃上 / 收益优先 |
+| 节前 · 预算充裕 | 2026-06-19 | 600 | 把有限的钱花在刀刃上 / 收益优先（端午节） |
+| 民生偏紧日 | 2026-08-16 | 600 | 止住民生的血 / 惠民优先（**会追加客流评估**） |
+| 压货最重日 | 2026-07-27 | 600 | 压住积压损耗 / 避险优先（压货压力全期最高 0.60） |
+
 
 ### 7.2 UI v2 规范与迁移状态
 
@@ -348,7 +378,14 @@ raw_reorder = ceil_to_pack(need, pack_size)
 - 页面级 CSS：各 `*_view.py` 自带命名空间（`.lx-*` 学习页 / `.lb-*` 账本页 / `.fb-*` 反馈页 / `.st-*` 设置页），全部以 `--xm-*` 变量取值。
 - **主题系统（v2.1）**：见 DESIGN.md §8 与 ADR-009；6 套主题（小满默认 / 野兽风浅色 / 野兽风深色 / 森友会 / 纹样·宣纸 / 跟随系统），其中 4 套移植自 CodeForge。换主题 = 重新渲染一个隐藏的 `<style id="xm-theme-vars">`（`gr.HTML` + `elem_classes=["xm-hidden"]`），无需刷新；选择落在 `data/ui_settings.json`，启动时由 `ACTIVE_THEME` 读回并拼进静态 CSS（首屏不闪）。
 - **左侧边栏（v2.1）**：见 ADR-010。`#main-nav > .tab-wrapper` 被 CSS 隐藏（避开 Gradio 的「More tabs」折叠），导航由 `gr.Radio#xm-nav` 承担；主题通过 `--xm-sidebar-*` 六个 token 驱动侧边栏配色。
-- **迁移状态**：✅ **全站完成** —— 应用外壳（侧边栏+主题）+ 首页 + 为什么这样进 + 今天生意怎么样 + 它学会了什么 + 店里的老账本 + 实验验证 + 项目说明 + 设置；全部 `*_view.py` 无 emoji、无写死颜色、无旧 `dn-*`/`.badge b-*`/`.kpi`/`table.dn` 类。`tests/test_ui_consistency.py` 的 `PENDING` 白名单已清空（见 [ARD](ARD.md) T-UI-01..04）。
+- **执行日志**：`pytest -q` → **366 passed**（337 基线 + 29 Agent 自主性）；`demo_flow.py` 五幕闭环；页面渲染非空、空状态、溢出 0、控制台 0 错误。
+- **迁移状态**：✅ **全站完成** —— 应用外壳（侧边栏+主题）+ 首页 + 为什么这样进 + 今天生意怎么样 + 它学会了什么 + 店里的老账本 + 实验验证 + 项目说明 + 设置 + Agent 决策台；全部 `*_view.py` 无 emoji、无写死颜色、无旧 `dn-*`/`.badge b-*`/`.kpi`/`table.dn` 类。`tests/test_ui_consistency.py` 的 `PENDING` 白名单已清空（见 [ARD](ARD.md) T-UI-01..04）。
+- **Agent 决策台页规格（v1.7）**：`core/agent_view.py` 的 `AGENT_CSS` 自带 `.ag-*` 命名空间，新增三处观感约定 ——
+  ① **流程线**：五阶段条内每格顶部一条 2px 细线（`.ag-stage::before`），已走过的阶段主色 35% 透明，让 5 格读成一条流程而非 5 个孤立方块；
+  ② **结论块用竖线而非灰底**：`.ag-think-c` 改 `border-left:2px` 引用式，弱化底色以免与卡片争层级；
+  ③ **等宽标识符**：工具名 `.ag-tool-name` 走新增的 `--xm-font-mono` token，浅底小圆角包裹，与正文区分。
+  窄屏（≤1150px）五阶段条折行为 3 列、≤760px 折为 2 列，避免挤压；置信度三件套在 ≤760px 转单列。
+- **`--xm-font-mono` token（v1.7 新增）**：此前 `.ag-tool-name` 引用了一个**从未定义**的 `--xm-font-mono`，浏览器静默回退到默认字体（无报错、无告警，肉眼易漏）。现已补进 `REQUIRED_TOKENS` 与全部 6 套主题，字体栈末尾回退到中文字体，避免中文标识符掉进 Consolas 缺失字形变成方框。
 - **交互控件不许有装饰性副本（T-UI-10 教训）**：Gradio 里纯 `gr.HTML` 卡片不会触发事件；`gr.HTML(js_on_load=…)` 只对**模板模式**（`html_template`）生效，普通 `value=` 模式实测不执行。正确做法是**把控件本体做成卡片**（本例：`gr.Radio` 的 label 由 CSS 渲染成卡片网格，`theme_card_css()` 按 `:nth-of-type(n)` 对位生成色板与文案），状态只有一份；`tests/test_settings_view.py::test_picker_is_a_single_control` 会在重新引入装饰性副本时失败。
 - **回归护栏**：`tests/test_ui_consistency.py` 强制「UI 文件无彩色 Emoji」「已迁移模块无写死颜色」「app.py 无旧体系 class」，并保留 `PENDING_MIGRATION` 白名单（迁移完一页就挪一个名字进去）。
 
@@ -448,7 +485,9 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 | 实验复现 | `eval.py` / `run_digital_store.py` / `run_event_awareness_ab.py` | 见 §1.1 |
 | 页面自检 | 渲染非空 + 空状态 + 无 emoji/硬编码色 | [../AGENT.md](../AGENT.md) §8.2 |
 
-**2026-10-03 实测基线**：设置页选择器修复后 **`179 passed`（全绿）**；首页 v2 迁移时为 177 passed；主题与侧边栏落地时为 169 passed；依赖补齐时为 142 passed。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
+**2026-10-06 实测基线（当前）**：新增 Agent 自主决策层后 **`366 passed`（全绿，183s）**（= 337 基线 + 29 条 Agent 自主性用例）。
+
+**历史基线**：设置页选择器修复后 `179 passed`（全绿）；首页 v2 迁移时为 177 passed；主题与侧边栏落地时为 169 passed；依赖补齐时为 142 passed。此前缺 `plotly` 时为 `138 passed, 2 failed, 2 skipped` —— 2 项失败均为 `import app` 的环境问题（`test_display_layer`、`test_feedback_view`），非代码缺陷；装好 gradio 6.29.1 / plotly 7.1.0（T-ENV-01）后自动消失。
 
 ---
 
@@ -544,3 +583,4 @@ plotly 的底色 / 字色 / 网格色是**服务端生成图时烘进去的**，
 | 2026-10-03 | v1.3 | 首页（T-UI-01）v2 迁移完成：去 emoji、旧 `dn-*`/`.badge b-*`/`.kpi` 体系删除、`app.py` 内联色全部 token 化；新增 §7.4 图表主题（plotly 随主题）与 `themes.plotly_layout/palette`；新增 UI 规范一致性测试（T-QA-02）；D3/D4 降级；测试基线 169 → 177 | 接手初始化 |
 | 2026-10-03 | v1.5 | **排版整改（Direction A 现代极简工作台，T-UI-11）**：`home_view` 三段式（top/rail/result）、新增 `.xm-page-head`/`.xm-kpi*`/`.xm-split`/`.xm-fold` 组件、Gradio 原生块透明化（`themes.py` 的 `--block-*`/`--panel-*`）；实测主区 700→1068px、首页 4022→1386px；测试 179 passed | 接手初始化 |
 | 2026-10-03 | v1.4 | **全站 v2 迁移收尾**：为什么这样进（T-UI-02）、实验验证（T-UI-03）、项目说明（T-UI-04）三页迁移完成，`PENDING` 白名单清空；清理 7 个无引用渲染函数（T-QA-06，-166 行）；新增共享组件 `.xm-kv*`/`.xm-bar*`/`.xm-chips`，`.st-kv*` 统一并入 `.xm-kv*`；D3/D4 关闭；测试 177 passed | 接手初始化 |
+| 2026-10-06 | v1.6 | **Agent 自主决策层（§3.8）**：新增 `core/tools.py`（13 工具登记层）、`core/agent_loop.py`（五阶段循环 + 四策略 + 多候选沙盘打分 + 反思）、`core/agent_view.py`（Agent 决策台页）；§1.3 模块表补三个新模块并注明旧的 `decision_trace.py` 仍保留；§7.1 栏目 8 → **10**（新增 AI 决策大脑与 Agent 决策台）、新增 §7.1.1 数据流与预设场景表；`policy.build_plan` 新增 `day_scale` 参数（默认 1.0 与旧版 md5 逐位一致）；测试基线 316 → **366** | 接手初始化 |

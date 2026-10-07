@@ -227,7 +227,8 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
                    in_transit_map: dict[str, list[tuple[str, float]]] | None = None,
                    on_hand_batches: dict[str, list[tuple[float, float]]] | None = None,
                    spoilage_control: bool = True,
-                   ai_factors: dict | None = None) -> tuple[list[dict], dict]:
+                   ai_factors: dict | None = None,
+                   day_scale: float = 1.0) -> tuple[list[dict], dict]:
     """算出每个商品的补货需求，并单独标出民生商品的"兜底量"。
 
     use_memory=False 时跳过经营记忆校准——传统纯利润算法对照组不使用小满的
@@ -240,7 +241,13 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
 
     ai_factors：AI 事件理解（core/ai_events.py）给出的品类级需求先验修正，
     透传给 forecast 层。None（默认）= 不接入，数值行为与旧版逐位一致。
+
+    day_scale：备货节奏缩放（Agent 构造快周转候选方案用）。1.0 = 原行为；
+    <1 表示少备勤补，>1 表示多备少跑。**民生兜底下限不随之缩放**。
     """
+    day_scale = float(day_scale or 1.0)
+    if day_scale <= 0:
+        day_scale = 1.0
     active = risk.normalize(risks)
     # 只在真的有 AI 因子时才透传该参数 —— 不接入时forecast_all 的调用形态与旧版逐字相同，
     # 既保证数值零变化，也避免打破外部按旧签名封装的调用方（如测试里的 stub）。
@@ -289,7 +296,12 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
         #    供应商断供走下方的断供停止采购逻辑，节假日已在预测侧处理。
         risk_buffer = 0.0
         risk_buffer_notes = []
-        target_cover_days = base_cover + livelihood_buffer
+        # ③.5 备货节奏缩放（day_scale）：<1 表示「少备一点、多进几次」的快周转风格，
+        #     >1 表示「多备一点、少跑几趟」。**只作用于非民生部分的备货节奏**，
+        #     民生兜底窗口（floor_days）不受影响 —— 见下方第 1 层惠民约束。
+        #     这是 Agent 构造「快周转避险候选方案」的手段，缺省 1.0 = 原行为逐位不变。
+        scaled_cover = base_cover * day_scale
+        target_cover_days = scaled_cover + livelihood_buffer
         # ④ 保质期上限：覆盖天数不能超过保质期允许的合理范围
         target_cover_days = min(target_cover_days, max(p["shelf_life_days"], 1.5))
 
@@ -351,7 +363,9 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
         supply_cover_days = on_hand / daily if daily > 0 else 99.0
 
         # ── 惠民约束第 1 层：算出"兜底量"（只在预算紧张时启用）──
-        floor_days = min(target_cover_days, LIVELIHOOD_MIN_COVER_DAYS)
+        # 注意：兜底天数由**未缩放**的基础覆盖与民生下限决定，快周转方案（day_scale<1）
+        # 也不许把民生商品的兜底压到买不到米面油盐 —— 这是本项目的硬底线。
+        floor_days = min(base_cover + livelihood_buffer, LIVELIHOOD_MIN_COVER_DAYS)
         if p["is_livelihood"]:
             floor_stock = daily * floor_days
             # 兜底窗口更短（≤ 目标覆盖窗口），单独按兜底窗口筛有效在途
@@ -477,6 +491,8 @@ def _prepare_items(plan_date, policies: dict, products: list[dict],
             for it in outage_items
         ],
     }
+    # 备货节奏缩放写进 meta，供页面与 Agent 决策台如实展示（1.0 = 未缩放）
+    meta["day_scale"] = day_scale
     return items, meta
 
 
@@ -719,7 +735,8 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
                in_transit_map: dict[str, list[tuple[str, float]]] | None = None,
                on_hand_batches: dict[str, list[tuple[float, float]]] | None = None,
                spoilage_control: bool = True,
-               ai_factors: dict | None = None) -> dict:
+               ai_factors: dict | None = None,
+               day_scale: float = 1.0) -> dict:
     """
     生成补货方案。
 
@@ -735,6 +752,8 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
     ai_factors          → AI 事件理解给出的品类级需求先验修正（core/ai_events.py）。
                           **只影响需求预测侧，不决定补货数量**；None = 不接入，
                           此时输出与未接入 AI 逐位一致（降级保证，见 ARD T-AI-04）。
+    day_scale           → 备货节奏缩放（Agent 构造快周转候选方案用）。1.0 = 原行为，
+                          <1 = 少备勤补（快周转），>1 = 多备少跑。**不影响民生兜底下限**。
     """
     products = memory.get_products()
     policies = memory.get_all_policy()
@@ -743,7 +762,8 @@ def build_plan(plan_date, budget: float = DEFAULT_BUDGET, mode: str = MODE_DIANN
     items, prep = _prepare_items(plan_date, policies, products, restore_potential,
                                  risks=active, use_memory=use_memory,
                                  in_transit_map=in_transit_map, on_hand_batches=on_hand_batches,
-                                 spoilage_control=spoilage_control, ai_factors=ai_factors)
+                                 spoilage_control=spoilage_control, ai_factors=ai_factors,
+                                 day_scale=day_scale)
     meta = _allocate_plan(items, budget, mode, solver=solver,
                           protect_livelihood=protect_livelihood)
     meta.update({k: v for k, v in prep.items() if k not in meta})

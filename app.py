@@ -22,13 +22,13 @@ import plotly.graph_objects as go
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from core import agent, ai_events, ai_insight, ai_view, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
+    from core import agent, agent_view, ai_events, ai_insight, ai_view, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from core.config import (
         APP_NAME, APP_FULL_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
     )
 else:
-    from .core import agent, ai_events, ai_insight, ai_view, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
+    from .core import agent, agent_view, ai_events, ai_insight, ai_view, decision_basis, eval_core, events, evolution, feedback_view, final_view, forecast, home_view, learn_view, ledger_view, llm, memory, policy, risk, settings_store, settings_view, simulator, themes, ui_theme, why_view, about_view
     from .core.config import (
         APP_NAME, APP_FULL_NAME, APP_SUBTITLE, CURRENCY, DEFAULT_BUDGET, HOLIDAYS, LIVELIHOOD_MIN_COVER_DAYS,
         MEMORY_SAFETY_MAX_DELTA, SAFETY_FACTOR_MAX, SAFETY_FACTOR_MIN,
@@ -50,6 +50,7 @@ NAV_BRAND = APP_NAME + " · 智能补货"
 NAV_CHOICES = [
     ("今天该进什么货", "home"),
     ("AI 决策大脑", "ai"),
+    ("Agent 决策台", "agent"),
     ("为什么这样进", "why"),
     ("今天生意怎么样", "feedback"),
     ("它学会了什么", "learn"),
@@ -76,7 +77,7 @@ CSS = themes.theme_css(ACTIVE_THEME) + """
 .gradio-container main, .gradio-container .main { max-width: none !important; }
 footer { display: none !important; }
 .gradio-container footer { display: none !important; }
-""" + home_view.HOME_CSS + ai_view.AI_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + settings_view.SETTINGS_CSS + ui_theme.THEME_CSS
+""" + home_view.HOME_CSS + ai_view.AI_CSS + agent_view.AGENT_CSS + why_view.WHY_CSS + feedback_view.FEEDBACK_CSS + learn_view.LEARN_CSS + ledger_view.LEDGER_CSS + about_view.ABOUT_CSS + settings_view.SETTINGS_CSS + ui_theme.THEME_CSS
 
 # Gradio 6.0 起 css/theme 从 Blocks() 挪到了 launch()，这里做版本兼容
 _BLOCKS_KW = {"title": APP_FULL_NAME}
@@ -207,6 +208,25 @@ def render_why_html(sku: str) -> str:
         return "<div class='xm-callout'>暂无商品数据。</div>"
     it = next((x for x in items if x["sku"] == sku), items[0])
     return why_view.render_why_page(it)
+
+
+def render_agent_html(plan_date=None, budget=None) -> str:
+    """「Agent 决策台」页 —— 跑一轮真实的五阶段自主决策并渲染全过程。
+
+    不写库（persist=False）：页面预览不应污染主库。
+    任何异常都降级为友好的提示，不把栈抛到界面上（铁律：可降级）。
+    """
+    from core import agent_loop
+    try:
+        result = agent_loop.run_agent(
+            str(plan_date or DEFAULT_PLAN_DATE)[:10],
+            float(budget or DEFAULT_BUDGET),
+            persist=False)
+    except Exception as exc:  # noqa: BLE001
+        return ("<div class='xm-callout xm-callout-info'>"
+                "<b>这一轮 Agent 决策没能完成</b><br>"
+                "原因：%s<br>可以换个决策日或预算再试一次。" % _esc(str(exc)) + "</div>")
+    return agent_view.render_page(result)
 
 
 
@@ -1007,6 +1027,29 @@ def build_app():
                                 ai_status = gr.HTML(ai_view.mode_bar())
                         ai_out = gr.HTML(ai_view.render_page(_init_plan, None, None))
 
+                    # ── Tab 2.5 ── Agent 决策台（五阶段自主决策，纯规则可复现）
+                    with gr.Tab("Agent 决策台", id="agent") as tab_agentdeck:
+                        agp_out = gr.HTML(agent_view.render_page(None))
+                        with gr.Group(elem_classes=["xm-flow"]):
+                            gr.HTML('<div class="xm-sec"><div class="xm-sec-title">'
+                                    '给它一个场景，让它自己决策</div></div>')
+                            with gr.Row(elem_classes=["xm-row"]):
+                                agp_date = gr.Textbox(value=LAST_DAY, label="决策日",
+                                                      info="哪天备货，如 2026-08-27")
+                                agp_budget = gr.Number(value=DEFAULT_BUDGET, label="预算上限（元）",
+                                                       precision=0, minimum=0)
+                                btn_agp_run = gr.Button("让它自己决策", variant="primary", scale=1)
+                            gr.HTML(
+                                "<div class='xm-hint'>同一份规则代码，换个决策日或预算，"
+                                "它会走出<b>不同的路径</b>：不同的目标、策略、工具调用与置信度。"
+                                "试几个预设场景，对比一下它「怎么想」的变化。</div>")
+                            with gr.Row(elem_classes=["xm-row"]):
+                                btn_sc_steady = gr.Button("平常日 · 预算充裕", scale=1)
+                                btn_sc_tight = gr.Button("平常日 · 预算紧张", scale=1)
+                                btn_sc_pre = gr.Button("节前 · 预算充裕", scale=1)
+                                btn_sc_acute = gr.Button("民生偏紧日", scale=1)
+                                btn_sc_stock = gr.Button("压货最重日", scale=1)
+
                     # ── Tab 2 ── 为什么这样进
                     with gr.Tab("为什么这样进", id="why"):
                         gr.HTML(why_view.render_head())
@@ -1112,6 +1155,21 @@ def build_app():
         btn_cmp.click(do_compare, plan_inputs, plan_out)
         btn_explain.click(do_explain, plan_inputs, explain_out)
         btn_agent.click(do_agent, agent_in, agent_out)
+
+        # ── Agent 决策台：跑一轮真实自主决策 + 预设场景一键切换 ──
+        btn_agp_run.click(render_agent_html, [agp_date, agp_budget], agp_out)
+        # 预设场景：把 (决策日, 预算) 写回输入框并立刻重跑。
+        # 取值全部来自 180 天数据里的真实场景，各自触发不同的目标 / 策略 / 工具路径
+        # （见 core/agent_loop.py 里诊断口径的注释）。
+        for _btn, _d, _b in (
+            (btn_sc_steady, "2026-08-11", 1500),   # 平稳补货 / 稳健均衡（预算够，无积压无告急）
+            (btn_sc_tight,  "2026-08-11", 250),    # 把钱花在刀刃上 / 收益优先（预算只够三成）
+            (btn_sc_pre,    "2026-06-19", 600),    # 节前（端午）预算紧 / 收益优先
+            (btn_sc_acute,  "2026-08-16", 600),    # 止住民生的血 / 惠民优先（会调客流评估工具）
+            (btn_sc_stock,  "2026-07-27", 600),    # 压住积压损耗 / 避险优先（压货压力最高）
+        ):
+            _btn.click(lambda d=_d, b=_b: (d, b, render_agent_html(d, b)),
+                       None, [agp_date, agp_budget, agp_out])
         # AI 决策中枢：解析场景（会重算方案）/ 只做业务体检（不改决策）
         btn_ai_parse.click(do_ai_parse, ai_scene_in, [ai_kpi, ai_status, ai_out])
         btn_ai_insight.click(do_ai_insight, ai_scene_in, [ai_kpi, ai_status, ai_out])

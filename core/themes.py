@@ -41,7 +41,7 @@ REQUIRED_TOKENS: tuple[str, ...] = (
     "--xm-sidebar-bg", "--xm-sidebar-fg", "--xm-sidebar-muted",
     "--xm-sidebar-active-bg", "--xm-sidebar-active-fg", "--xm-sidebar-border",
     # 形状与字体
-    "--xm-font", "--xm-radius-xs", "--xm-radius-sm", "--xm-radius-md",
+    "--xm-font", "--xm-font-mono", "--xm-radius-xs", "--xm-radius-sm", "--xm-radius-md",
     "--xm-radius-lg", "--xm-radius-full",
     # 卡片观感
     "--xm-card-shadow",
@@ -76,6 +76,10 @@ _FONT_SERIF = ('"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", '
                '"Microsoft YaHei", serif')
 _FONT_BEAST = ('"Inter", "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", '
                '"Microsoft YaHei", "PingFang SC", sans-serif')
+# 等宽字体：只用于代码/标识符（工具名、参数、指纹）。末尾必须回退到中文字体，
+# 否则中文标识符会掉进 Consolas 缺失字形变成方框。
+_FONT_MONO = ('"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", '
+              '"Menlo", "DejaVu Sans Mono", "Microsoft YaHei", monospace')
 
 
 def _gradio(canvas: str, surface: str, surface_soft: str, ink: str, subdued: str,
@@ -147,6 +151,7 @@ THEMES["default"] = {
         "--xm-sidebar-active-bg": "#f6f5f4", "--xm-sidebar-active-fg": "#1a1a1a",
         "--xm-sidebar-border": "#e5e3df",
         "--xm-font": _FONT_SANS,
+        "--xm-font-mono": _FONT_MONO,
         "--xm-radius-xs": "4px", "--xm-radius-sm": "6px", "--xm-radius-md": "8px",
         "--xm-radius-lg": "12px", "--xm-radius-full": "9999px",
         "--xm-card-shadow": "none",
@@ -181,6 +186,7 @@ THEMES["beast"] = {
         "--xm-sidebar-active-bg": "rgba(0,0,0,0.10)", "--xm-sidebar-active-fg": "#111111",
         "--xm-sidebar-border": "#000000",
         "--xm-font": _FONT_BEAST,
+        "--xm-font-mono": _FONT_MONO,
         "--xm-radius-xs": "0px", "--xm-radius-sm": "2px", "--xm-radius-md": "2px",
         "--xm-radius-lg": "4px", "--xm-radius-full": "2px",
         "--xm-card-shadow": "3px 3px 0 #000000",
@@ -215,6 +221,7 @@ THEMES["dark"] = {
         "--xm-sidebar-active-bg": "rgba(250,204,21,0.12)", "--xm-sidebar-active-fg": "#facc15",
         "--xm-sidebar-border": "#2a2f3a",
         "--xm-font": _FONT_BEAST,
+        "--xm-font-mono": _FONT_MONO,
         "--xm-radius-xs": "0px", "--xm-radius-sm": "2px", "--xm-radius-md": "2px",
         "--xm-radius-lg": "4px", "--xm-radius-full": "2px",
         "--xm-card-shadow": "3px 3px 0 rgba(0,0,0,0.85)",
@@ -249,6 +256,7 @@ THEMES["animal"] = {
         "--xm-sidebar-active-bg": "rgba(255,255,255,0.35)", "--xm-sidebar-active-fg": "#5a3a1a",
         "--xm-sidebar-border": "#e8dcc8",
         "--xm-font": _FONT_ROUND,
+        "--xm-font-mono": _FONT_MONO,
         "--xm-radius-xs": "12px", "--xm-radius-sm": "16px", "--xm-radius-md": "16px",
         "--xm-radius-lg": "24px", "--xm-radius-full": "9999px",
         "--xm-card-shadow": "0 5px 0 0 #bdaea0",
@@ -283,6 +291,7 @@ THEMES["wenyang"] = {
         "--xm-sidebar-active-bg": "rgba(201,168,92,0.20)", "--xm-sidebar-active-fg": "#fffbf0",
         "--xm-sidebar-border": "rgba(201,168,92,0.30)",
         "--xm-font": _FONT_SERIF,
+        "--xm-font-mono": _FONT_MONO,
         "--xm-radius-xs": "3px", "--xm-radius-sm": "4px", "--xm-radius-md": "6px",
         "--xm-radius-lg": "10px", "--xm-radius-full": "4px",
         "--xm-card-shadow": "0 2px 6px rgba(43,29,14,0.08)",
